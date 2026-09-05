@@ -1,7 +1,7 @@
 # 05 — Prototype: does audio + highlight over a native render feel right?
 
 Type: prototype
-Status: claimed
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -50,3 +50,21 @@ Everything mechanical it can answer without a human, it has answered:
 **Still open, and the reason this ticket is not resolved: everything that needs ears and eyes.** Band weight (three styles are switchable — A tint, B underline, C spotlight), whether `onend` lags audibly between sentences, how auto-scroll feels, and above all **whether the Linux speech-dispatcher voices are listenable** for sustained reading. Headless Chrome sees no voices at all, so that last one cannot be faked.
 
 ## Answer
+
+**The experience works. Audio plus a highlight over a native render is worth building on.** Driven against `theCodeBook.pdf` by the human, 2026-09-05.
+
+Point by point, against the questions this ticket was opened to ask:
+
+- **Band weight: variant C, the spotlight, wins** — dim the whole page and punch the spoken sentence out of the mask. Not the tint, not the underline. Now the default. This is the single most reusable output of the spike: the highlight that reads best over a real PDF is *subtractive*, dimming everything else, rather than additive colour laid on top of type. That is worth remembering when [[13]]'s HTML layer starts adding things to the same page.
+- **The band lands on the right sentence.** Confirmed by eye, matching the mechanical check.
+- **`Intl.Segmenter` is imperfect and tolerable.** What a single click selects is "a bit off" — accepted for now. This is the known block-welding problem: nothing terminates a ciphertext block, a code listing or a figure caption, so it fuses with the prose that follows. It is not a segmenter bug and it is not fixable in the segmenter. [[06]]'s region boundaries are what cut the string before segmentation ever sees it, and [[07]] records the two concrete instances.
+- **`onend` does not stall.** "Doesn't stall that much between sentences." So [[10]]'s bet holds: one sentence per utterance driven by `onstart`/`onend` gives adequate timing with no estimation, no cadence model and no drift.
+- **Auto-scroll is good.** No change wanted.
+- **Zoom does not detach the band**, confirming [[02]] §6 by eye as well as by measurement.
+- **Voice is bearable but wants expression.** Not a blocker; the human explicitly said they are happy to ship on it for now. It is the one dimension where the cheap thing is merely adequate rather than good, which is exactly what [[14]] now decides.
+
+**One defect found, and fixed rather than recorded.** The control panel is a fixed 330px column, so zooming the page in made it impossible to see the document clearly — the panel ate the width the page needed. The panel is scaffolding, not product, so it now collapses (`☰` top-left, or `h`). Worth carrying into any real UI: **reading chrome must get out of the way of the page**, because the page is the whole point.
+
+**What this unblocks.** [[14]] (adopt local neural TTS) was blocked on exactly this verdict and is now takeable, with a clear brief: the band is settled, so TTS is the only remaining weak spot in the core loop. [[08]] (ship platform) loses one of its two blockers.
+
+**Consequence for the destination.** The map's destination is reached when the prototype "has been driven against real textbook PDFs, well enough to judge whether the audio+highlight-over-native-render experience actually works". It has, and it does. What remains on the map is no longer *whether* to build this but *how well* — reading order, skip policy, voice, platform.

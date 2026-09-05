@@ -663,7 +663,7 @@ function setVariant(i) {
 }
 
 const startVariant = VARIANTS.findIndex(
-  (v) => v.key === (new URL(location.href).searchParams.get("variant") ?? "A"),
+  (v) => v.key === (new URL(location.href).searchParams.get("variant") ?? "C"),
 );
 setVariant(startVariant < 0 ? 0 : startVariant);
 
@@ -675,7 +675,10 @@ addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") setVariant(VARIANTS.indexOf(variant) - 1);
   else if (e.key === "ArrowRight") setVariant(VARIANTS.indexOf(variant) + 1);
   else if (e.key === " ") { e.preventDefault(); play(); }
+  else if (e.key === "h") $("hide").click();
 });
+
+$("hide").onclick = () => document.getElementById("app").classList.toggle("bare");
 
 // ---------------------------------------------------------------- wiring
 

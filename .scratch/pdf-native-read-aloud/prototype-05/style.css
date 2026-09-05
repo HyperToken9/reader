@@ -21,6 +21,20 @@ body {
 
 #app { display: flex; height: 100%; }
 
+/* The panel is scaffolding, not the product. Get it out of the way so the
+   page can actually be read at a comfortable zoom. */
+#hide {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 60;
+  opacity: .35;
+  padding: 3px 8px;
+}
+#hide:hover { opacity: 1; }
+#app.bare #side { display: none; }
+#app.bare + #switcher, body:has(#app.bare) #switcher { left: 50%; }
+
 /* ---------------- sidebar ---------------- */
 
 #side {

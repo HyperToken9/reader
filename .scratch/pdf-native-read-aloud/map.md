@@ -44,9 +44,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [13 — Overlay substrate](issues/13-overlay-substrate.md): **three layers, not one.** PDF canvas (authoritative) → SVG overlay keyed to **sentences** (the reading band, unchanged — it works and zoom costs nothing) → HTML layer keyed to **regions** (block features only). Sentences are a reading-time concept and regions a page-structure concept; they fail independently, so they get separate substrates. Region boxes stored as page fractions and positioned in percentages, same discipline as the text layer, or zoom drifts. First feature is re-typeset equations — the one place the experience is currently *broken* rather than plain — but that needs equation content nobody produces yet, which is [15](issues/15-formula-recognition.md). The substrate decision doesn't depend on it.
 
-## In flight
-
-- [05 — sync spike](issues/05-sync-spike-single-column.md) is **built and awaiting judgement**, not resolved. `prototype-05/` on branch `prototype/05-sync-spike`; run it and drive it. The mechanism from [02](issues/02-pdfjs-text-layer-geometry.md) and [10](issues/10-timing-source-and-dev-platform.md) is confirmed working (band lands correctly, zoom costs nothing); what remains needs ears and eyes, above all whether Linux voices are listenable.
+- [05 — sync spike](issues/05-sync-spike-single-column.md): **the experience works.** Driven against a real textbook: the band lands on the right sentence, `onend` doesn't stall, auto-scroll is good, zoom doesn't detach it. **Variant C — the spotlight — won**: the highlight that reads best over a real PDF is *subtractive* (dim the page, punch the sentence out), not additive colour on type. `Intl.Segmenter` is imperfect but tolerable, and the cause is block-welding that [06](issues/06-reading-order-spike.md) fixes upstream, not a segmenter bug. The voice is bearable but wants expression — the only weak spot in the core loop, and now [14](issues/14-adopt-local-tts.md)'s to fix. Also learned: reading chrome must get out of the way of the page.
 
 ## Not yet specified
 
