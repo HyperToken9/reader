@@ -1,7 +1,7 @@
 # 14 — Does the app adopt local neural TTS, and does the word cursor come back?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question
@@ -19,5 +19,16 @@ Decide:
 **Judge the voices before deciding anything else.** Samples are at `/tmp/claude-1000/tts/samples/` (`piper_lessac_medium.wav`, `kokoro_af_heart.wav`, `kokoro_bf_emma.wav`, `kokoro_am_michael.wav`). Sustained textbook reading is hours; a demo sentence flatters everything.
 
 Consult `grilling` and `domain-modeling`.
+
+## Progress
+
+**Two of the five decided (2026-09-05); the voice choice is with the human.**
+
+- **The word cursor comes back.** [[10]] dropped it because Linux emits no boundary events; [[11]] removed that objection with alignment that partitions the waveform and cannot drift. The human confirmed they want it — it was the thing that impressed them about Nook in the first place. Two constraints on the build: about **1 word in 25 will highlight two words at once** (espeak cliticises `on the` into one group), and it must be designed **not to fight the spotlight**, which [[05]] chose as the band style. A moving cursor inside a punched-out mask is a different design problem from a cursor over a tint — treat that as part of the work, not a detail.
+- **GPL-3.0 does not bind.** Personal use only for now, and GPL obligations attach on distribution. So Piper is available and the engine choice is on quality and speed alone. **Revisit this the moment distribution is contemplated** — the licence would then reach the whole app, and switching engines after the timing code is written is more expensive than it looks.
+
+**New measurement, refining [[11]].** [[11]] benchmarked `medium` voices only (RTF 0.045). The `high` tier is **4–7× more expensive**: `en_US-ryan-high` RTF 0.177, `en_GB-cori-high` 0.182, `en_US-lessac-high` 0.343, against `en_US-hfc_female-medium` at 0.050. All still faster than real time and all still pipeline fine, but press-play latency goes from ~200 ms to roughly a second. So the quality/latency trade [[11]] found *between engines* also exists *within Piper*, and it is the same shape.
+
+**Still open: which voice.** Samples generated at `/tmp/claude-1000/tts/samples2/` from the same paragraph, plus Kokoro's in `samples/`. The human's stated concern is expressiveness — [[05]] recorded the voice as "bearable but could be better, could be more expressive". Piper's ceiling is clear-and-neutral; Kokoro is the more expressive engine at ~2 s of dead air on play (hideable by synthesising sentence one during page render). That is the actual trade to settle.
 
 ## Answer
