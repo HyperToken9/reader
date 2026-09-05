@@ -113,12 +113,41 @@ never a wrong word.
 This is a prototype whose job is to answer the cursor-design question, not
 to ship the buffer manager:
 
-- **Buffer depth is "1 sentence ahead," not "N seconds ahead."** The ticket
-  asks for a memory-bounded, seconds-based queue; a textbook sentence is
-  short enough (2–8 s) that one sentence of lookahead already hides the
-  ~1.5–2.5 s cold-synthesis gap in practice. A real build should still do
-  the seconds-based version — long sentences or a slow machine would expose
-  this simplification.
+- **Buffer depth is "3 sentences ahead," not "N seconds ahead."** The ticket
+  asks for a memory-bounded, seconds-based queue; a fixed sentence count is
+  a stand-in for that. It's driven from the playback cursor
+  (`prefetchAhead`, called from `speakOne`), not from what's merely scrolled
+  into view — an earlier version prefetched from `renderPage` instead, which
+  meant *scrolling* a long document (never mind reading it) queued audio for
+  every page that passed the viewport, backed up behind whatever was already
+  synthesizing. A real build should still do the seconds-based version.
+- **The synthesis queue runs one request at a time.** Measured directly:
+  the sidecar pins each ONNX session to every CPU thread, so two requests in
+  parallel *oversubscribe* the machine and both get slower — a cold click
+  went from ~2-4s to 6-8s with two workers. A priority queue (`ensurePrefetch`
+  / `pumpFetchQueue`) still lets an explicit `play()` cut ahead of background
+  reader-ahead, just onto a single worker instead of two contending ones.
+- **Per-word geometry is computed lazily, not at page-render time.** An
+  earlier version ran a DOM `Range` + `getClientRects()` per word for every
+  sentence the moment a page rendered — including pages that only scrolled
+  into view and were never going to be read. That's a forced synchronous
+  layout reflow per word, hundreds of them per page; fast-scrolling a long
+  document visibly stalled. `getWordRects()` now computes and caches a
+  sentence's word boxes only once it's about to speak.
+- **The playback unit is exactly one `Intl.Segmenter` sentence — never
+  smaller.** An earlier version of this prototype additionally split long
+  sentences at clause punctuation (commas, semicolons) to shorten synth
+  latency per click. That was wrong: it produced subtitle-style fragments
+  cut mid-sentence ("In the two thousand years since Herodotus," / "various
+  forms of steganography have been used…" as two separate spoken units),
+  which reads and sounds worse than a long sentence read whole. Reverted —
+  latency is addressed by prefetching ahead of the reading position, not by
+  cutting the unit smaller. `guardSentenceBoundaries()` is the one thing
+  kept from that detour: it catches the opposite failure, where
+  `Intl.Segmenter` itself treats two real sentences (an abbreviation, an
+  odd quotation pattern) as a single segment, and splits there. It has not
+  found a real case in this corpus — it's a guard against a failure mode,
+  not a fix for an observed one.
 - **Changing Native speed does not resynthesize what's already prefetched
   or playing.** It only affects sentences not yet fetched. The ticket
   accepted a gap on baseline-speed changes; this prototype accepts a

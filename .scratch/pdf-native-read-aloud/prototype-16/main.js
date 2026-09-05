@@ -298,17 +298,17 @@ function buildSentences(p) {
     while (s < e && /\s/.test(pageText[s])) s++;
     while (e > s && /\s/.test(pageText[e - 1])) e--;
     if (e <= s) continue;
-    const full = pageText.slice(s, e);
-    if (!/[A-Za-z0-9]/.test(full)) continue;
 
-    // A grammatical sentence is the wrong unit to *speak and click* one at a
-    // time: textbook prose runs long, and every extra second of audio is a
-    // second of synth latency on a cache miss (measured: click-to-speech was
-    // 2-5s on unhewn sentences). Split further at clause punctuation into
-    // ~90-char chunks — still geometry-correct (same Range pipeline, just on
-    // a smaller span), just a smaller unit of playback and highlight.
-    for (const [cs, ce] of splitClauses(full)) {
-      const as = s + cs, ae = s + ce;
+    // One Intl.Segmenter sentence is one unit -- no smaller (an earlier
+    // version of this file split further at clause punctuation to shorten
+    // synth latency; reverted: that's a subtitle-style chop mid-sentence,
+    // and the right fix for latency is prefetching ahead, not a smaller
+    // unit). Still guard against Intl.Segmenter itself under-splitting: it
+    // can occasionally treat two real sentences as one segment (an
+    // abbreviation, an odd quote/citation pattern), and that's a genuine
+    // bug worth catching here rather than living with a chunk that's
+    // *larger* than a sentence.
+    for (const [as, ae] of guardSentenceBoundaries(pageText, s, e)) {
       const text = pageText.slice(as, ae);
       if (!/[A-Za-z0-9]/.test(text)) continue;
 
@@ -342,32 +342,27 @@ function buildSentences(p) {
 }
 
 /**
- * Split one grammatical sentence into playback-sized chunks (~90 chars,
- * ~15-18 words) at clause punctuation, greedily. Falls back to no split
- * (never mid-word) when a clause between two commas is itself long — an
- * imperfect chunk is still better than the previous request-timeout-shaped
- * one.
+ * Intl.Segmenter already finds sentence boundaries; this only catches the
+ * case where it missed one -- a run of *two* sentence-ending marks (one
+ * mid-string) inside what it called a single segment. Splits there too, so
+ * the unit handed to speech and the highlight is never larger than one
+ * sentence. Does not try to be a better sentence splitter than
+ * Intl.Segmenter; it only refuses to trust a segment that visibly contains
+ * more than one.
  */
-function splitClauses(text, target = 90) {
-  if (text.length <= target) return [[0, text.length]];
-  const breaks = [0];
-  for (const m of text.matchAll(/[,;:—–]\s+/g)) breaks.push(m.index + m[0].length);
-  breaks.push(text.length);
-
+function guardSentenceBoundaries(pageText, s, e) {
+  const text = pageText.slice(s, e);
+  const boundary = /[.!?][”"'’)\]]*\s+(?=[A-Z0-9"“'’(])/g;
+  const cuts = [...text.matchAll(boundary)].map((m) => m.index + m[0].length);
+  if (!cuts.length) return [[s, e]];
   const spans = [];
   let start = 0;
-  for (let i = 1; i < breaks.length; i++) {
-    if (breaks[i] - start > target && breaks[i - 1] > start) {
-      spans.push([start, breaks[i - 1]]);
-      start = breaks[i - 1];
-    }
-  }
-  spans.push([start, text.length]);
-
+  for (const cut of cuts) { spans.push([s + start, s + cut]); start = cut; }
+  spans.push([s + start, e]);
   return spans
     .map(([a, b]) => {
-      while (a < b && /\s/.test(text[a])) a++;
-      while (b > a && /\s/.test(text[b - 1])) b--;
+      while (a < b && /\s/.test(pageText[a])) a++;
+      while (b > a && /\s/.test(pageText[b - 1])) b--;
       return [a, b];
     })
     .filter(([a, b]) => b > a);
