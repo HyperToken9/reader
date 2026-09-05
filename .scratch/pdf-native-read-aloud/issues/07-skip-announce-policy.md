@@ -11,7 +11,7 @@ The policy is settled in principle — headers and footers skipped silently; equ
 Decide:
 
 - What the placeholder utterances actually say. "Equation." — or does it try "equation five" when a number is detectable? "Figure four." versus "figure"? Does a footnote get read at all, deferred to end of page, or only announced?
-- What the highlight does during a placeholder. Does the band sit over the skipped region so your eye is drawn to the equation while the voice says "equation" — which would be the point — or does highlighting simply jump ahead?
+- What the highlight does during a placeholder. Does the band sit over the skipped region so your eye is drawn to the equation while the voice says "equation" — which would be the point — or does highlighting simply jump ahead? Now that the band is the *only* highlight ([[10]]), this carries more weight.
 - Behaviour when classification is uncertain, which [[06]] will likely show is common. Is unclassified text read as prose (risking gibberish) or skipped (risking silent loss)? Which failure is more tolerable while reading a textbook?
 - Whether the reader can override — tap a skipped region to have it read anyway, or a setting to read footnotes inline.
 - Tables. Left unresolved at charting time and genuinely hard: read cell by cell, announce "table" and skip, or something else? [[03]] argues cell-by-cell audio is useless regardless of ordering, so detect-and-skip is the likely answer.

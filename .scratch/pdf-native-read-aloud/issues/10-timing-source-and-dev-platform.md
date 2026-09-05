@@ -1,7 +1,7 @@
 # 10 — Where does the sync spike run, and does cloud TTS reopen now?
 
 Type: grilling
-Status: open
+Status: resolved
 
 ## Question
 
@@ -33,6 +33,21 @@ So the remaining question narrows to one thing: **is a macOS or Windows machine 
 - If **yes** — everything is settled, native TTS stands, cloud TTS stays deferred, and [[05]] unblocks on that machine.
 - If **no** — cloud TTS becomes the prototype's primary timing source by necessity rather than preference, since word timestamps arrive with the audio and are platform-independent.
 
-Either way, build the timing seam [[04]] recommends (`{wordIndex, atTime}` behind `BoundaryEventTiming` / `EstimatedCadenceTiming` / `TimestampTiming`) so the answer stays cheap to change.
-
 ## Answer
+
+**Linux only, no Mac or Windows available. So the word cursor is dropped: the highlight is a sentence band alone.** Stated preference — something functional over something overbuilt.
+
+**This is not a degraded fallback. It removes the problem.**
+
+The word cursor was the only thing that needed `onboundary`. Sentence highlighting doesn't need boundary events at all — because [[04]] already recommends chunking utterances **on sentence boundaries**, and if one utterance is one sentence, then `onstart` and `onend` fire at exactly the moments the band must move. Those two events are universally supported, on every backend including Linux's speech-dispatcher. Sync becomes exact and event-driven, with **no estimation, no drift, and no cadence model** — the entire class of failure [[04]] catalogued simply doesn't arise.
+
+Consequences, recorded so later sessions don't rebuild what was deliberately dropped:
+
+- **Native TTS stands.** Cloud TTS stays deferred, and is now deferred on *quality* grounds only. Word timestamps were the thing that made it structurally attractive; nothing needs them any more.
+- **The timing seam is cancelled.** [[04]]'s `{wordIndex, atTime}` abstraction behind `BoundaryEventTiming` / `EstimatedCadenceTiming` / `TimestampTiming` was premised on word-level timing being needed and uncertain. With sentence-only highlighting driven by `onstart`/`onend`, it is an abstraction over a decision that is no longer live. Don't build it.
+- **The voice picker's sync-capability labelling is cancelled too** — [[04]]'s `localService === false` predictor and probe utterance existed to warn about missing boundary events. Nothing depends on them now. Voice choice reduces to whatever sounds least bad locally.
+- **Estimated cadence is cancelled.** No drift model, no re-seeding from chunk duration.
+- **What still transfers from [[04]]**: sentence-sized chunking (now load-bearing rather than a prosody nicety), keeping ~2 utterances in flight, the wedged-queue guard, and the fact that `rate` cannot change mid-utterance — a rate change must `cancel()` and re-dispatch from the current sentence, which sentence-sized chunks make cheap.
+- **Watch for**: whether Linux speech-dispatcher voices are listenable enough for sustained textbook reading, and whether `onend` fires promptly enough that the band doesn't lag between sentences. Both are [[05]]'s to judge.
+
+Revisit only if the word cursor is genuinely missed once the sentence band is being used in anger, or if a Mac/Windows machine enters the picture.

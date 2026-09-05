@@ -19,8 +19,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 **Settled before charting** (context for every session):
 - Visual surface must stay the real PDF. Background text/geometry extraction is fully permitted — the constraint is on the *view*, not on internal parsing.
 - Assume an embedded text layer (born-digital or pre-OCR'd). No OCR.
-- TTS is browser-native (Web Speech API) for now, despite weaker voices and unreliable boundary events. Cloud TTS with word timestamps was considered and deferred, not rejected. **This assumption is now under challenge — see [10](issues/10-timing-source-and-dev-platform.md); word boundaries do not exist on Linux at all.**
-- Highlight is a soft sentence band plus a stronger word cursor — the band keeps you anchored on a dense page and degrades gracefully when word sync drifts.
+- TTS is browser-native (Web Speech API). Cloud TTS is deferred on voice-quality grounds only; nothing structural needs it. Development and use are **Linux-only**.
+- Highlight is a **sentence band alone — no word cursor** ([10](issues/10-timing-source-and-dev-platform.md)). Linux emits no word-boundary events, and rather than fake them, the word cursor was dropped. One sentence per utterance means `onstart`/`onend` drive the band exactly, with no estimation and no drift.
 - Audio skips page headers/footers silently; equations, figures and footnotes get a brief spoken placeholder ("equation", "figure four") then are stepped over, since your eyes have the real thing on screen.
 - Prototype front door is a single drag-dropped PDF. No library, no persistence.
 
@@ -34,10 +34,13 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [03 — Reading-order algorithms](issues/03-reading-order-algorithms.md): **the crux risk is surmountable.** No JS library exists, so we write it — ~600–900 lines: kill running heads by cross-page repetition, cluster lines, split **bands before columns** (the fix for XY-cut's worst failure), find gutters by x-projection, read columns L→R. Tagged PDFs give a free fast path via MCID join but only ~12.6% are tagged, so use it only where it agrees with geometry. Ordering is easy; **classification is hard** — sidebars and boxed panels are geometrically identical to a narrow column. Error is cheap, though, because the reader sees the real page: the sentence band *is* the recovery UI.
 
+- [10 — Timing source and dev platform](issues/10-timing-source-and-dev-platform.md): **the word cursor is dropped; the highlight is a sentence band alone.** Linux-only development, and Linux emits no word-boundary events for any voice. But one-sentence-per-utterance makes `onstart`/`onend` drive the band exactly — no estimation, no drift, no cadence model. Native TTS stands, and [04](issues/04-web-speech-boundary-reliability.md)'s timing seam, voice-capability probe and drift model are all **cancelled as overbuilding**.
+
 ## Not yet specified
 
 - **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.
-- **Voice quality upgrade path** — if native TTS voices prove too poor to sit with for hours, or boundary events too unreliable, what a cloud-TTS tier (word timestamps, per-character cost, pre-synthesis, offline story) would look like. Deliberately deferred, not ruled out.
+- **Voice quality upgrade path** — if Linux speech-dispatcher voices prove too poor to sit with for hours, what a cloud-TTS tier (per-character cost, pre-synthesis, offline story) would look like. Deferred on quality grounds alone; [10](issues/10-timing-source-and-dev-platform.md) removed the structural reason to want it.
+- **Word-level highlighting** — dropped by [10](issues/10-timing-source-and-dev-platform.md) because Linux emits no boundary events. Returns only if the sentence band proves insufficient in real use, or if a macOS/Windows machine enters the picture.
 - **Scanned / image-only PDFs** — OCR to obtain a text layer at all. Assumed away for this effort; a real concern for textbooks sourced as scans.
 - **The other Reading Lenses techniques over a PDF surface** — spacing, typeface swap, fixation anchoring, chromatic line guidance, masking, pacer, RSVP. To be revisited per-technique on use-case and importance, and harder here than in HTML since the page is rendered pixels, not reflowable text.
 - **Browser-extension form factor** — overlaying this on PDFs already open in a browser. Blocked in Chrome's built-in viewer today; would need its own viewer. Future form factor, not this effort.

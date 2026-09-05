@@ -16,6 +16,8 @@ The candidates, with the concern each carries:
 - **Native mobile** — best reading ergonomics on a tablet, which is arguably where textbook reading actually happens. Highest cost, one platform at a time.
 - **Capacitor-wrapped web** — keeps the web core, reaches mobile app stores. Compromise on both ends.
 
+[[10]] narrowed this: development and use are Linux-only, which removes macOS/Windows-first options from serious contention and weakens the mobile-reach argument that was Flutter's main draw. It also means any candidate must carry a TTS story that works without word-boundary events.
+
 Decide against real weight: where does textbook reading actually happen for this user — desk, laptop, tablet? Does that override the porting cost? And how much of the spike work survives each choice?
 
 Consult `grilling` and `domain-modeling`.
