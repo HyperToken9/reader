@@ -2,17 +2,19 @@
 
 ## Destination
 
-A working prototype: a local web app that renders a textbook PDF at native fidelity (PDF.js canvas, zero reflow — diagrams, equations and multi-column layout exactly as authored) and overlays synchronized read-aloud — browser TTS speaking body prose in correct reading order, tracked by a sentence band plus a word cursor drawn over the real page.
+A working prototype: a local web app that renders a textbook PDF at native fidelity (PDF.js canvas, zero reflow — diagrams, equations and multi-column layout exactly as authored) and overlays synchronized read-aloud — browser TTS speaking body prose in correct reading order, tracked by a sentence band drawn over the real page.
 
 Reached when that prototype exists and has been driven against real textbook PDFs, well enough to judge whether the audio+highlight-over-native-render experience actually works.
 
 ## Notes
 
-**Domain**: PDF rendering and text-layer geometry, document layout analysis (reading order, region classification), speech synthesis and word-boundary timing, overlay UI.
+**Domain**: PDF rendering and text-layer geometry, document layout analysis (reading order, region classification), speech synthesis and utterance scheduling, overlay UI.
+
+**Corpus**: `sample_books/` in the repo root (gitignored). Contents and their characterisation are recorded in [01](issues/01-test-pdf-corpus.md).
 
 **This map carries execution.** The destination is a built artifact, not a document — prototype tickets produce running code, not proposals. Everything else on the route is still a decision.
 
-**Sibling project in this repo**: `Reading Lenses` (`/src`, `manifest.json`) is an existing MV3 Chrome extension applying eight reading aids in-place to web pages. It is *not* this effort, but `src/content.js` already contains a working `speechSynthesis` + `onboundary` → word-mapping read-aloud implementation, including 220-word utterance chunking to dodge Chrome's long-utterance drop, and an estimated-cadence fallback for voices that emit no boundary events. Read it before re-deriving any of that. Its README documents the known limits, including that Chrome blocks extensions on the built-in PDF viewer — part of why this effort is an app, not an extension.
+**Sibling project in this repo**: `Reading Lenses` (`/src`, `manifest.json`) is an existing MV3 Chrome extension applying eight reading aids in-place to web pages. It is *not* this effort, but `src/content.js` already contains a working `speechSynthesis` + `onboundary` → word-mapping read-aloud implementation, including 220-word utterance chunking to dodge Chrome's long-utterance drop, and an estimated-cadence fallback for voices that emit no boundary events. Read it before re-deriving any of that — but note [04](issues/04-web-speech-boundary-reliability.md) superseded its 220-word chunking (wrong unit, cuts mid-sentence) and [10](issues/10-timing-source-and-dev-platform.md) made its boundary/cadence machinery unnecessary here. Its README documents the known limits, including that Chrome blocks extensions on the built-in PDF viewer — part of why this effort is an app, not an extension.
 
 **Skills**: consult `grilling` and `domain-modeling` for decision tickets; `research` for AFK research; `prototype` for build spikes.
 
