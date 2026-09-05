@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>16 — Kokoro reading loop (THROWAWAY PROTOTYPE)</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%94%8A%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -11,7 +12,8 @@
     <div id="app">
       <aside id="side">
         <h1>16 — Kokoro reading loop</h1>
-        <p class="proto">Throwaway prototype. Not production code. Needs <code>python server.py</code> running — see README.</p>
+        <p class="proto">Throwaway prototype. Not production code. Needs <code>npm run server</code>
+          (voice) running; <code>npm run layout</code> only if you tick reading order — see README.</p>
 
         <section>
           <button id="pick">Choose a PDF…</button>
@@ -54,9 +56,9 @@
             <input id="enableLayout" type="checkbox" />
             Reading order via layout model (06, experimental)
           </label>
-          <p class="muted tiny">Off by default: WASM inference runs on the main thread and is several
-            seconds a page, so scrolling with this on will feel it. Only turn it on to judge order
-            correctness on a multi-column or boxed page, not for general reading yet.</p>
+          <p class="muted tiny">Needs the layout sidecar: <code>npm run layout</code>. Runs the model
+            out of process (~1.4s a page, off the main thread), so scrolling stays smooth. Without the
+            sidecar running, pages just keep their default order.</p>
           <label class="check"><input id="showRegions" type="checkbox" /> Show layout regions</label>
         </section>
 

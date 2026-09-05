@@ -58,6 +58,7 @@ let doc = null;
 /** @type {Map<number, PageEntry>} */
 const pages = new Map();
 let scale = 1.2;
+let zoomGeneration = 0; // bumped per reZoom, so a superseded pass bails out
 
 let playing = false;
 let generation = 0;   // bumped on every cancel; stale audio events are ignored
@@ -146,12 +147,15 @@ class PageEntry {
     this.rendering = null;
     this.regions = null;      // set once layout analysis resolves (06)
     this.layoutLoading = false;
+    this.renderTask = null;   // in-flight PDF.js RenderTask, so it can be cancelled
   }
 }
 
 async function openDoc(data) {
   if (doc) await doc.destroy();
   stop();
+  for (const p of pages.values()) evictPage(p); // release canvases before dropping the map
+  renderOrder.length = 0;
   pages.clear();
   el.pages.replaceChildren();
   el.sentences.replaceChildren();
@@ -169,7 +173,10 @@ async function openDoc(data) {
     const div = document.createElement("div");
     div.className = "pdfpage";
     div.dataset.page = String(pn);
-    div.innerHTML = `<canvas></canvas><div class="textLayer"></div>` +
+    // width/height 0 until rasterised: a default <canvas> is 300x150, and at
+    // 4 bytes a pixel that is ~180 KB per page of pure shell -- 145 MB of it
+    // on an 809-page book, before anything has been rendered at all.
+    div.innerHTML = `<canvas width="0" height="0"></canvas><div class="textLayer"></div>` +
       `<svg class="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>`;
     sizePage(div, base.width * scale, base.height * scale);
     el.pages.append(div);
@@ -195,6 +202,114 @@ const observer = new IntersectionObserver(
   { root: null, rootMargin: "400px 0px" },
 );
 
+/**
+ * Rasterise a page into its own canvas, cancelling whatever was already
+ * drawing into it. PDF.js throws "Cannot use the same canvas during multiple
+ * render() operations" if two render tasks share a canvas, and two of them
+ * genuinely race here: the IntersectionObserver re-renders on scroll while
+ * reZoom is walking every rendered page re-rasterising it. Reproduced in the
+ * stress harness; this is the fix.
+ */
+async function paintCanvas(p, viewport) {
+  if (p.renderTask) {
+    try { p.renderTask.cancel(); } catch { /* already finished */ }
+    p.renderTask = null;
+  }
+  const dpr = window.devicePixelRatio || 1;
+  p.canvas.width = Math.floor(viewport.width * dpr);
+  p.canvas.height = Math.floor(viewport.height * dpr);
+  const ctx = p.canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const task = p.proxy.render({ canvasContext: ctx, viewport });
+  p.renderTask = task;
+  try {
+    await task.promise;
+  } catch (e) {
+    // A cancelled render is the expected outcome of the race above, not an error.
+    if (e?.name !== "RenderingCancelledException") throw e;
+  } finally {
+    if (p.renderTask === task) p.renderTask = null;
+  }
+}
+
+/*
+ * Rasterised pages are evicted once they're far from the viewport.
+ *
+ * Without this, every page scrolled past keeps its full-resolution canvas
+ * backing store forever: measured on the 809-page biochemistry book at
+ * devicePixelRatio 2, scrolling accumulated 3.3 GB of canvas memory (JS heap
+ * stayed under 70 MB the whole time, which is why it looked fine) before the
+ * harness stopped. That is the reported "crashes instantaneously" -- the tab
+ * is killed for native memory, not for anything JS-visible.
+ */
+const MAX_RASTERISED = 14;
+const renderOrder = []; // page numbers, most recently rendered last
+
+function noteRendered(pn) {
+  const i = renderOrder.indexOf(pn);
+  if (i >= 0) renderOrder.splice(i, 1);
+  renderOrder.push(pn);
+  evictFarPages();
+}
+
+/**
+ * Evict everything rasterised that is no longer near the viewport, ignoring
+ * the LRU cap. During a fast scroll burst many pages finish rendering at
+ * once and all of them briefly count as "near", so the cap alone let peak
+ * canvas memory reach ~530 MB; sweeping on scroll holds it near the visible
+ * working set instead.
+ */
+function sweepEvictions() {
+  for (let i = renderOrder.length - 1; i >= 0; i--) {
+    const pn = renderOrder[i];
+    const p = pages.get(pn);
+    if (!p) { renderOrder.splice(i, 1); continue; }
+    if (speaking?.pn === pn || cursor?.pn === pn || loadingSentence?.pn === pn) continue;
+    if (nearViewport(p, 600)) continue;
+    renderOrder.splice(i, 1);
+    evictPage(p);
+  }
+}
+
+function evictFarPages() {
+  while (renderOrder.length > MAX_RASTERISED) {
+    // Oldest first, but never evict what is speaking, queued to speak next,
+    // or still on screen -- those get skipped and stay in the list.
+    const idx = renderOrder.findIndex((pn) => {
+      const p = pages.get(pn);
+      if (!p) return true;
+      if (speaking?.pn === pn || cursor?.pn === pn || loadingSentence?.pn === pn) return false;
+      return !nearViewport(p, 600);
+    });
+    if (idx < 0) return; // everything left is in use; let the cap slip rather than thrash
+    const [pn] = renderOrder.splice(idx, 1);
+    evictPage(pages.get(pn));
+  }
+}
+
+/** Release a page's pixels and DOM. It re-renders from scratch when scrolled back to. */
+function evictPage(p) {
+  if (!p || !p.rendered) return;
+  if (p.renderTask) {
+    try { p.renderTask.cancel(); } catch { /* already finished */ }
+    p.renderTask = null;
+  }
+  // Setting either dimension to 0 is what actually frees the backing store;
+  // clearing the context does not.
+  p.canvas.width = 0;
+  p.canvas.height = 0;
+  p.textLayerDiv.replaceChildren();
+  p.svg.replaceChildren();
+  p.textLayer = null;
+  p.textContent = null;
+  p.sentences = [];
+  p._geom = null;
+  p.rendered = false;
+  p.rendering = null;
+  // p.regions is deliberately kept: it is page-fraction data, costs nothing,
+  // and saves re-running the layout model if this page comes back.
+}
+
 async function renderPage(pn) {
   const p = pages.get(pn);
   if (!p || p.rendered) return p;
@@ -208,12 +323,7 @@ async function renderPage(pn) {
     // positioning is percentage-based, so this is all it needs (02 §3).
     p.div.style.setProperty("--total-scale-factor", String(scale));
 
-    const dpr = window.devicePixelRatio || 1;
-    p.canvas.width = Math.floor(viewport.width * dpr);
-    p.canvas.height = Math.floor(viewport.height * dpr);
-    const ctx = p.canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    await p.proxy.render({ canvasContext: ctx, viewport }).promise;
+    await paintCanvas(p, viewport);
 
     // Fonts are only registered as @font-face once the render task has loaded
     // them, so the text layer must come after render() (02 §5).
@@ -226,8 +336,9 @@ async function renderPage(pn) {
     });
     await p.textLayer.render();
 
-    buildSentences(p);
+    buildSentences(p, p.regions ?? undefined);
     p.rendered = true;
+    noteRendered(pn);
     if (el.showall.checked) paintAllBands(p);
     report();
   })();
@@ -241,6 +352,13 @@ async function renderPage(pn) {
   // Reading order is still worth having; it just has to be asked for.
   if (el.enableLayout.checked) refineLayout(p); // background, not awaited
   return p;
+}
+
+/** Is this page in or near the visible scroll window? */
+function nearViewport(p, margin = 800) {
+  const b = p.div.getBoundingClientRect();
+  const v = el.viewer.getBoundingClientRect();
+  return b.bottom > v.top - margin && b.top < v.bottom + margin;
 }
 
 /**
@@ -266,6 +384,14 @@ async function refineLayout(p) {
   p.div.classList.add("layout-loading");
   repaint();
   try {
+    // Scrolling fast queues one of these per page passed. Analysis is off the
+    // main thread now (see layout-server.mjs) so a backlog no longer freezes
+    // anything, but analysing 90 pages someone scrolled past is still pure
+    // waste. Settle briefly, then only proceed if the page is still near the
+    // viewport -- a page scrolled away from drops out here.
+    await new Promise((r) => setTimeout(r, 600));
+    if (pages.get(p.pn) !== p) return;
+    if (!nearViewport(p)) return;
     const regions = await analyzeLayout(p.canvas);
     if (pages.get(p.pn) !== p) return; // doc changed under us; discard
     p.regions = regions;
@@ -284,7 +410,12 @@ async function reZoom(next) {
   scale = next;
   el.zoomOut.textContent = scale.toFixed(2);
   if (!doc) return;
+  // Zoom walks every already-rendered page. Two of those walks overlapping
+  // means two render tasks per canvas, which PDF.js refuses; the generation
+  // check drops the older walk as soon as a newer zoom starts.
+  const gen = ++zoomGeneration;
   for (const p of pages.values()) {
+    if (gen !== zoomGeneration) return;
     if (!p.rendered) {
       // Not rasterised yet — just resize the shell.
       const base = (await doc.getPage(p.pn)).getViewport({ scale: 1 });
@@ -294,12 +425,11 @@ async function reZoom(next) {
     const viewport = p.proxy.getViewport({ scale });
     sizePage(p.div, viewport.width, viewport.height);
     p.div.style.setProperty("--total-scale-factor", String(scale));
-    const dpr = window.devicePixelRatio || 1;
-    p.canvas.width = Math.floor(viewport.width * dpr);
-    p.canvas.height = Math.floor(viewport.height * dpr);
-    const ctx = p.canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    await p.proxy.render({ canvasContext: ctx, viewport }).promise;
+    await paintCanvas(p, viewport);
+    if (gen !== zoomGeneration) return; // a newer zoom superseded this pass
+    // The page can be evicted while that await is outstanding, which nulls
+    // the text layer out from under us.
+    if (!p.rendered || !p.textLayer) continue;
     p.textLayer.update({ viewport });
     // NOTE: p.sentences is deliberately NOT recomputed. The rects are page
     // fractions, so zoom is meant to cost nothing. If the band drifts after a
@@ -1116,7 +1246,11 @@ function markSentenceList(c) {
   el.sentences.children[c.si]?.scrollIntoView({ block: "nearest" });
 }
 
+let sweepTimer = null;
 el.viewer.addEventListener("scroll", () => {
+  if (!sweepTimer) {
+    sweepTimer = setTimeout(() => { sweepTimer = null; sweepEvictions(); }, 300);
+  }
   const mid = el.viewer.getBoundingClientRect().top + el.viewer.clientHeight / 2;
   for (const p of pages.values()) {
     const b = p.div.getBoundingClientRect();

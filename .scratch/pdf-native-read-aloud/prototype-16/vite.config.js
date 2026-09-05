@@ -1,13 +1,11 @@
 // THROWAWAY prototype config, ticket 16/06.
 //
-// ppu-doclayout's package graph includes a Node-only "core" path (ppu-ocv's
-// @napi-rs/canvas, a native .node binary) that Vite's dependency optimizer
-// tries to pre-bundle even though we only ever import "ppu-doclayout/web"
-// and pass it an existing <canvas>, never a Buffer -- the Node codepath is
-// never reached at runtime. Excluding it from pre-bundling is enough; it
-// still works fine served as-is over the dev server.
+// ppu-doclayout is imported only by layout-server.mjs, which runs under Node
+// and is never reachable from index.html -- so Vite should not try to
+// pre-bundle it (its dependency graph includes ppu-ocv's @napi-rs/canvas
+// native .node binary, which esbuild has no loader for).
 export default {
   optimizeDeps: {
-    exclude: ["ppu-doclayout", "ppu-ocv", "onnxruntime-web"],
+    exclude: ["ppu-doclayout", "ppu-ocv", "onnxruntime-node"],
   },
 };

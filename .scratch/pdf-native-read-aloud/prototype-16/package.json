@@ -5,10 +5,11 @@
   "description": "THROWAWAY prototype for ticket 16. Not production code.",
   "scripts": {
     "dev": "vite --open",
-    "server": "./run_server.sh"
+    "server": "./run_server.sh",
+    "layout": "node layout-server.mjs"
   },
   "dependencies": {
-    "onnxruntime-web": "^1.29.0",
+    "onnxruntime-node": "^1.29.0",
     "pdfjs-dist": "6.3.289",
     "ppu-doclayout": "^1.0.0"
   },
