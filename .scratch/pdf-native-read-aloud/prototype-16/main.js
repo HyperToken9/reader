@@ -140,6 +140,7 @@ class PageEntry {
     this.canvas = div.querySelector("canvas");
     this.textLayerDiv = div.querySelector(".textLayer");
     this.svg = div.querySelector(".overlay");
+    this.labels = div.querySelector(".regionLabels");
     this.textLayer = null;
     this.proxy = null;
     this.sentences = [];
@@ -177,7 +178,8 @@ async function openDoc(data) {
     // 4 bytes a pixel that is ~180 KB per page of pure shell -- 145 MB of it
     // on an 809-page book, before anything has been rendered at all.
     div.innerHTML = `<canvas width="0" height="0"></canvas><div class="textLayer"></div>` +
-      `<svg class="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>`;
+      `<svg class="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>` +
+      `<div class="regionLabels"></div>`;
     sizePage(div, base.width * scale, base.height * scale);
     el.pages.append(div);
     pages.set(pn, new PageEntry(pn, div));
@@ -300,6 +302,7 @@ function evictPage(p) {
   p.canvas.height = 0;
   p.textLayerDiv.replaceChildren();
   p.svg.replaceChildren();
+  p.labels.replaceChildren();
   p.textLayer = null;
   p.textContent = null;
   p.sentences = [];
@@ -517,24 +520,49 @@ function buildSentences(p, regions) {
       return items[lo];
     };
 
+    // One Intl.Segmenter sentence is one unit -- no smaller (an earlier
+    // version of this file split further at clause punctuation to shorten
+    // synth latency; reverted: that's a subtitle-style chop mid-sentence,
+    // and the right fix for latency is prefetching ahead, not a smaller
+    // unit). Still guard against Intl.Segmenter itself under-splitting: it
+    // can occasionally treat two real sentences as one segment (an
+    // abbreviation, an odd quote/citation pattern), and that's a genuine
+    // bug worth catching here rather than living with a chunk that's
+    // *larger* than a sentence.
+    const spans = [];
     for (const { segment, index } of seg.segment(pageText)) {
       let s = index, e = index + segment.length;
       while (s < e && /\s/.test(pageText[s])) s++;
       while (e > s && /\s/.test(pageText[e - 1])) e--;
       if (e <= s) continue;
+      for (const span of guardSentenceBoundaries(pageText, s, e)) spans.push(span);
+    }
 
-      // One Intl.Segmenter sentence is one unit -- no smaller (an earlier
-      // version of this file split further at clause punctuation to shorten
-      // synth latency; reverted: that's a subtitle-style chop mid-sentence,
-      // and the right fix for latency is prefetching ahead, not a smaller
-      // unit). Still guard against Intl.Segmenter itself under-splitting: it
-      // can occasionally treat two real sentences as one segment (an
-      // abbreviation, an odd quote/citation pattern), and that's a genuine
-      // bug worth catching here rather than living with a chunk that's
-      // *larger* than a sentence.
-      for (const [as, ae] of guardSentenceBoundaries(pageText, s, e)) {
+    // Nothing unpronounceable may become a unit of its own. A span with no
+    // letters in it -- a list marker ("2."), a stray dash, the tail of a
+    // split figure reference -- is absorbed into the sentence that follows
+    // (or the one before, if it is last) rather than emitted.
+    //
+    // This is the fix for a real failure seen in the server log: a request
+    // whose whole text was "-", which Kokoro rejects outright ("Nothing to
+    // synthesize, '-' produced no phonemes"). The client skipped that
+    // sentence, so the highlight advanced with no sound -- the reported
+    // "audio doesn't work" case. Merging also stops numbered lists being
+    // read aloud as "two." "three." "four."
+    const kept = [];
+    for (let i = 0; i < spans.length; i++) {
+      const [a, b] = spans[i];
+      if (!/[A-Za-z]/.test(pageText.slice(a, b))) {
+        if (i + 1 < spans.length) { spans[i + 1][0] = a; continue; }
+        if (kept.length) { kept[kept.length - 1][1] = b; continue; }
+        continue; // nothing to attach to; drop it
+      }
+      kept.push([a, b]);
+    }
+
+    {
+      for (const [as, ae] of kept) {
         const text = pageText.slice(as, ae);
-        if (!/[A-Za-z0-9]/.test(text)) continue;
 
         const rects = mergeLines(rangeRects(divs, box, locate, as, ae));
         if (!rects.length) continue;
@@ -581,8 +609,22 @@ function buildSentences(p, regions) {
  */
 function guardSentenceBoundaries(pageText, s, e) {
   const text = pageText.slice(s, e);
-  const boundary = /[.!?][”"'’)\]]*\s+(?=[A-Z0-9"“'’(])/g;
-  const cuts = [...text.matchAll(boundary)].map((m) => m.index + m[0].length);
+  // The lookahead deliberately excludes digits. Allowing them split every
+  // numbered list marker into its own "sentence" -- measured on the
+  // biochemistry book, "2." "3." "4." … were being spoken as standalone
+  // utterances, and figure references ("see Fig. 3.21).") were cut in half
+  // at the abbreviation's full stop. A real missed boundary is followed by a
+  // capital or an opening quote, not by a digit.
+  const boundary = /[.!?][”"'’)\]]*\s+(?=[A-Z"“'’(])/g;
+  const MIN_CHUNK = 20; // don't cut after "Fig." or "No." -- too short to be a sentence
+  const cuts = [];
+  let last = 0;
+  for (const m of text.matchAll(boundary)) {
+    const cut = m.index + m[0].length;
+    if (cut - last < MIN_CHUNK) continue;
+    cuts.push(cut);
+    last = cut;
+  }
   if (!cuts.length) return [[s, e]];
   const spans = [];
   let start = 0;
@@ -741,6 +783,7 @@ function mergeLines(rects) {
 
 function clearOverlay(p) {
   p.svg.replaceChildren();
+  if (p.labels) p.labels.replaceChildren();
 }
 
 function rect(x, y, w, h, fill, opts = {}) {
@@ -850,21 +893,36 @@ function paintAllBands(p) {
  */
 function paintRegions(p) {
   if (!p.regions) return;
+  // Boxes go in the SVG; labels do NOT. The overlay is viewBox="0 0 1 1"
+  // with preserveAspectRatio="none", so it scales x and y by different
+  // factors -- rectangles survive that, glyphs come out stretched and
+  // unreadable (reported). Labels are positioned HTML instead, so they
+  // render at real font size whatever the page aspect ratio is.
+  const frag = document.createDocumentFragment();
   p.regions.forEach((r, i) => {
     const hue = Math.round((i / p.regions.length) * 300);
     const color = `hsl(${hue}, 85%, 60%)`;
     p.svg.append(rect(r.x, r.y, r.w, r.h, "none", {
       stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
     }));
-    const label = document.createElementNS(SVG_NS, "text");
-    label.setAttribute("x", r.x + 0.004);
-    label.setAttribute("y", r.y + 0.018);
-    label.setAttribute("fill", color);
-    label.setAttribute("font-size", "0.016");
-    label.setAttribute("font-weight", "700");
-    label.textContent = `${i + 1} ${r.label}`;
-    p.svg.append(label);
+    // Just the reading-order number, inside the box's top-left corner, with
+    // the label on hover. Earlier revisions put the full label in the SVG
+    // (stretched unreadable by preserveAspectRatio="none") and then in the
+    // page margin (clipped at the page edge, and for a right-hand column it
+    // landed on top of the left column's text). A number is two characters
+    // wide, so it occludes almost nothing and the order still reads at a
+    // glance -- which is the thing this overlay exists to show.
+    const tag = document.createElement("span");
+    tag.className = "regionTag";
+    tag.style.left = `${r.x * 100}%`;
+    tag.style.top = `${r.y * 100}%`;
+    tag.style.borderColor = color;
+    tag.style.color = color;
+    tag.textContent = String(i + 1);
+    tag.title = `${i + 1}. ${r.label} (${r.score.toFixed(2)})`;
+    frag.append(tag);
   });
+  p.labels.replaceChildren(frag);
 }
 
 function repaint() {
@@ -891,7 +949,7 @@ function repaint() {
 
     // Additive, regardless of which branch above ran: regions, loading and
     // hover are independent of whether anything is currently speaking.
-    if (el.showRegions.checked) paintRegions(p);
+    if (el.showRegions.checked) paintRegions(p); else if (p.labels.firstChild) p.labels.replaceChildren();
     if (loadingSentence?.pn === p.pn && !isSame(speaking, loadingSentence)) {
       paintLoading(p, p.sentences[loadingSentence.si]);
     }
@@ -1014,6 +1072,9 @@ function ensurePrefetch(c, opts) {
   }
   const s = sentenceAt(c);
   if (!s) return Promise.resolve(null);
+  // Belt and braces on top of the merge in buildSentences: never ask the
+  // synthesiser for text with nothing to pronounce -- it 500s on that.
+  if (!/[A-Za-z]/.test(s.speech)) return Promise.resolve(null);
 
   let resolveFn, rejectFn;
   const promise = new Promise((res, rej) => { resolveFn = res; rejectFn = rej; });
@@ -1113,6 +1174,15 @@ async function speakOne(c) {
   }
   if (gen !== generation) return;
   prefetchCache.delete(cacheKey(c));
+
+  if (!data) {
+    // Nothing pronounceable here (see ensurePrefetch's guard). Move on
+    // rather than stalling on a sentence that can never make a sound.
+    loadingSentence = null;
+    cursor = nc;
+    if (cursor) return speakOne(cursor);
+    return endOfDocument();
+  }
 
   cursor = nc;
   if (cursor) prefetchAhead(cursor, { priorityFirst: true }); // the sentence right after this one, plus a couple more behind it

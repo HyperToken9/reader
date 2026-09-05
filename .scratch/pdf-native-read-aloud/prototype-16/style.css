@@ -257,3 +257,29 @@ button:disabled { opacity: .45; cursor: default; }
 }
 #cursorSwitcher button:hover { background: #4a3d18; }
 #cursorLabel { font-size: 12px; font-weight: 600; min-width: 150px; text-align: center; }
+
+/* ---------------- layout region labels (06) ---------------- */
+
+/* Kept out of the SVG on purpose: that overlay is preserveAspectRatio="none",
+   which stretches glyphs by the page aspect ratio and made these unreadable. */
+.regionLabels {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.regionTag {
+  position: absolute;
+  pointer-events: auto;
+  min-width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  background: rgba(12, 14, 18, .93);
+  border: 1px solid;
+  border-radius: 4px;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: help;
+}
