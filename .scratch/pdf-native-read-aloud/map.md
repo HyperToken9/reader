@@ -32,6 +32,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [04 — Web Speech boundary reliability](issues/04-web-speech-boundary-reliability.md): boundary support belongs to the OS backend, not the browser — Windows and macOS deliver `word` events with `charIndex`+`charLength`; **Linux delivers none, ever**, which blocks the sync spike on this machine ([10](issues/10-timing-source-and-dev-platform.md)). `voice.localService === false` statically predicts zero boundaries, so the voice picker can label sync support before playback. Chunk on sentences (~8–12 s), not 220 words; when boundaries are absent, turn the word cursor off rather than drift.
 
+- [03 — Reading-order algorithms](issues/03-reading-order-algorithms.md): **the crux risk is surmountable.** No JS library exists, so we write it — ~600–900 lines: kill running heads by cross-page repetition, cluster lines, split **bands before columns** (the fix for XY-cut's worst failure), find gutters by x-projection, read columns L→R. Tagged PDFs give a free fast path via MCID join but only ~12.6% are tagged, so use it only where it agrees with geometry. Ordering is easy; **classification is hard** — sidebars and boxed panels are geometrically identical to a narrow column. Error is cheap, though, because the reader sees the real page: the sentence band *is* the recovery UI.
+
 ## Not yet specified
 
 - **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.

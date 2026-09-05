@@ -8,6 +8,10 @@ Blocked by: 01, 02, 03
 
 Take the approach [[03]] recommends and actually run it against the hard pages in the corpus. This is the go/no-go spike for the effort.
 
+**[[03]] recommends scoping this tightly**: implement only the ordering pipeline — line clustering, bands-before-columns, gutter detection by x-projection, read L→R then T→B — with **no classification at all**, and score page-level order against the corpus. Roughly 80–85% closes this ticket. Classification is the hard half and belongs to [[07]]; conflating them here hides which one is failing.
+
+Check the corpus composition early: if it skews to sidebar-heavy modern textbooks, classification moves onto the critical path and this ticket's scoping assumption needs revisiting.
+
 Build a spike that, given a page, emits an **ordered stream of body-prose spans with their bounding boxes** — and renders that order visibly (numbered overlay boxes, or a step-through) so the order can be *eyeballed* against the real page rather than trusted.
 
 What it must establish:
