@@ -206,6 +206,7 @@ async function renderPage(pn) {
     buildSentences(p);
     p.rendered = true;
     if (el.showall.checked) paintAllBands(p);
+    prefetchPage(p); // read the whole page ahead, low priority, while it's on screen
     report();
   })();
 
@@ -296,36 +297,80 @@ function buildSentences(p) {
     while (s < e && /\s/.test(pageText[s])) s++;
     while (e > s && /\s/.test(pageText[e - 1])) e--;
     if (e <= s) continue;
-    const text = pageText.slice(s, e);
-    if (!/[A-Za-z0-9]/.test(text)) continue;
+    const full = pageText.slice(s, e);
+    if (!/[A-Za-z0-9]/.test(full)) continue;
 
-    const rects = mergeLines(rangeRects(divs, box, locate, s, e));
-    if (!rects.length) continue;
-    // Glyphs with no Unicode mapping (Δ in the Millington PDF) come through as
-    // C0 control characters, not as nothing. Keep them in the index space so the
-    // geometry stays right, but never hand them to TTS.
-    const unmapped = (text.match(/[\u0000-\u001f]/g) ?? []).length;
+    // A grammatical sentence is the wrong unit to *speak and click* one at a
+    // time: textbook prose runs long, and every extra second of audio is a
+    // second of synth latency on a cache miss (measured: click-to-speech was
+    // 2-5s on unhewn sentences). Split further at clause punctuation into
+    // ~90-char chunks — still geometry-correct (same Range pipeline, just on
+    // a smaller span), just a smaller unit of playback and highlight.
+    for (const [cs, ce] of splitClauses(full)) {
+      const as = s + cs, ae = s + ce;
+      const text = pageText.slice(as, ae);
+      if (!/[A-Za-z0-9]/.test(text)) continue;
 
-    // Per-word geometry for the word cursor (16). Split on the same \S+ shape
-    // the server uses on s.speech, but run it against the *raw* text so
-    // control characters (equation glyphs) don't shift offsets. One place
-    // this can still desync, noted in the README: an unmapped-glyph run with
-    // no surrounding whitespace collapses to one space in .speech and splits
-    // what was a single word there into two, so .speech's word list can run
-    // one short of this one on that rare sentence.
-    const words = [];
-    for (const m of text.matchAll(/\S+/g)) {
-      const ws = s + m.index, we = ws + m[0].length;
-      const wrects = mergeLines(rangeRects(divs, box, locate, ws, we));
-      if (wrects.length) words.push({ text: m[0], rects: wrects });
+      const rects = mergeLines(rangeRects(divs, box, locate, as, ae));
+      if (!rects.length) continue;
+      // Glyphs with no Unicode mapping (Δ in the Millington PDF) come through
+      // as C0 control characters, not as nothing. Keep them in the index
+      // space so the geometry stays right, but never hand them to TTS.
+      const unmapped = (text.match(/[\u0000-\u001f]/g) ?? []).length;
+
+      // Per-word geometry for the word cursor (16). Split on the same \S+
+      // shape the server uses on s.speech, but run it against the *raw* text
+      // so control characters (equation glyphs) don't shift offsets. One
+      // place this can still desync, noted in the README: an unmapped-glyph
+      // run with no surrounding whitespace collapses to one space in .speech
+      // and splits what was a single word there into two, so .speech's word
+      // list can run one short of this one on that rare sentence.
+      const words = [];
+      for (const m of text.matchAll(/\S+/g)) {
+        const ws = as + m.index, we = ws + m[0].length;
+        const wrects = mergeLines(rangeRects(divs, box, locate, ws, we));
+        if (wrects.length) words.push({ text: m[0], rects: wrects });
+      }
+
+      out.push({
+        pn: p.pn, si: out.length, text, rects, words, unmapped,
+        speech: text.replace(/[\u0000-\u001f]+/g, " "),
+      });
     }
-
-    out.push({
-      pn: p.pn, si: out.length, text, rects, words, unmapped,
-      speech: text.replace(/[\u0000-\u001f]+/g, " "),
-    });
   }
   p.sentences = out;
+}
+
+/**
+ * Split one grammatical sentence into playback-sized chunks (~90 chars,
+ * ~15-18 words) at clause punctuation, greedily. Falls back to no split
+ * (never mid-word) when a clause between two commas is itself long — an
+ * imperfect chunk is still better than the previous request-timeout-shaped
+ * one.
+ */
+function splitClauses(text, target = 90) {
+  if (text.length <= target) return [[0, text.length]];
+  const breaks = [0];
+  for (const m of text.matchAll(/[,;:—–]\s+/g)) breaks.push(m.index + m[0].length);
+  breaks.push(text.length);
+
+  const spans = [];
+  let start = 0;
+  for (let i = 1; i < breaks.length; i++) {
+    if (breaks[i] - start > target && breaks[i - 1] > start) {
+      spans.push([start, breaks[i - 1]]);
+      start = breaks[i - 1];
+    }
+  }
+  spans.push([start, text.length]);
+
+  return spans
+    .map(([a, b]) => {
+      while (a < b && /\s/.test(text[a])) a++;
+      while (b > a && /\s/.test(text[b - 1])) b--;
+      return [a, b];
+    })
+    .filter(([a, b]) => b > a);
 }
 
 /** DOM Range -> normalised page-fraction rects for [s, e) of pageText. */
@@ -557,16 +602,69 @@ async function fetchSynth(text, voiceName, speed) {
   return res.json();
 }
 
+// A page's worth of sentences all become fetchable the moment it renders
+// (see renderPage), which would otherwise fire 10-20 requests at once and
+// make every one of them slow. Cap how many the sidecar is doing at a time,
+// and let an explicit play() request cut the queue -- the reader is waiting
+// on it, the background reader-ahead isn't.
+// The sidecar pins each ONNX session to every CPU thread (server.py's
+// intra_op_num_threads), so two requests in parallel oversubscribe the
+// machine and both get SLOWER, not faster -- measured: raising this past 1
+// turned a cold click into a 6-8s wait instead of the ~2-4s one request
+// alone takes. One at a time, reordered by priority, is faster in practice.
+const MAX_CONCURRENT = 1;
+let activeRequests = 0;
+const fetchQueue = []; // [{key, run}], FIFO except promote() reorders it
+
+function pumpFetchQueue() {
+  while (activeRequests < MAX_CONCURRENT && fetchQueue.length) {
+    const { run } = fetchQueue.shift();
+    activeRequests++;
+    run();
+  }
+}
+
+function promote(k) {
+  const i = fetchQueue.findIndex((t) => t.key === k);
+  if (i > 0) fetchQueue.unshift(fetchQueue.splice(i, 1)[0]);
+}
+
 /** Kick off (or reuse) the synthesis request for a sentence, ahead of need. */
-function ensurePrefetch(c) {
+function ensurePrefetch(c, opts) {
+  const priority = Boolean(opts && opts.priority);
   const k = cacheKey(c);
-  if (prefetchCache.has(k)) return prefetchCache.get(k);
+  if (prefetchCache.has(k)) {
+    if (priority) promote(k);
+    return prefetchCache.get(k);
+  }
   const s = sentenceAt(c);
   if (!s) return Promise.resolve(null);
-  const p = fetchSynth(s.speech, el.voice.value, Number(el.nativeSpeed.value))
-    .catch((e) => { prefetchCache.delete(k); throw e; });
-  prefetchCache.set(k, p);
-  return p;
+
+  let resolveFn, rejectFn;
+  const promise = new Promise((res, rej) => { resolveFn = res; rejectFn = rej; });
+  prefetchCache.set(k, promise);
+
+  const run = () => {
+    fetchSynth(s.speech, el.voice.value, Number(el.nativeSpeed.value))
+      .then(resolveFn, (e) => { prefetchCache.delete(k); rejectFn(e); })
+      .finally(() => { activeRequests--; pumpFetchQueue(); });
+  };
+  fetchQueue[priority ? "unshift" : "push"]({ key: k, run });
+  pumpFetchQueue();
+  return promise;
+}
+
+// Read a little ahead on a freshly rendered page, low priority, so a click
+// soon after usually hits cache. Not the whole page: with one synth worker
+// (above), queuing 20-30 sentences at once just makes anything past the
+// lookahead wait behind all of them even after being promoted to the front
+// of what's left -- a promoted item still waits for whatever's already
+// running, but a shorter queue means a *shorter* max backlog to promote past.
+const PAGE_LOOKAHEAD = 6;
+function prefetchPage(p) {
+  for (let si = 0; si < Math.min(p.sentences.length, PAGE_LOOKAHEAD); si++) {
+    ensurePrefetch({ pn: p.pn, si }).catch(() => {}); // fire-and-forget; speakOne's own await surfaces real failures
+  }
 }
 
 function wordsAt(t) {
@@ -611,20 +709,24 @@ async function speakOne(c) {
 
   let data, nc;
   try {
-    [data, nc] = await Promise.all([ensurePrefetch(c), nextCursor(c)]);
+    [data, nc] = await Promise.all([ensurePrefetch(c, { priority: true }), nextCursor(c)]);
   } catch (e) {
     if (gen !== generation) return;
-    console.warn("[tts] synth error", e, "—", s.text.slice(0, 60));
-    playing = false;
-    el.play.textContent = "▶ Play";
-    status(`synth error — is the Kokoro sidecar running? (npm run server)\n${e.message}`);
-    return;
+    console.warn("[tts] synth error, skipping sentence", e, "—", s.text.slice(0, 60));
+    // One bad sentence shouldn't end the read. Skip it and keep going — the
+    // reader hears a gap, not a dead stop. If the sidecar itself is down,
+    // every following sentence will fail the same way; that surfaces as
+    // reaching endOfDocument almost immediately, which is enough of a signal.
+    nc = await nextCursor(c).catch(() => null);
+    if (nc) return speakOne(nc);
+    status(`synth error on the last sentence — is the Kokoro sidecar running? (npm run server)\n${e.message}`);
+    return endOfDocument();
   }
   if (gen !== generation) return;
   prefetchCache.delete(cacheKey(c));
 
   cursor = nc;
-  if (cursor) ensurePrefetch(cursor); // keep ~1 sentence of audio ahead (16 §"app-owned buffer queue")
+  if (cursor) ensurePrefetch(cursor, { priority: true }).catch(() => {}); // still jumps the page-wide reader-ahead (16 §"app-owned buffer queue")
 
   speaking = c;
   currentSpans = data.spans;
@@ -874,12 +976,14 @@ el.nativeSpeed.onchange = () => {
   // Baseline control: Kokoro's own `speed` needs re-synthesis, so it only
   // takes effect on sentences not yet fetched — invalidate the lookahead.
   prefetchCache.clear();
-  if (cursor) ensurePrefetch(cursor);
+  fetchQueue.length = 0;
+  if (cursor) ensurePrefetch(cursor, { priority: true }).catch(() => {});
 };
 
 el.voice.onchange = () => {
   prefetchCache.clear();
-  if (cursor) ensurePrefetch(cursor);
+  fetchQueue.length = 0;
+  if (cursor) ensurePrefetch(cursor, { priority: true }).catch(() => {});
 };
 
 let zoomTimer;

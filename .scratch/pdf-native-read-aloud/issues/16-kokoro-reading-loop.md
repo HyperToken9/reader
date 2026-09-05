@@ -1,8 +1,12 @@
 # 16 — Rebuild the reading loop on Kokoro, with a word cursor
 
 Type: prototype
-Status: open
+Status: in progress — built, awaiting human verdict
 Blocked by: —
+
+Prototype: branch `prototype/16-kokoro-reading-loop`, dir `prototype-16/`.
+Run `npm run server` (Kokoro sidecar) and `npm run dev` (app), then drive it —
+see the prototype's README for what each control judges.
 
 ## Question
 

@@ -174,9 +174,20 @@ class Handler(BaseHTTPRequestHandler):
             voice = body.get("voice", "bf_emma")
             speed = float(body.get("speed", 1.0))
 
+            # continuous=True: kokoro-onnx's default batched path
+            # (_create_batches -> _split_phonemes) can return a completely
+            # empty audio array for some ordinary sentences with no warning
+            # (reproduced on "more powerful methods for attacking them." --
+            # nothing unusual about it), which then crashes pauses.py's
+            # _quiet_frames on an empty reduction. The sliding-window path
+            # here doesn't batch-split at all, costs ~1.4x the synth time
+            # per kokoro-onnx's own docstring, and has not reproduced the
+            # bug in any case tried. Correctness over the constant factor.
             audio, sr, timings = kokoro.create_timed(
-                text, voice=voice, speed=speed, lang="en-us"
+                text, voice=voice, speed=speed, lang="en-us", continuous=True
             )
+            if len(audio) == 0:
+                raise ValueError(f"synthesis produced zero-length audio for {text!r}")
             groups = phoneme_groups(timings)
             words = word_list(text)
             aligned = align_groups_to_words(words, groups, kokoro.tokenizer)
