@@ -1,0 +1,208 @@
+/* THROWAWAY prototype styling. Ticket 05. */
+
+:root {
+  --bg: #14161a;
+  --panel: #1c1f25;
+  --ink: #e8eaed;
+  --muted: #9aa3af;
+  --accent: #7cc4ff;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+#app { display: flex; height: 100%; }
+
+/* The panel is scaffolding, not the product. Get it out of the way so the
+   page can actually be read at a comfortable zoom. */
+#hide {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 60;
+  opacity: .35;
+  padding: 3px 8px;
+}
+#hide:hover { opacity: 1; }
+#app.bare #side { display: none; }
+#app.bare + #switcher, body:has(#app.bare) #switcher { left: 50%; }
+
+/* ---------------- sidebar ---------------- */
+
+#side {
+  width: 330px;
+  flex: 0 0 330px;
+  background: var(--panel);
+  border-right: 1px solid #2c313a;
+  padding: 14px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#side h1 { font-size: 15px; margin: 0; }
+#side h2 { font-size: 12px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+
+.proto {
+  margin: 0;
+  font-size: 11px;
+  color: #ffbf6b;
+  border: 1px dashed #6b5122;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+#side section { display: flex; flex-direction: column; gap: 8px; }
+#side section.row { flex-direction: row; }
+#side section.grow { flex: 1; min-height: 0; }
+
+label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); }
+
+select, input[type="range"] { width: 100%; }
+
+button {
+  background: #2a2f38;
+  color: var(--ink);
+  border: 1px solid #3a414d;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { background: #333a45; }
+button:disabled { opacity: .45; cursor: default; }
+
+.muted { color: var(--muted); }
+.tiny { font-size: 11px; margin: 0; }
+
+.state {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  color: var(--accent);
+}
+
+.spoken {
+  font-size: 12px;
+  background: #0f1115;
+  border-radius: 4px;
+  padding: 7px;
+  max-height: 110px;
+  overflow: auto;
+}
+
+#sentences {
+  margin: 0;
+  padding-left: 22px;
+  overflow: auto;
+  font-size: 11px;
+  flex: 1;
+  min-height: 0;
+}
+#sentences li { padding: 2px 0; cursor: pointer; color: var(--muted); }
+#sentences li:hover { color: var(--ink); }
+#sentences li.on { color: #ffd54a; font-weight: 600; }
+
+/* ---------------- viewer ---------------- */
+
+#viewer { flex: 1; overflow: auto; position: relative; padding: 24px 0 120px; }
+
+#pages { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+
+.pdfpage {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .55);
+}
+.pdfpage canvas { display: block; width: 100%; height: 100%; }
+
+.pdfpage .textLayer { z-index: 2; }
+
+.pdfpage .overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#drop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: var(--muted);
+  border: 2px dashed #3a414d;
+  margin: 20px;
+  border-radius: 10px;
+  pointer-events: none;
+}
+#drop.hide { display: none; }
+#viewer.dragging #drop { border-color: var(--accent); color: var(--accent); }
+
+/* ---------------- variant switcher ---------------- */
+
+#switcher {
+  position: fixed;
+  bottom: 18px;
+  left: calc(50% + 165px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f4f6f8;
+  color: #14161a;
+  border-radius: 999px;
+  padding: 5px 8px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .5);
+  z-index: 50;
+}
+#switcher button {
+  background: transparent;
+  border: none;
+  color: #14161a;
+  font-size: 15px;
+  padding: 2px 8px;
+}
+#switcher button:hover { background: #dfe4ea; }
+#variantLabel { font-size: 12px; font-weight: 600; min-width: 150px; text-align: center; }
+
+/* ---------------- word-cursor switcher ---------------- */
+
+#cursorSwitcher {
+  position: fixed;
+  bottom: 18px;
+  left: calc(50% + 165px + 210px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #2a2210;
+  color: #ffd966;
+  border-radius: 999px;
+  padding: 5px 8px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .5);
+  z-index: 50;
+}
+#app.bare + #switcher + #cursorSwitcher, body:has(#app.bare) #cursorSwitcher { left: calc(50% + 210px); }
+#cursorSwitcher button {
+  background: transparent;
+  border: none;
+  color: #ffd966;
+  font-size: 15px;
+  padding: 2px 8px;
+}
+#cursorSwitcher button:hover { background: #4a3d18; }
+#cursorLabel { font-size: 12px; font-weight: 600; min-width: 150px; text-align: center; }

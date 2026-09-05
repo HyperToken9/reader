@@ -1,0 +1,19 @@
+{
+  "name": "prototype-16-kokoro-reading-loop",
+  "private": true,
+  "type": "module",
+  "description": "THROWAWAY prototype for ticket 16. Not production code.",
+  "scripts": {
+    "dev": "vite --open",
+    "server": "./run_server.sh"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.3.289"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
