@@ -24,4 +24,14 @@ Blocked on [[12]] because the substrate question is downstream of what structure
 
 Consult `grilling` and `domain-modeling`.
 
+## Progress
+
+**The scope line is settled (2026-09-05): additive HTML only.**
+
+An HTML layer may render things the PDF does **not** contain — a definition popover, a re-typeset equation, a margin note, per-paragraph controls — positioned per-region and transparent. It may **never** re-render the PDF's own body text. Every original pixel stays visible and untouched underneath, so the reader is never looking at our reconstruction. A reflowed view, even as an opt-in toggle, was considered and rejected: it is two renderers, two sets of bugs, and the one option that puts a reconstruction in front of the reader at all.
+
+This is a refinement of the map's founding constraint, not a departure from it. The constraint was always on the *view*; this says what may be added to the view without replacing it.
+
+**Still open, and still blocked on [[12]]**: whether the SVG band survives alongside an HTML layer or gets absorbed into it; whether the layer is keyed to regions or to sentences; what it does when extraction is wrong; and how it keeps [[02]]'s zoom-costs-nothing property, which per-region HTML does not get for free.
+
 ## Answer

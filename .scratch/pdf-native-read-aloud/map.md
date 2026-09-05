@@ -20,6 +20,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 **Settled before charting** (context for every session):
 - Visual surface must stay the real PDF. Background text/geometry extraction is fully permitted — the constraint is on the *view*, not on internal parsing.
+- **Overlays may add, never replace** ([13](issues/13-overlay-substrate.md)). An HTML layer over the page may render what the PDF doesn't contain — popovers, re-typeset equations, notes, per-paragraph controls — but never re-renders the PDF's own body text, and every original pixel stays visible underneath. A reflowed view was considered and rejected, even as an opt-in toggle.
 - Assume an embedded text layer (born-digital or pre-OCR'd). No OCR.
 - TTS is browser-native (Web Speech API). Cloud TTS is deferred on voice-quality grounds only; nothing structural needs it. Development and use are **Linux-only**. *(Under challenge since 2026-09-05: a locally-run neural model is neither browser nor cloud TTS and escapes the quality/timing squeeze from both ends — [11](issues/11-local-neural-tts.md).)*
 - Highlight is a **sentence band alone — no word cursor** ([10](issues/10-timing-source-and-dev-platform.md)). Linux emits no word-boundary events, and rather than fake them, the word cursor was dropped. One sentence per utterance means `onstart`/`onend` drive the band exactly, with no estimation and no drift.
