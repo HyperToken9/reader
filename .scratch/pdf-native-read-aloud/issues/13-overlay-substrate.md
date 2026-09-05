@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: open
-Blocked by: 12
+Blocked by: —
 
 ## Question
 
@@ -20,7 +20,7 @@ Decide:
 - **What happens when extraction is wrong.** [[03]]'s argument for tolerating classification error was that the reader sees the real page, so the band is the recovery UI. A richer overlay has more ways to be conspicuously wrong. Does that argument still hold at higher fidelity?
 - **Zoom and reflow.** [[02]]'s fraction trick makes the band free at any scale. HTML positioned per-region needs the same discipline, or zoom becomes expensive and the layer drifts off the type underneath.
 
-Blocked on [[12]] because the substrate question is downstream of what structure actually exists: an overlay keyed to regions is only worth building if regions are reliable.
+**Unblocked (2026-09-05): regions are reliable.** [[12]] measured the join at 0.12% of words unassigned and 0.84% in more than one region, of which only 0.015% straddled a prose region and a skip region, across 40 pages and 19,760 words. So "an overlay keyed to regions" is a real option rather than a hope, and the substrate question can now be decided. Two facts from [[12]] bear directly on it: regions come back **already sorted in reading order**, and the model returns rectangles only — never per-character geometry — so anything text-shaped in the overlay still has to come from [[02]]'s `getClientRects()`.
 
 Consult `grilling` and `domain-modeling`.
 

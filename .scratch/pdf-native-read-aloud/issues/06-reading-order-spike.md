@@ -2,7 +2,7 @@
 
 Type: prototype
 Status: open
-Blocked by: 01, 02, 03, 12
+Blocked by: 01
 
 ## Question
 
@@ -23,7 +23,20 @@ What it must establish:
 - Do equation regions get detected — and are they text items in a maths font, or vector drawings with no text?
 - How much of this is heuristic guesswork versus something that holds across all corpus pages?
 
-**Now also blocked on [[12]], which may delete this ticket.** [[03]] concluded we hand-write this because no JS library exists — but a trained document-layout model (PP-StructureV3 and its rivals) returns exactly what [[03]] found hardest: region *classification*. If [[12]] finds one that runs acceptably on this corpus, this spike shrinks to a fallback for pages the model fails, or disappears. Do not start writing the 600–900 lines until [[12]] reports.
+## Rescoped by [[12]] (2026-09-05) — read this before the section above
+
+**Do not write the 600–900 lines. [[12]] measured a layout model on this corpus and it does the hard half.** `PP-DocLayoutV2.onnx` under `onnxruntime-node` returns labelled region boxes *already sorted in reading order* — a pointer network, not a post-hoc XY-cut — at ~731 ms/page on CPU. On genuine two-column pages it produced left column then right with no interleaving, put full-width spanning bands **first** (that is [[03]]'s "bands before columns", produced unasked), and emitted a footnote **last** despite it sitting mid-page. Zero straddles on all three of those pages.
+
+So this ticket survives as **shape 2: model primary, geometric fallback** — but the fallback is **150–250 lines, not 600–900**. [[03]]'s Passes 2–4 (line clustering, gutter detection by x-projection, column assembly) are not needed at all. Cross-page repetition for running heads is not needed — the model labels them `header` and `number` on a single page. Caption, footnote and equation heuristics all fall away.
+
+What this ticket is now for:
+
+- **Regions in order is not yet sentences in order.** The model returns rectangles; [[02]] returns per-character geometry. Joining them — assign each text item to a region by max area overlap, then order sentences by region order and by position within a region — is the actual remaining work, and it is what this spike should build and eyeball.
+- **Verify the join from the PDF.js side.** [[12]] measured it with PyMuPDF word boxes, not PDF.js. Same coordinate space per [[02]] §1, but re-verify on one page before trusting it.
+- **Decide what the fallback does** on pages where the model returns nothing useful, and how you detect that case.
+- **`aside_text` is unvalidated.** It fired once in 40 pages because the corpus has no sidebar-heavy book. [[03]]'s central worry is still untested, and [[01]] now records that as the highest-value corpus gap.
+
+Still blocked on [[01]] — for the sidebar case now, rather than the two-column one, which [[12]] worked around.
 
 The honest possible outcome is that this is harder than hoped. Say so plainly if it is, with what specifically fails — a no-go here reshapes the map, and is a genuine result rather than a failure of the spike.
 
