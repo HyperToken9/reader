@@ -206,7 +206,6 @@ async function renderPage(pn) {
     buildSentences(p);
     p.rendered = true;
     if (el.showall.checked) paintAllBands(p);
-    prefetchPage(p); // read the whole page ahead, low priority, while it's on screen
     report();
   })();
 
@@ -291,6 +290,8 @@ function buildSentences(p) {
   const seg = new Intl.Segmenter("en", { granularity: "sentence" });
   const box = p.textLayerDiv.getBoundingClientRect();
   const out = [];
+  // Kept for getWordRects()'s lazy computation, below.
+  p._geom = { divs, box, locate };
 
   for (const { segment, index } of seg.segment(pageText)) {
     let s = index, e = index + segment.length;
@@ -318,22 +319,21 @@ function buildSentences(p) {
       // space so the geometry stays right, but never hand them to TTS.
       const unmapped = (text.match(/[\u0000-\u001f]/g) ?? []).length;
 
-      // Per-word geometry for the word cursor (16). Split on the same \S+
-      // shape the server uses on s.speech, but run it against the *raw* text
-      // so control characters (equation glyphs) don't shift offsets. One
-      // place this can still desync, noted in the README: an unmapped-glyph
-      // run with no surrounding whitespace collapses to one space in .speech
-      // and splits what was a single word there into two, so .speech's word
-      // list can run one short of this one on that rare sentence.
-      const words = [];
+      // Per-word geometry for the word cursor (16) is *offsets only* here —
+      // not rects. Computing a Range + getClientRects() per word for every
+      // sentence on every page, the moment it scrolls into view, forces a
+      // synchronous layout reflow per word; on a normal page that's hundreds
+      // of extra reflows just from scrolling past it, never mind reading it.
+      // (Measured: this is what made fast scrolling through a multi-page
+      // document stall.) getWordRects() below computes and caches the actual
+      // rects lazily, the first time a sentence is about to be spoken.
+      const wordSpans = [];
       for (const m of text.matchAll(/\S+/g)) {
-        const ws = as + m.index, we = ws + m[0].length;
-        const wrects = mergeLines(rangeRects(divs, box, locate, ws, we));
-        if (wrects.length) words.push({ text: m[0], rects: wrects });
+        wordSpans.push({ text: m[0], ws: as + m.index, we: as + m.index + m[0].length });
       }
 
       out.push({
-        pn: p.pn, si: out.length, text, rects, words, unmapped,
+        pn: p.pn, si: out.length, text, rects, wordSpans, words: null, unmapped,
         speech: text.replace(/[\u0000-\u001f]+/g, " "),
       });
     }
@@ -371,6 +371,21 @@ function splitClauses(text, target = 90) {
       return [a, b];
     })
     .filter(([a, b]) => b > a);
+}
+
+/** Compute (and cache) a sentence's per-word rects, only when it's about to speak. */
+function getWordRects(p, sentence) {
+  if (sentence.words) return sentence.words;
+  const { divs, locate } = p._geom;
+  // A fresh box, not the one buildSentences captured: this can run long
+  // after render, once the page has scrolled, and range.getClientRects()
+  // below always reports *current* viewport position — mixing a stale box
+  // with live rects would misplace every word box by the scroll delta.
+  const box = p.textLayerDiv.getBoundingClientRect();
+  sentence.words = sentence.wordSpans
+    .map(({ text, ws, we }) => ({ text, rects: mergeLines(rangeRects(divs, box, locate, ws, we)) }))
+    .filter((w) => w.rects.length);
+  return sentence.words;
 }
 
 /** DOM Range -> normalised page-fraction rects for [s, e) of pageText. */
@@ -486,8 +501,9 @@ function paintBand(p, rects) {
  */
 function paintWordCursor(p, sentence, wordIdxs) {
   if (cursorStyle.key === "off" || !sentence || !wordIdxs.length) return;
+  const words = getWordRects(p, sentence);
   const wordBoxes = wordIdxs
-    .map((i) => sentence.words[i])
+    .map((i) => words[i])
     .filter(Boolean)
     .flatMap((w) => w.rects.map(pad));
   if (!wordBoxes.length) return;
@@ -654,16 +670,23 @@ function ensurePrefetch(c, opts) {
   return promise;
 }
 
-// Read a little ahead on a freshly rendered page, low priority, so a click
-// soon after usually hits cache. Not the whole page: with one synth worker
-// (above), queuing 20-30 sentences at once just makes anything past the
-// lookahead wait behind all of them even after being promoted to the front
-// of what's left -- a promoted item still waits for whatever's already
-// running, but a shorter queue means a *shorter* max backlog to promote past.
-const PAGE_LOOKAHEAD = 6;
-function prefetchPage(p) {
-  for (let si = 0; si < Math.min(p.sentences.length, PAGE_LOOKAHEAD); si++) {
-    ensurePrefetch({ pn: p.pn, si }).catch(() => {}); // fire-and-forget; speakOne's own await surfaces real failures
+// Read a few sentences ahead of wherever the *voice* actually is, not
+// wherever the viewport happens to be. This used to fire from renderPage,
+// which meant scrolling through the document -- not reading it -- queued
+// audio for every page that scrolled into view. On a long document, fast
+// scrolling could queue hundreds of sentences behind whatever was already
+// playing, and worse, buildSentences' per-word geometry (now lazy, see
+// getWordRects) used to run eagerly for all of them too. Tying prefetch to
+// playback instead means scrolling costs nothing beyond the page render
+// [[05]] already paid for.
+const READ_AHEAD = 3;
+async function prefetchAhead(c, { priorityFirst = false } = {}) {
+  let at = c;
+  for (let i = 0; i < READ_AHEAD && at; i++) {
+    // fire-and-forget; speakOne's own await on the immediate-next sentence
+    // is what surfaces a real failure, not this background warm-up
+    ensurePrefetch(at, { priority: priorityFirst && i === 0 }).catch(() => {});
+    at = await nextCursor(at);
   }
 }
 
@@ -726,13 +749,14 @@ async function speakOne(c) {
   prefetchCache.delete(cacheKey(c));
 
   cursor = nc;
-  if (cursor) ensurePrefetch(cursor, { priority: true }).catch(() => {}); // still jumps the page-wide reader-ahead (16 §"app-owned buffer queue")
+  if (cursor) prefetchAhead(cursor, { priorityFirst: true }); // the sentence right after this one, plus a couple more behind it
 
   speaking = c;
   currentSpans = data.spans;
   activeWordIdxs = [];
   el.spoken.textContent = s.text;
   const p = pages.get(c.pn);
+  getWordRects(p, s); // pay the per-word layout cost for this one sentence, now that it's needed
   repaint();
   scrollTo(p, s.rects);
   markSentenceList(c);
