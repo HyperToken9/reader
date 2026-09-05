@@ -14,6 +14,10 @@ Surfaced by [[02]]. The page-level concatenated string is load-bearing twice ove
 - Spaces in `str` are **synthesised from advance heuristics**, not read from the content stream. Tight tracking — common in textbook typesetting — can weld adjacent words together.
 - RTL runs are reordered into visual order by `bidi()`.
 
+**Already confirmed worse than [[02]] predicted.** A spot check during [[01]] found that on p.60 of the Millington physics book, the **Δ glyphs vanish entirely** from extraction: `Δp/Δt` comes out as `p`/`t`, and U+0394 appears nowhere in pages 58–64 despite the prose requiring it. This is a maths font with an encoding that yields no usable Unicode — so the character doesn't arrive garbled, it arrives *missing*, which is the failure mode you cannot detect downstream. Meanwhile matrix bracket glyphs (`⎡⎣⎢⎤⎦⎥`) *do* survive and would be read aloud as gibberish.
+
+That combination — silent drops plus surviving junk — means equation regions cannot be sanitised by cleaning the string. They have to be **detected and skipped** as regions, which makes [[07]]'s announce-and-skip policy load-bearing rather than a nicety, and makes equation *detection* a correctness requirement rather than a polish item.
+
 Measure this against the real corpus rather than assuming. Build a small harness that dumps the concatenated page string for corpus pages and answers:
 
 - How often do words weld together, and does it correlate with particular books or fonts?

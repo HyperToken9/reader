@@ -22,4 +22,17 @@ Decide:
 
 Consult `grilling` and `domain-modeling` — this ticket also names the timing seam.
 
+## Progress
+
+**Settled (2026-09-05):** the human accepts an unnatural/robotic local voice for now, deferring voice quality. So the **voice-quality trade is resolved** — pick sync over naturalness — and the cloud-TTS deferral holds on quality grounds.
+
+**Still open, and still blocking:** this does *not* clear the platform blocker, and the distinction matters. Boundary support is not a property of how natural a voice sounds — it is a property of the **OS speech backend**. On macOS and Windows the local (robotic) voices are exactly the ones that emit boundaries, so accepting a robotic voice fully solves it *there*. On **Linux no voice emits `word` events at all**: `tts_linux.cc` never sends `TTS_EVENT_WORD`, so there is no voice — robotic, natural, local or remote — that can be chosen to fix this. Accepting a worse voice cannot unblock a machine that emits no events.
+
+So the remaining question narrows to one thing: **is a macOS or Windows machine available to build and demo [[05]] on?**
+
+- If **yes** — everything is settled, native TTS stands, cloud TTS stays deferred, and [[05]] unblocks on that machine.
+- If **no** — cloud TTS becomes the prototype's primary timing source by necessity rather than preference, since word timestamps arrive with the audio and are platform-independent.
+
+Either way, build the timing seam [[04]] recommends (`{wordIndex, atTime}` behind `BoundaryEventTiming` / `EstimatedCadenceTiming` / `TimestampTiming`) so the answer stays cheap to change.
+
 ## Answer

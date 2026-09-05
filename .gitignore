@@ -2,4 +2,4 @@
 
 # Test corpus: real textbook PDFs, kept local and never committed (size + licensing).
 # Ticket 01 records what each file is; the files themselves stay out of git.
-.scratch/pdf-native-read-aloud/corpus/
+sample_books/
