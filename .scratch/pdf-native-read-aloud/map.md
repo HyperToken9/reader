@@ -38,6 +38,10 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [10 — Timing source and dev platform](issues/10-timing-source-and-dev-platform.md): **the word cursor is dropped; the highlight is a sentence band alone.** Linux-only development, and Linux emits no word-boundary events for any voice. But one-sentence-per-utterance makes `onstart`/`onend` drive the band exactly — no estimation, no drift, no cadence model. Native TTS stands, and [04](issues/04-web-speech-boundary-reliability.md)'s timing seam, voice-capability probe and drift model are all **cancelled as overbuilding**.
 
+## In flight
+
+- [05 — sync spike](issues/05-sync-spike-single-column.md) is **built and awaiting judgement**, not resolved. `prototype-05/` on branch `prototype/05-sync-spike`; run it and drive it. The mechanism from [02](issues/02-pdfjs-text-layer-geometry.md) and [10](issues/10-timing-source-and-dev-platform.md) is confirmed working (band lands correctly, zoom costs nothing); what remains needs ears and eyes, above all whether Linux voices are listenable.
+
 ## Not yet specified
 
 - **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.

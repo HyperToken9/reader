@@ -28,4 +28,16 @@ Measure this against the real corpus rather than assuming. Build a small harness
 
 The output is a judgement on whether the string is usable as-is, needs a cleanup pass, or is bad enough to reshape the highlight/TTS design. Cheap to run, and it de-risks both [[05]] and [[06]].
 
+## Progress
+
+**Two of these questions are already answered, incidentally, by [[05]]'s prototype (2026-09-05).**
+
+**The Δ glyphs are not silently dropped after all — they arrive as C0 control characters.** Millington p60 extracts as `v = lim t→0 p t`: every missing Δ is a literal **U+0003**. This materially changes the paragraph above. The failure mode is not "undetectable silent loss" but a *sentinel*: any run of C0 control characters marks a glyph the font could not map, which is a cheap, reliable signal that a region is not speakable prose. Worth re-checking pages 58–64 before rewriting the finding — the earlier probe may have stripped control characters before counting, in which case the two observations agree and only the conclusion was wrong.
+
+That does **not** rescue the string. The surviving junk (matrix brackets, stray operators) is still junk, and the equation still reads as gibberish. But the argument in this ticket shifts: equation regions may be flaggable from the string alone, without full geometric region detection — which would make [[07]]'s job cheaper than [[06]]'s. The prototype already strips C0 characters from the TTS input while keeping them in the index space, so geometry stays correct.
+
+**Hyphenated line breaks: answered, and it is worse than "`-` plus a newline".** PDF.js emits *no* whitespace at a line break at all — the break exists only as a `<br>` in the DOM — so `strs.join("")` welds the last word of one line onto the first of the next (`"It is thispersonality that…"`). A hyphenated break therefore yields `"accelerat-"` + `"ing"` with nothing between. [[05]] fixes both by injecting a separator after every `hasEOL` item and dropping a trailing hyphen when it does.
+
+**Still unmeasured**: weld frequency from *tracking* heuristics (distinct from the EOL problem above, and the thing this ticket was really about), whether `disableNormalization: true` helps or hurts, and the cost of a repair pass.
+
 ## Answer

@@ -21,4 +21,13 @@ Hooks [[03]] found that this ticket can use: a tagged PDF's `role: "Formula"` (w
 
 Consult `grilling` and `domain-modeling` — this ticket also fixes the vocabulary the codebase will use for regions.
 
+## Evidence from [[05]] (2026-09-05)
+
+Driving the prototype over the corpus produced two concrete instances of what this ticket has to decide about, worth keeping because they are the *typical* cases, not edge cases:
+
+- **Running heads weld into the first sentence of a page.** Millington p60's first "sentence" is `"2.2 Calculus 37 FIGURE 2.8 Same average velocity, different instantaneous velocity. acc…"` — section head, page number, figure caption and body prose in one utterance, because none of them ends in a full stop. So "skip headers and footers silently" is not a filter applied to a finished sentence list; it has to happen *before* segmentation, or the header takes a sentence of real prose down with it.
+- **Blocks with no terminating punctuation swallow the prose that follows them.** On `theCodeBook.pdf` p40 a ciphertext block runs straight into `"…CPe PiDhLK This simple step helps us to identify…"`. Same mechanism, and the same conclusion: region boundaries must cut the string before `Intl.Segmenter` sees it.
+
+[[09]] also found a cheap detector this ticket can use: unmapped glyphs arrive as **C0 control characters**, so a run of them is a strong signal that a region is not speakable prose.
+
 ## Answer
