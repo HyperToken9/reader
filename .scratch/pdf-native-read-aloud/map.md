@@ -19,7 +19,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 **Settled before charting** (context for every session):
 - Visual surface must stay the real PDF. Background text/geometry extraction is fully permitted — the constraint is on the *view*, not on internal parsing.
 - Assume an embedded text layer (born-digital or pre-OCR'd). No OCR.
-- TTS is browser-native (Web Speech API) for now, despite weaker voices and unreliable boundary events. Cloud TTS with word timestamps was considered and deferred, not rejected.
+- TTS is browser-native (Web Speech API) for now, despite weaker voices and unreliable boundary events. Cloud TTS with word timestamps was considered and deferred, not rejected. **This assumption is now under challenge — see [10](issues/10-timing-source-and-dev-platform.md); word boundaries do not exist on Linux at all.**
 - Highlight is a soft sentence band plus a stronger word cursor — the band keeps you anchored on a dense page and degrades gracefully when word sync drifts.
 - Audio skips page headers/footers silently; equations, figures and footnotes get a brief spoken placeholder ("equation", "figure four") then are stepped over, since your eyes have the real thing on screen.
 - Prototype front door is a single drag-dropped PDF. No library, no persistence.
@@ -29,6 +29,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 <!-- one line per closed ticket: gist + link -->
 
 - [02 — PDF.js text-layer geometry](issues/02-pdfjs-text-layer-geometry.md): per-word boxes are *not* in the API and are unavoidably approximate — but the route works: render the stock `TextLayer`, segment the concatenated page string with `Intl.Segmenter`, map offsets back to divs, and take `range.getClientRects()`. Highlights go in a separate normalised-fraction SVG overlay, so zoom costs nothing. Pin an exact `pdfjs-dist`; the API moved three times since 2024.
+
+- [04 — Web Speech boundary reliability](issues/04-web-speech-boundary-reliability.md): boundary support belongs to the OS backend, not the browser — Windows and macOS deliver `word` events with `charIndex`+`charLength`; **Linux delivers none, ever**, which blocks the sync spike on this machine ([10](issues/10-timing-source-and-dev-platform.md)). `voice.localService === false` statically predicts zero boundaries, so the voice picker can label sync support before playback. Chunk on sentences (~8–12 s), not 220 words; when boundaries are absent, turn the word cursor off rather than drift.
 
 ## Not yet specified
 
