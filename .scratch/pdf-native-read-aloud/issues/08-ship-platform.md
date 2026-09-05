@@ -2,7 +2,7 @@
 
 Type: grilling
 Status: open
-Blocked by: 05, 06
+Blocked by: 05, 06, 11, 12
 
 ## Question
 
@@ -17,6 +17,10 @@ The candidates, with the concern each carries:
 - **Capacitor-wrapped web** — keeps the web core, reaches mobile app stores. Compromise on both ends.
 
 [[10]] narrowed this: development and use are Linux-only, which removes macOS/Windows-first options from serious contention and weakens the mobile-reach argument that was Flutter's main draw. It also means any candidate must carry a TTS story that works without word-boundary events.
+
+**[[11]] and [[12]] may settle this before the grilling even starts, and they point the same way.** A local neural TTS model and a local document-layout model are independent ideas that make the same architectural demand: **a model runtime alongside the app** — very likely Python, possibly ONNX in Node, unlikely to be a browser tab. If both land, the "web app / PWA" candidate is effectively out, mobile-first is out, and the field narrows to Tauri or Electron with a sidecar process, or a local server with a browser front end. That would also make the porting-cost argument moot: whatever ships has to carry model weights and a runtime, so the PDF.js-and-Web-Speech portability that motivated this ticket stops being the deciding factor.
+
+Note the reverse case too. If [[05]]'s verdict is that browser TTS and the sentence band are already good enough, and [[12]] finds the layout models too heavy for the gain, then nothing forces a local runtime and the web-app candidate is back at full strength. So this ticket really turns on how much machinery the experience needs, which is what those two research tickets and [[05]]'s verdict jointly establish.
 
 Decide against real weight: where does textbook reading actually happen for this user — desk, laptop, tablet? Does that override the porting cost? And how much of the spike work survives each choice?
 

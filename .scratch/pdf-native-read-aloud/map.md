@@ -21,7 +21,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 **Settled before charting** (context for every session):
 - Visual surface must stay the real PDF. Background text/geometry extraction is fully permitted — the constraint is on the *view*, not on internal parsing.
 - Assume an embedded text layer (born-digital or pre-OCR'd). No OCR.
-- TTS is browser-native (Web Speech API). Cloud TTS is deferred on voice-quality grounds only; nothing structural needs it. Development and use are **Linux-only**.
+- TTS is browser-native (Web Speech API). Cloud TTS is deferred on voice-quality grounds only; nothing structural needs it. Development and use are **Linux-only**. *(Under challenge since 2026-09-05: a locally-run neural model is neither browser nor cloud TTS and escapes the quality/timing squeeze from both ends — [11](issues/11-local-neural-tts.md).)*
 - Highlight is a **sentence band alone — no word cursor** ([10](issues/10-timing-source-and-dev-platform.md)). Linux emits no word-boundary events, and rather than fake them, the word cursor was dropped. One sentence per utterance means `onstart`/`onend` drive the band exactly, with no estimation and no drift.
 - Audio skips page headers/footers silently; equations, figures and footnotes get a brief spoken placeholder ("equation", "figure four") then are stepped over, since your eyes have the real thing on screen.
 - Prototype front door is a single drag-dropped PDF. No library, no persistence.
@@ -45,9 +45,10 @@ Reached when that prototype exists and has been driven against real textbook PDF
 ## Not yet specified
 
 - **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.
-- **Voice quality upgrade path** — if Linux speech-dispatcher voices prove too poor to sit with for hours, what a cloud-TTS tier (per-character cost, pre-synthesis, offline story) would look like. Deferred on quality grounds alone; [10](issues/10-timing-source-and-dev-platform.md) removed the structural reason to want it.
-- **Word-level highlighting** — dropped by [10](issues/10-timing-source-and-dev-platform.md) because Linux emits no boundary events. Returns only if the sentence band proves insufficient in real use, or if a macOS/Windows machine enters the picture.
+- **Which TTS the app actually ships with** — now a three-way choice, not a deferral: browser-native (free, robotic, no timing), a local neural model ([11](issues/11-local-neural-tts.md) — good voices, possibly word timing, but a model runtime to carry), or cloud (good voices, word timestamps, per-character cost and no offline story). Turns on [05](issues/05-sync-spike-single-column.md)'s verdict and [11](issues/11-local-neural-tts.md)'s facts. Ticket this once both are in.
+- **Word-level highlighting** — dropped by [10](issues/10-timing-source-and-dev-platform.md) because Linux emits no boundary events. Back in play *if* [11](issues/11-local-neural-tts.md) finds a local model that returns alignments, since that removes the reason it was dropped.
 - **Scanned / image-only PDFs** — OCR to obtain a text layer at all. Assumed away for this effort; a real concern for textbooks sourced as scans.
+- **What a richer overlay unlocks, once there is structure to hang it on** — definition popovers, re-typeset equations, per-paragraph controls, notes. [13](issues/13-overlay-substrate.md) decides the substrate; what gets built on it is fog until it does, and most of it is past the prototype's destination anyway.
 - **The other Reading Lenses techniques over a PDF surface** — spacing, typeface swap, fixation anchoring, chromatic line guidance, masking, pacer, RSVP. To be revisited per-technique on use-case and importance, and harder here than in HTML since the page is rendered pixels, not reflowable text.
 - **Browser-extension form factor** — overlaying this on PDFs already open in a browser. Blocked in Chrome's built-in viewer today; would need its own viewer. Future form factor, not this effort.
 - **Real equation speech** — MathML/LaTeX-aware reading instead of announce-and-skip.

@@ -2,7 +2,7 @@
 
 Type: prototype
 Status: open
-Blocked by: 01, 02, 03
+Blocked by: 01, 02, 03, 12
 
 ## Question
 
@@ -22,6 +22,8 @@ What it must establish:
 - Are footnotes and figure captions distinguishable from body prose at all, and by what signal?
 - Do equation regions get detected — and are they text items in a maths font, or vector drawings with no text?
 - How much of this is heuristic guesswork versus something that holds across all corpus pages?
+
+**Now also blocked on [[12]], which may delete this ticket.** [[03]] concluded we hand-write this because no JS library exists — but a trained document-layout model (PP-StructureV3 and its rivals) returns exactly what [[03]] found hardest: region *classification*. If [[12]] finds one that runs acceptably on this corpus, this spike shrinks to a fallback for pages the model fails, or disappears. Do not start writing the 600–900 lines until [[12]] reports.
 
 The honest possible outcome is that this is harder than hoped. Say so plainly if it is, with what specifically fails — a no-go here reshapes the map, and is a genuine result rather than a failure of the spike.
 
