@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Reading Lenses",
+  "version": "1.0.0",
+  "description": "Eight evidence-based reading aids — spacing, fixation bolding, line-hue guidance, masking, pacing, read-aloud and RSVP — applied in place to any page you are already on.",
+  "permissions": ["storage", "contextMenus"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "src/background.js" },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "Reading Lenses",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["fonts/*.woff2"], "matches": ["<all_urls>"] }
+  ],
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": { "default": "Alt+R", "mac": "Alt+R" },
+      "description": "Show or hide the Reading Lenses panel"
+    },
+    "toggle-mask": {
+      "suggested_key": { "default": "Alt+M", "mac": "Alt+M" },
+      "description": "Toggle the reading mask"
+    },
+    "rsvp": {
+      "suggested_key": { "default": "Alt+S", "mac": "Alt+S" },
+      "description": "RSVP the selection, or the whole article"
+    }
+  }
+}

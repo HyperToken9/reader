@@ -1,0 +1,39 @@
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+<div class="wrap">
+  <header>
+    <h1>Reading Lenses</h1>
+    <p id="site">—</p>
+  </header>
+
+  <section class="quick">
+    <button class="tile" data-toggle="bionic"><b>Bionic</b><span>bold openings</span></button>
+    <button class="tile" data-toggle="beeline"><b>Line hues</b><span>return-sweep guide</span></button>
+    <button class="tile" data-toggle="mask"><b>Mask</b><span>aperture · Alt+M</span></button>
+    <button class="tile" data-preset="crowd"><b>Spacing</b><span>reduced crowding</span></button>
+  </section>
+
+  <section class="row">
+    <label for="font">Typeface</label>
+    <select id="font">
+      <option value="page">Page default</option>
+      <option value="atkinson">Atkinson Hyperlegible</option>
+      <option value="lexend">Lexend</option>
+      <option value="opendyslexic">OpenDyslexic</option>
+      <option value="system">System sans</option>
+      <option value="georgia">Georgia</option>
+    </select>
+  </section>
+
+  <section class="acts">
+    <button class="b pr" id="panel">Open panel &nbsp;<kbd>Alt+R</kbd></button>
+    <button class="b" id="rsvp">RSVP &nbsp;<kbd>Alt+S</kbd></button>
+    <button class="b" id="reset">Reset page</button>
+  </section>
+
+  <footer>
+    <label class="sw"><input type="checkbox" id="pause"><span class="tk"></span><span>Pause on this site</span></label>
+    <p id="stat">—</p>
+  </footer>
+</div>
+<script src="popup.js"></script>

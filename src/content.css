@@ -1,0 +1,53 @@
+/* Bundled faces. Prefixed so they never collide with a page's own webfonts.
+   Declared in a manifest content_script stylesheet, so the page's CSP does not
+   block them and the font files load from the extension origin. */
+@font-face{font-family:"RL Atkinson";src:url("../fonts/atkinson-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"RL Atkinson";src:url("../fonts/atkinson-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"RL Lexend";src:url("../fonts/lexend-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"RL Lexend";src:url("../fonts/lexend-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"RL OpenDyslexic";src:url("../fonts/opendyslexic-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"RL OpenDyslexic";src:url("../fonts/opendyslexic-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+
+/* Word wrappers. Custom element names, so no page selector written for
+   div/span can reach them by accident. */
+rl-t{display:inline}
+rl-w{display:inline;border-radius:3px}
+rl-b{display:inline;font-weight:700 !important}
+
+rl-w.rl-on{
+  background:rgba(245,196,72,.42) !important;
+  box-shadow:0 0 0 .12em rgba(245,196,72,.42) !important;
+  border-bottom:2px solid rgba(14,110,120,.9) !important;
+}
+
+/* Typography lenses. Values arrive as custom properties set on the scope
+   element from JS, so nothing here needs to be rewritten at runtime. */
+.rl-typo,
+.rl-typo *:not(code):not(pre):not(kbd):not(samp):not(tt){
+  font-family:var(--rl-font) !important;
+}
+.rl-space,
+.rl-space *:not(code):not(pre):not(kbd):not(samp):not(tt){
+  letter-spacing:var(--rl-ls) !important;
+  word-spacing:var(--rl-ws) !important;
+}
+.rl-space p, .rl-space li, .rl-space blockquote, .rl-space dd, .rl-space td{
+  line-height:var(--rl-lh) !important;
+}
+.rl-size p, .rl-size li, .rl-size blockquote, .rl-size dd, .rl-size td{
+  font-size:var(--rl-size) !important;
+}
+.rl-measure p, .rl-measure li, .rl-measure blockquote, .rl-measure h1,
+.rl-measure h2, .rl-measure h3, .rl-measure h4{
+  max-width:var(--rl-measure) !important;
+}
+
+/* Panel host. `all:initial` keeps page rules out; everything inside is styled
+   by a constructed stylesheet on the shadow root. */
+reading-lenses{
+  all:initial;
+  position:fixed !important;
+  top:0 !important; left:0 !important;
+  width:0 !important; height:0 !important;
+  z-index:2147483647 !important;
+}
