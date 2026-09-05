@@ -1,7 +1,7 @@
 # 13 — What is the overlay made of, once there is structure worth rendering?
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -32,6 +32,22 @@ An HTML layer may render things the PDF does **not** contain — a definition po
 
 This is a refinement of the map's founding constraint, not a departure from it. The constraint was always on the *view*; this says what may be added to the view without replacing it.
 
-**Still open, and still blocked on [[12]]**: whether the SVG band survives alongside an HTML layer or gets absorbed into it; whether the layer is keyed to regions or to sentences; what it does when extraction is wrong; and how it keeps [[02]]'s zoom-costs-nothing property, which per-region HTML does not get for free.
-
 ## Answer
+
+**Three layers, not one. Each keeps the job it is already good at.**
+
+1. **PDF canvas** — authoritative, untouched, always visible.
+2. **SVG overlay, keyed to sentences** — the reading band. Stays exactly as [[02]] built it and [[05]] verified it: normalised rects in `viewBox="0 0 1 1"`. It works, and zoom costs literally nothing — [[05]] measured the rects coming back byte-identical from 1.2× to 2.4×. There is no reason to pay to rebuild a working thing, and moving per-line boxes into HTML would forfeit precisely the property [[02]] chose SVG to get.
+3. **HTML layer, keyed to regions** ([[12]]) — block features only. Coarse, stable, already in reading order, 0.84% straddle. This is the right grain for something that sits *on* a paragraph or an equation rather than inside a line of type.
+
+The split is the point: **sentences are a reading-time concept, regions are a page-structure concept.** They have different lifetimes and different failure modes — a wrong sentence is a band on the wrong line, a wrong region is a visible block in the wrong place — so keying one substrate to both would couple two things that fail independently.
+
+**Zoom discipline for the HTML layer is the same trick, and it is not optional.** Store region boxes as page fractions and position with percentage `left`/`top`/`width`/`height` inside the page wrapper, exactly as the text layer does since PR #20491. Never write pixel offsets. Then zoom stays free for all three layers and nothing can drift off the type underneath.
+
+**Failure behaviour.** [[03]]'s argument — classification error is cheap because the reader sees the real page — holds, but *only* because of the additive rule. An HTML layer that adds a wrong popover is ignorable; one that replaced text would be a lie. So the rule from Progress above is what keeps the tolerance argument alive at higher fidelity, and it is load-bearing rather than stylistic. Concretely: `pointer-events: none` on the layer, re-enabled per element; render nothing where the model is unconfident; never occlude.
+
+**First feature: re-typeset equations.** Chosen because it is the one place the reading experience is currently *broken* rather than merely plain. [[09]] found equation glyphs arrive as C0 control characters, so [[07]]'s policy can only announce and skip — you hear "equation" and then nothing. [[12]] labels them `display_formula` and `inline_formula`. Rendering real maths over that region turns a hole into content, and it exercises the layer properly: a block element, positioned on a region, adding what the PDF's text layer could not give us.
+
+**But it has an uncosted prerequisite, and this is the main thing this ticket surfaces.** Nothing in the pipeline produces equation *content*. The text layer yields control characters; the layout model yields a rectangle and a label, not LaTeX. Re-typesetting therefore needs a **formula-recognition model** (PP-FormulaNet, UniMERNet and similar) — a third model, on top of layout and TTS. That is a real cost and it was invisible when this choice was made. It is now [[15]], and **the substrate decision above does not depend on it**: the three-layer split, the region keying and the fraction discipline all stand whatever [[15]] concludes. If formula recognition proves too heavy, the first HTML feature falls back to per-paragraph controls, which need only region boxes.
+
+**Build order.** Nothing here is needed for [[05]]'s verdict. The design is settled so it is not re-litigated; the code waits for [[15]] and for the prototype to prove the core experience.

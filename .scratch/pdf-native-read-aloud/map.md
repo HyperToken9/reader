@@ -47,6 +47,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [12 — Document-layout models](issues/12-document-layout-models.md): **a model does the half [03](issues/03-reading-order-algorithms.md) said was hard, and it was measured on this corpus, not read about.** Not PP-StructureV3 (Python-only, >1 GB, a full OCR pipeline we don't need) but the layout module alone in JS: `ppu-doclayout` (MIT) running `PP-DocLayoutV2.onnx` (Apache-2.0, 203 MiB) under `onnxruntime-node`, returning 25-label region boxes **already sorted in reading order** — a pointer network, not a post-hoc XY-cut — at **~731 ms/page on CPU**. The load-bearing region→text-item join was measured over 40 pages / 19,760 words: 0.12% of words unassigned, 0.84% in >1 region, and **only 0.015% straddling prose and a skip region**. On two-column pages it read left column then right, put spanning bands first, and emitted a footnote last. [02](issues/02-pdfjs-text-layer-geometry.md) and [05](issues/05-sync-spike-single-column.md) are untouched — the model is a filter and a sort key over text items and never returns per-character geometry. [06](issues/06-reading-order-spike.md) survives but shrinks from 600–900 lines to 150–250; [07](issues/07-skip-announce-policy.md) adopts the model's vocabulary instead of inventing one.
 
+- [13 — Overlay substrate](issues/13-overlay-substrate.md): **three layers, not one.** PDF canvas (authoritative) → SVG overlay keyed to **sentences** (the reading band, unchanged — it works and zoom costs nothing) → HTML layer keyed to **regions** (block features only). Sentences are a reading-time concept and regions a page-structure concept; they fail independently, so they get separate substrates. Region boxes stored as page fractions and positioned in percentages, same discipline as the text layer, or zoom drifts. First feature is re-typeset equations — the one place the experience is currently *broken* rather than plain — but that needs equation content nobody produces yet, which is [15](issues/15-formula-recognition.md). The substrate decision doesn't depend on it.
+
 ## Not yet specified
 
 - **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.
@@ -54,7 +56,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 - **What a richer overlay unlocks, once there is structure to hang it on** — definition popovers, re-typeset equations, per-paragraph controls, notes. [13](issues/13-overlay-substrate.md) decides the substrate; what gets built on it is fog until it does, and most of it is past the prototype's destination anyway.
 - **The other Reading Lenses techniques over a PDF surface** — spacing, typeface swap, fixation anchoring, chromatic line guidance, masking, pacer, RSVP. To be revisited per-technique on use-case and importance, and harder here than in HTML since the page is rendered pixels, not reflowable text.
 - **Browser-extension form factor** — overlaying this on PDFs already open in a browser. Blocked in Chrome's built-in viewer today; would need its own viewer. Future form factor, not this effort.
-- **Real equation speech** — MathML/LaTeX-aware reading instead of announce-and-skip.
+- **Real equation speech** — MathML/LaTeX-aware reading instead of announce-and-skip. Becomes possible only if [15](issues/15-formula-recognition.md) recovers equation content; still a hard problem of its own after that.
 
 ## Out of scope
 
