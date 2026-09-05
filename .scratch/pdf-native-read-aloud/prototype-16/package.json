@@ -8,7 +8,9 @@
     "server": "./run_server.sh"
   },
   "dependencies": {
-    "pdfjs-dist": "6.3.289"
+    "onnxruntime-web": "^1.29.0",
+    "pdfjs-dist": "6.3.289",
+    "ppu-doclayout": "^1.0.0"
   },
   "devDependencies": {
     "vite": "^7.1.5"

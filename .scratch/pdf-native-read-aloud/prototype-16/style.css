@@ -166,6 +166,24 @@ button:disabled { opacity: .45; cursor: default; }
 }
 .loading-outline { animation: pulse 1s ease-in-out infinite; }
 
+/* Page-wide corner badge while ticket 06's layout model is still analyzing
+   this page in the background. The page is already visible and speakable
+   (DOM-order fallback) — this only means "reading order may still improve." */
+.pdfpage.layout-loading::after {
+  content: "analyzing layout…";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #14161a;
+  color: #7cc4ff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #3a4150;
+  animation: pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* ---------------- hover-to-play badge ---------------- */
 
 #hoverBadge {

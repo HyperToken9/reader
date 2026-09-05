@@ -28,6 +28,7 @@
 import * as pdfjsLib from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
+import { analyzeLayout } from "./layout.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -41,7 +42,7 @@ const el = {
   nativeSpeed: $("nativeSpeed"),
   zoom: $("zoom"), zoomOut: $("zoomOut"),
   play: $("play"), stop: $("stop"),
-  autoscroll: $("autoscroll"), showall: $("showall"),
+  autoscroll: $("autoscroll"), showall: $("showall"), showRegions: $("showRegions"),
   state: $("state"), spoken: $("spoken"),
   sentences: $("sentences"), segcount: $("segcount"),
   pages: $("pages"), viewer: $("viewer"), drop: $("drop"),
@@ -142,6 +143,8 @@ class PageEntry {
     this.sentences = [];
     this.rendered = false;
     this.rendering = null;
+    this.regions = null;      // set once layout analysis resolves (06)
+    this.layoutLoading = false;
   }
 }
 
@@ -229,7 +232,45 @@ async function renderPage(pn) {
   })();
 
   await p.rendering;
+  refineLayout(p); // background, not awaited — see refineLayout's own comment
   return p;
+}
+
+/**
+ * TICKET 06. The DOM-order sentences above are the fallback, available
+ * immediately so the page is speakable without waiting on a model. This
+ * runs the layout model in the background and, if it returns anything
+ * usable, rebuilds the page's sentences in true reading order.
+ *
+ * Deliberately not awaited by renderPage: onnxruntime-web (WASM) is
+ * measured at several seconds a page, far slower than [[12]]'s ~731ms on
+ * native onnxruntime-node, and blocking the page render on it would
+ * reintroduce exactly the scroll stall fixed earlier this session, just
+ * from a slower cause. A page is visible and speakable the instant PDF.js
+ * finishes; whether its order is *correct* catches up a few seconds later.
+ *
+ * Known rough edge, accepted for a prototype: if playback is already
+ * mid-page when this resolves, p.sentences is replaced under it — indices
+ * a live cursor holds can end up pointing at a different sentence. Judging
+ * order-correctness doesn't require fixing that; a real build would.
+ */
+async function refineLayout(p) {
+  p.layoutLoading = true;
+  p.div.classList.add("layout-loading");
+  repaint();
+  try {
+    const regions = await analyzeLayout(p.canvas);
+    if (pages.get(p.pn) !== p) return; // doc changed under us; discard
+    p.regions = regions;
+    buildSentences(p, regions);
+    if (listedPage === p.pn) { listedPage = null; renderSentenceList(p.pn); }
+  } catch (e) {
+    console.warn("[layout] analysis failed, keeping DOM order for page", p.pn, e);
+  } finally {
+    p.layoutLoading = false;
+    p.div.classList.remove("layout-loading");
+    repaint();
+  }
 }
 
 async function reZoom(next) {
@@ -263,7 +304,7 @@ async function reZoom(next) {
 
 // ------------------------------------------------- sentences and geometry
 
-function buildSentences(p) {
+function buildSentences(p, regions) {
   const strs = p.textLayer.textContentItemsStr;
   const divs = p.textLayer.textDivs;
   // textContentItemsStr mirrors textContent.items 1:1 while includeMarkedContent
@@ -274,26 +315,43 @@ function buildSentences(p) {
   // whitespace at a line break (it appends a <br> to the DOM instead), so a
   // plain join welds the last word of one line onto the first of the next
   // ("It is thispersonality that..."), which segments wrong and speaks wrong.
-  // Inject a separator after every hasEOL item. It belongs to no item, so the
-  // offset map below simply skips over it; sentence endpoints are always
-  // trimmed of whitespace, so no Range endpoint can ever land inside one.
-  const parts = [];
-  const items = [];
-  let acc = 0;
+  // Resolve each item's own string first, independent of order -- whether to
+  // drop a trailing hyphen and whether a separator follows are both
+  // properties of the item itself, not of whatever comes next, so this is
+  // safe to do before 06's reordering below.
+  let resolved = [];
   for (let i = 0; i < strs.length; i++) {
-    // Index only non-empty items: PDF.js creates a div for an empty str but
-    // never appends it to the DOM, and a Range endpoint inside one throws (02 §3).
     const eol = Boolean(src[i]?.hasEOL);
     // A line broken mid-word leaves a hyphen behind ("accelerat-" / "ing").
     // Drop it and join with nothing, so TTS says "accelerating". The hyphen is
     // simply not part of the index space; the Range still covers it visually.
     const hyphenated = eol && /[-‐­]$/.test(strs[i]);
     const str = hyphenated ? strs[i].slice(0, -1) : strs[i];
+    const sep = eol && !hyphenated && !/\s$/.test(str);
+    resolved.push({ divIdx: i, str, sep, indexable: str.length > 0 });
+  }
 
-    if (str.length) items.push({ divIdx: i, start: acc, len: str.length });
+  // 06: DOM order is a fallback, not the truth. PDF.js emits text in
+  // content-stream order, which can interleave columns on a multi-column
+  // page. When the layout model has already told us the true region order
+  // (regions is set once analysis finishes, on a later render pass -- see
+  // refineLayout), reorder items by which region they fall in, by max-area
+  // overlap, instead of trusting the stream. No regions yet (or analysis
+  // failed) falls back to exactly [[05]]'s original DOM-order behaviour.
+  if (regions && regions.length) {
+    resolved = orderByRegions(resolved, divs, p.textLayerDiv.getBoundingClientRect(), regions);
+  }
+
+  const parts = [];
+  const items = [];
+  let acc = 0;
+  for (const { divIdx, str, sep, indexable } of resolved) {
+    // Index only non-empty items: PDF.js creates a div for an empty str but
+    // never appends it to the DOM, and a Range endpoint inside one throws (02 §3).
+    if (indexable) items.push({ divIdx, start: acc, len: str.length });
     parts.push(str);
     acc += str.length;
-    if (eol && !hyphenated && !/\s$/.test(str)) { parts.push(" "); acc += 1; }
+    if (sep) { parts.push(" "); acc += 1; }
   }
   const pageText = parts.join("");
 
@@ -385,6 +443,47 @@ function guardSentenceBoundaries(pageText, s, e) {
       return [a, b];
     })
     .filter(([a, b]) => b > a);
+}
+
+/**
+ * Reorder resolved text items by which layout region they fall in (max-area
+ * overlap, matching [[06]]'s research at a 10% threshold), then by original
+ * relative order within a region (stable sort — correct almost always,
+ * since a single column/region's own stream order is already top-to-bottom).
+ * An item with no region above threshold inherits its nearest preceding
+ * item's region rather than being dropped or scattered — [[06]] left "what
+ * the fallback does" as an open decision; this is that decision, made the
+ * cheap way rather than the correct-for-every-case way.
+ */
+function orderByRegions(resolved, divs, box, regions) {
+  const boxOf = (divIdx) => {
+    const r = divs[divIdx].getBoundingClientRect();
+    return {
+      x: (r.x - box.x) / box.width, y: (r.y - box.y) / box.height,
+      w: r.width / box.width, h: r.height / box.height,
+    };
+  };
+  const overlapFrac = (a, b) => {
+    const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+    const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    const areaA = a.w * a.h;
+    return areaA > 0 ? (ix * iy) / areaA : 0;
+  };
+
+  let lastRegion = 0;
+  const tagged = resolved.map((item, i) => {
+    const ib = boxOf(item.divIdx);
+    let best = -1, bestFrac = 0.1;
+    for (let ri = 0; ri < regions.length; ri++) {
+      const f = overlapFrac(ib, regions[ri]);
+      if (f > bestFrac) { bestFrac = f; best = ri; }
+    }
+    if (best >= 0) lastRegion = best; else best = lastRegion;
+    return { item, region: best, i };
+  });
+
+  tagged.sort((a, b) => a.region - b.region || a.i - b.i);
+  return tagged.map((t) => t.item);
 }
 
 /** Compute (and cache) a sentence's per-word rects, only when it's about to speak. */
@@ -562,6 +661,30 @@ function paintAllBands(p) {
   }
 }
 
+/**
+ * TICKET 06's explicit ask: "render that order visibly ... so the order can
+ * be eyeballed against the real page rather than trusted." Numbered so the
+ * reading order (not just the boxes) is checkable at a glance.
+ */
+function paintRegions(p) {
+  if (!p.regions) return;
+  p.regions.forEach((r, i) => {
+    const hue = Math.round((i / p.regions.length) * 300);
+    const color = `hsl(${hue}, 85%, 60%)`;
+    p.svg.append(rect(r.x, r.y, r.w, r.h, "none", {
+      stroke: color, "stroke-width": 2, "vector-effect": "non-scaling-stroke",
+    }));
+    const label = document.createElementNS(SVG_NS, "text");
+    label.setAttribute("x", r.x + 0.004);
+    label.setAttribute("y", r.y + 0.018);
+    label.setAttribute("fill", color);
+    label.setAttribute("font-size", "0.016");
+    label.setAttribute("font-weight", "700");
+    label.textContent = `${i + 1} ${r.label}`;
+    p.svg.append(label);
+  });
+}
+
 function repaint() {
   for (const p of pages.values()) {
     if (!p.rendered) continue;
@@ -584,8 +707,9 @@ function repaint() {
       clearOverlay(p);
     }
 
-    // Additive, regardless of which branch above ran: loading and hover are
-    // independent of whether anything is currently speaking.
+    // Additive, regardless of which branch above ran: regions, loading and
+    // hover are independent of whether anything is currently speaking.
+    if (el.showRegions.checked) paintRegions(p);
     if (loadingSentence?.pn === p.pn && !isSame(speaking, loadingSentence)) {
       paintLoading(p, p.sentences[loadingSentence.si]);
     }
@@ -1122,6 +1246,7 @@ el.zoom.oninput = () => {
 };
 
 el.showall.onchange = repaint;
+el.showRegions.onchange = repaint;
 
 addEventListener("beforeunload", () => audioEl.pause());
 
