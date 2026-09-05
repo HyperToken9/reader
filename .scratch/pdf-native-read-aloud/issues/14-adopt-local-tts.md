@@ -1,7 +1,7 @@
 # 14 — Does the app adopt local neural TTS, and does the word cursor come back?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: —
 
 ## Question
@@ -32,3 +32,20 @@ Consult `grilling` and `domain-modeling`.
 **Still open: which voice.** Samples generated at `/tmp/claude-1000/tts/samples2/` from the same paragraph, plus Kokoro's in `samples/`. The human's stated concern is expressiveness — [[05]] recorded the voice as "bearable but could be better, could be more expressive". Piper's ceiling is clear-and-neutral; Kokoro is the more expressive engine at ~2 s of dead air on play (hideable by synthesising sentence one during page render). That is the actual trade to settle.
 
 ## Answer
+
+**Hard switch to Kokoro. Browser TTS is out of the product — no fallback, no dual path.** Decided on the human's ears, 2026-09-05, after a like-for-like comparison of eight Piper voices and seven Kokoro voices reading the same paragraph.
+
+**Voice quality was always the deciding axis, and it went the opposite way to every measured one.** [[11]] concluded "Piper wins on every measured axis except licence and in-browser story". That stands as a measurement and loses as a decision, because the thing being optimised is an hour of listening, and no benchmark in [[11]] measured that. Worth remembering the next time a ticket reports a clean technical winner.
+
+**Two findings that made the choice cheaper than it looked:**
+
+- **Piper's `high` tier is not more expressive — it is less artefacted.** The quality tier is sample rate and model size; it does not change delivery. The human disliked `ryan-high` and `lessac-high` while preferring `hfc_female-medium` and `cori-high`, which is exactly what that predicts: tier is orthogonal to whether you like the voice. Do not reach for a higher tier to fix expressiveness.
+- **The speed gap [[11]] reported is an artefact of comparing tiers.** [[11]] measured Piper `medium` (RTF 0.045) against Kokoro (0.41) and framed it as ~9×. Measured on identical text here: Kokoro is **RTF ~0.35**, against `lessac-high` 0.343 and `cori-high` 0.182. At the quality level actually wanted, Kokoro is level with Piper's high tier and about 2× the best-liked Piper voice. The "~2 s of dead air" objection largely evaporates, and what remains is hidden by synthesising sentence one during page render.
+
+**Kokoro also has more room**: 54 voices against Piper's 38, 11 of them English female — the register the human preferred. And it is **Apache-2.0 on both code and weights**, so the licence question this ticket raised is now moot rather than merely dormant; if distribution ever happens, nothing has to change.
+
+**Rate control: use both mechanisms, for different jobs.** Measured here: Kokoro's native `speed` scales the duration predictor rather than resampling, so **pitch is preserved** — `speed=1.5` yields 1.59× shorter audio, `1.25` yields 1.17× (roughly proportional, not exactly, so don't compute timings from the parameter — read them from the output). RTF stays ~0.35 at every speed. But native speed requires re-synthesis, so changing it mid-read discards the buffer and costs a gap. Therefore: **`<audio>.playbackRate` with `preservesPitch` for the live control** (instant, free, and it scales every word-timing span by a single constant, so the cursor stays correct), and **native `speed` for the baseline setting**. Do not use `AudioBufferSourceNode.playbackRate`, which resamples and shifts pitch.
+
+**The two costs this incurs, stated plainly.** First, [[11]] found Kokoro's timings are a *second-class path*: the plain ONNX emits audio only, phoneme timings need the separate `-timestamped` re-export (fp16, 163 MiB), and `kokoro-onnx` silently fails to detect it because `_setup` checks for an output named `duration` while the export names it `durations`. Since this ticket also brought the word cursor back, that bug is now on the critical path rather than a curiosity. Second, Kokoro is Python today; [[11]] noted it has the only *documented* in-browser story, which is now the relevant one for [[08]] rather than an aside.
+
+**What this changes elsewhere.** The map's founding "TTS is browser-native" constraint is retired. [[08]] narrows sharply and should now price a Kokoro-in-the-browser path specifically. [[16]] is the build.

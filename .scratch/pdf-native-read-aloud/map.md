@@ -2,13 +2,13 @@
 
 ## Destination
 
-A working prototype: a local web app that renders a textbook PDF at native fidelity (PDF.js canvas, zero reflow — diagrams, equations and multi-column layout exactly as authored) and overlays synchronized read-aloud — browser TTS speaking body prose in correct reading order, tracked by a sentence band drawn over the real page.
+A working prototype: a local web app that renders a textbook PDF at native fidelity (PDF.js canvas, zero reflow — diagrams, equations and multi-column layout exactly as authored) and overlays synchronized read-aloud — a locally-run neural voice speaking body prose in correct reading order, tracked by a spotlight band and a word cursor drawn over the real page.
 
 Reached when that prototype exists and has been driven against real textbook PDFs, well enough to judge whether the audio+highlight-over-native-render experience actually works.
 
 ## Notes
 
-**Domain**: PDF rendering and text-layer geometry, document layout analysis (reading order, region classification), speech synthesis and utterance scheduling, overlay UI.
+**Domain**: PDF rendering and text-layer geometry, document layout analysis (reading order, region classification), local neural speech synthesis and audio-clock scheduling, formula recognition, overlay UI.
 
 **Corpus**: `sample_books/` in the repo root (gitignored). Contents and their characterisation are recorded in [01](issues/01-test-pdf-corpus.md).
 
@@ -22,10 +22,10 @@ Reached when that prototype exists and has been driven against real textbook PDF
 - Visual surface must stay the real PDF. Background text/geometry extraction is fully permitted — the constraint is on the *view*, not on internal parsing.
 - **Overlays may add, never replace** ([13](issues/13-overlay-substrate.md)). An HTML layer over the page may render what the PDF doesn't contain — popovers, re-typeset equations, notes, per-paragraph controls — but never re-renders the PDF's own body text, and every original pixel stays visible underneath. A reflowed view was considered and rejected, even as an opt-in toggle.
 - Assume an embedded text layer (born-digital or pre-OCR'd). No OCR.
-- TTS is browser-native (Web Speech API). Cloud TTS is deferred on voice-quality grounds only; nothing structural needs it. Development and use are **Linux-only**. *(Under challenge since 2026-09-05: a locally-run neural model is neither browser nor cloud TTS and escapes the quality/timing squeeze from both ends — [11](issues/11-local-neural-tts.md).)*
+- TTS is **Kokoro, run locally** ([14](issues/14-adopt-local-tts.md)) — a hard switch, browser TTS is out of the product with no fallback. Chosen on listening, against every measured axis, which all favoured Piper. Cloud TTS is now moot. Development and use are **Linux-only**.
 - Highlight is a **spotlight band** — dim the page, punch the spoken sentence out of the mask ([05](issues/05-sync-spike-single-column.md) judged this against a tint and an underline and it won). The highlight that reads best over a real PDF is *subtractive*.
 - **The word cursor is back on** ([14](issues/14-adopt-local-tts.md)). [10](issues/10-timing-source-and-dev-platform.md) dropped it because Linux emits no boundary events; [11](issues/11-local-neural-tts.md) removed that objection with local-model alignment that partitions the waveform and cannot drift. Expect ~1 word in 25 to highlight two words at once, and expect designing a cursor *inside* a spotlight mask to be its own problem.
-- **Licensing does not bind — personal use only for now** ([14](issues/14-adopt-local-tts.md)), so Piper's GPL-3.0 is available and engine choice is on quality and speed alone. Revisit the moment distribution is contemplated.
+- **Licensing is not a constraint.** Personal use only for now, and the stack chosen is permissive throughout anyway — Kokoro Apache-2.0, the layout model Apache-2.0 with MIT glue ([12](issues/12-document-layout-models.md)), the formula recogniser MIT on both halves ([15](issues/15-formula-recognition.md)). Nothing has to change if distribution is ever contemplated.
 - Audio skips page headers/footers silently; equations, figures and footnotes get a brief spoken placeholder ("equation", "figure four") then are stepped over, since your eyes have the real thing on screen.
 - Prototype front door is a single drag-dropped PDF. No library, no persistence.
 
@@ -49,6 +49,10 @@ Reached when that prototype exists and has been driven against real textbook PDF
 - [05 — sync spike](issues/05-sync-spike-single-column.md): **the experience works.** Driven against a real textbook: the band lands on the right sentence, `onend` doesn't stall, auto-scroll is good, zoom doesn't detach it. **Variant C — the spotlight — won**: the highlight that reads best over a real PDF is *subtractive* (dim the page, punch the sentence out), not additive colour on type. `Intl.Segmenter` is imperfect but tolerable, and the cause is block-welding that [06](issues/06-reading-order-spike.md) fixes upstream, not a segmenter bug. The voice is bearable but wants expression — the only weak spot in the core loop, and now [14](issues/14-adopt-local-tts.md)'s to fix. Also learned: reading chrome must get out of the way of the page.
 
 - [01 — Test PDF corpus](issues/01-test-pdf-corpus.md): four books, all characterised. A biochemistry textbook closed both remaining gaps — **genuinely two-column** and the **first tagged PDF** in the corpus, so [03](issues/03-reading-order-algorithms.md)'s untestable MCID fast path can now be tested. Two findings from running [12](issues/12-document-layout-models.md)'s pipeline over it: reading order on a real two-column *textbook* page is correct (whole left column, then whole right), and **`aside_text` never fired across 12 pages of a book that visibly has boxed panels** — so [03](issues/03-reading-order-algorithms.md)'s central worry is confirmed real and still unsolved. The boxes land in the right place; they just aren't labelled as special.
+
+- [14 — Adopt local neural TTS](issues/14-adopt-local-tts.md): **hard switch to Kokoro; browser TTS is out.** Chosen on an hour-of-listening judgement that went *against* every measured axis in [11](issues/11-local-neural-tts.md) — worth remembering next time a ticket reports a clean technical winner. Two things made it cheap: Piper's `high` tier is less-artefacted, not more expressive (so tier is orthogonal to whether you like a voice), and [11](issues/11-local-neural-tts.md)'s ~9× speed gap was a tier artefact — measured like-for-like, Kokoro is RTF ~0.35 against `lessac-high` 0.343. Kokoro is Apache-2.0 on both halves, so the licence question is moot rather than dormant. Rate control: `<audio>.playbackRate` with `preservesPitch` for the live slider (scales every timing span by one constant), native `speed` for the baseline. The **word cursor returns**. Build is [16](issues/16-kokoro-reading-loop.md).
+
+- [15 — Formula recognition](issues/15-formula-recognition.md): **the recogniser reads what the text layer destroyed.** `pix2text-mfr` (MIT code *and* weights, 113 MB) runs under `onnxruntime-node` with no Python at all, and on Millington p60 returned `\Delta` correctly where [09](issues/09-text-fidelity.md) found literal U+0003. **21/25 display equations exact, 25/25 parse in KaTeX, ~495 ms each**; KaTeX renders LaTeX to MathML in-process, so MathML is free and `throwOnError` doubles as a correctness gate. Cost has the best shape on the map — a charge on a *rare event* (11 of 18 sampled pages have no equations), cacheable, lazy. **Scope to `display_formula` only**: all 27 inline crops failed, and the fault is [12](issues/12-document-layout-models.md)'s boxes being loose, not the model. Also overturns a [12](issues/12-document-layout-models.md) conclusion — a mislabelled region was "free" there, but is not free once something gets rendered on top, so never occlude.
 
 ## Not yet specified
 
