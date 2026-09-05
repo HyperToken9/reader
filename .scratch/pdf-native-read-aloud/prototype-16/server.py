@@ -188,6 +188,15 @@ class Handler(BaseHTTPRequestHandler):
             )
             if len(audio) == 0:
                 raise ValueError(f"synthesis produced zero-length audio for {text!r}")
+            # A user reported hearing nothing on a sentence where the word
+            # cursor moved normally -- meaning valid timings, non-empty
+            # audio, but (their description) no sound. Not reproduced yet.
+            # If it's a sibling of the zero-length bug above (a batch that
+            # synthesizes to near-silence instead of nothing), this is the
+            # only place that can catch it before it ships to the browser.
+            peak = float(np.abs(audio).max()) if len(audio) else 0.0
+            if peak < 0.01:
+                print(f"[server] WARNING: near-silent audio (peak={peak:.5f}) for {text!r}")
             groups = phoneme_groups(timings)
             words = word_list(text)
             aligned = align_groups_to_words(words, groups, kokoro.tokenizer)

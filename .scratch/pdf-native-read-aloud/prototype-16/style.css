@@ -152,6 +152,39 @@ button:disabled { opacity: .45; cursor: default; }
 #drop.hide { display: none; }
 #viewer.dragging #drop { border-color: var(--accent); color: var(--accent); }
 
+/* ---------------- background-activity indicator ---------------- */
+
+.busyDot {
+  display: inline-block;
+  color: #ffb020;
+  font-size: 10px;
+  animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: .25; }
+  50% { opacity: 1; }
+}
+.loading-outline { animation: pulse 1s ease-in-out infinite; }
+
+/* ---------------- hover-to-play badge ---------------- */
+
+#hoverBadge {
+  position: fixed;
+  z-index: 55;
+  pointer-events: none;
+  transform: translate(-50%, -130%);
+  background: #14161a;
+  color: #ffd966;
+  border: 1px solid #3a4150;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+  white-space: nowrap;
+}
+#hoverBadge[hidden] { display: none; }
+
 /* ---------------- variant switcher ---------------- */
 
 #switcher {

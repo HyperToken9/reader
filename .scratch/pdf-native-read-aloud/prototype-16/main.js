@@ -47,6 +47,7 @@ const el = {
   pages: $("pages"), viewer: $("viewer"), drop: $("drop"),
   prevVariant: $("prevVariant"), nextVariant: $("nextVariant"), variantLabel: $("variantLabel"),
   prevCursor: $("prevCursor"), nextCursor: $("nextCursorBtn"), cursorLabel: $("cursorLabel"),
+  busyDot: $("busyDot"), hoverBadge: $("hoverBadge"),
 };
 
 // ---------------------------------------------------------------- state
@@ -60,11 +61,27 @@ let playing = false;
 let generation = 0;   // bumped on every cancel; stale audio events are ignored
 let cursor = null;    // {pn, si} — sentence to play after the current one
 let speaking = null;  // {pn, si} — sentence currently sounding
+let loadingSentence = null; // {pn, si} — set the instant speakOne is asked for it, cleared once audio starts
+let hovered = null;   // {pn, si} — sentence under the mouse, for the hover-to-play badge
 const timings = [];   // wall-clock synth+play time per sentence, to judge lag
 
 const audioEl = new Audio();
 audioEl.preload = "auto";
+audioEl.muted = false;  // defensive: rule out an accidental mute path outright
+audioEl.volume = 1;
 try { audioEl.preservesPitch = true; } catch { /* older browsers: ignore */ }
+// Diagnostic for a reported case: the word cursor advanced in real time with
+// no audible sound, once, on a first click, not reproduced since. If it
+// recurs this is the fastest way to tell "audio never actually started"
+// (autoplay policy, muted/volume) from "audio started but was silent" (a
+// sibling of the server's zero-length-audio bug -- see server.py's peak-
+// amplitude check) from "browser routed it to the wrong output device."
+audioEl.addEventListener("loadedmetadata", () => {
+  console.log(`[tts] loaded  duration=${audioEl.duration.toFixed(2)}s  volume=${audioEl.volume}  muted=${audioEl.muted}`);
+});
+audioEl.addEventListener("playing", () => {
+  console.log(`[tts] playing  currentTime=${audioEl.currentTime.toFixed(2)}  paused=${audioEl.paused}`);
+});
 let currentBlobUrl = null;
 let currentSpans = [];     // this sentence's [{start,end,words:[idx,...]}], time-ordered
 let activeWordIdxs = [];   // word indices lit right now
@@ -99,12 +116,14 @@ function report() {
     ? (timings.reduce((a, b) => a + b, 0) / timings.length / 1000).toFixed(2)
     : "–";
   const rendered = [...pages.values()].filter((p) => p.rendered).length;
+  const busy = activeRequests > 0 || fetchQueue.length > 0;
+  el.busyDot.hidden = !busy;
   status(
     [
       `${playing ? "speaking" : "idle"}  gen ${generation}`,
       speaking ? `at  p${speaking.pn} s${speaking.si}  word ${activeWordIdxs.join(",") || "—"}` : "at  —",
       `pages rendered ${rendered}/${doc ? doc.numPages : 0}   zoom ${scale.toFixed(2)}`,
-      `sentences spoken ${timings.length}  mean ${avg}s   prefetched ${prefetchCache.size}`,
+      `sentences spoken ${timings.length}  mean ${avg}s   synthesizing ${activeRequests}  queued ${fetchQueue.length}`,
     ].join("\n"),
   );
 }
@@ -564,6 +583,44 @@ function repaint() {
     } else {
       clearOverlay(p);
     }
+
+    // Additive, regardless of which branch above ran: loading and hover are
+    // independent of whether anything is currently speaking.
+    if (loadingSentence?.pn === p.pn && !isSame(speaking, loadingSentence)) {
+      paintLoading(p, p.sentences[loadingSentence.si]);
+    }
+    if (hovered?.pn === p.pn && !isSame(speaking, hovered)) {
+      paintHover(p, p.sentences[hovered.si]);
+    }
+  }
+}
+
+const isSame = (a, b) => Boolean(a && b && a.pn === b.pn && a.si === b.si);
+
+/** Pulsing dashed outline: synthesis is in flight for this sentence. */
+function paintLoading(p, sentence) {
+  if (!sentence) return;
+  for (const b of sentence.rects.map(pad)) {
+    const r = rect(b.x, b.y, b.w, b.h, "none", {
+      stroke: "rgba(124, 196, 255, 0.9)",
+      "stroke-width": 2,
+      "stroke-dasharray": "6 4",
+      "vector-effect": "non-scaling-stroke",
+    });
+    r.setAttribute("class", "loading-outline");
+    p.svg.append(r);
+  }
+}
+
+/** Quiet outline: this is what a click here would play. */
+function paintHover(p, sentence) {
+  if (!sentence) return;
+  for (const b of sentence.rects.map(pad)) {
+    p.svg.append(rect(b.x, b.y, b.w, b.h, "rgba(124, 196, 255, 0.10)", {
+      stroke: "rgba(124, 196, 255, 0.55)",
+      "stroke-width": 1,
+      "vector-effect": "non-scaling-stroke",
+    }));
   }
 }
 
@@ -633,6 +690,7 @@ function pumpFetchQueue() {
     activeRequests++;
     run();
   }
+  report(); // keeps the busy-dot and queue depth live, not just on playback events
 }
 
 function promote(k) {
@@ -725,6 +783,12 @@ async function speakOne(c) {
   const gen = generation;
   const startedAt = performance.now();
 
+  // Visible the instant a click is made, not once synthesis returns — a
+  // cache miss can take a couple of seconds (see README), and silence
+  // during that wait reads as broken rather than as "working on it."
+  loadingSentence = c;
+  repaint();
+
   let data, nc;
   try {
     [data, nc] = await Promise.all([ensurePrefetch(c, { priority: true }), nextCursor(c)]);
@@ -735,6 +799,7 @@ async function speakOne(c) {
     // reader hears a gap, not a dead stop. If the sidecar itself is down,
     // every following sentence will fail the same way; that surfaces as
     // reaching endOfDocument almost immediately, which is enough of a signal.
+    loadingSentence = null;
     nc = await nextCursor(c).catch(() => null);
     if (nc) return speakOne(nc);
     status(`synth error on the last sentence — is the Kokoro sidecar running? (npm run server)\n${e.message}`);
@@ -746,6 +811,7 @@ async function speakOne(c) {
   cursor = nc;
   if (cursor) prefetchAhead(cursor, { priorityFirst: true }); // the sentence right after this one, plus a couple more behind it
 
+  loadingSentence = null;
   speaking = c;
   currentSpans = data.spans;
   activeWordIdxs = [];
@@ -776,12 +842,19 @@ async function speakOne(c) {
   };
 
   startWordLoop(gen);
-  audioEl.play().catch((e) => console.warn("[tts] play() rejected", e));
+  audioEl.play().catch((e) => {
+    // Autoplay-policy rejections land here with currentTime stuck at 0, so
+    // the word cursor should NOT visibly advance in this case -- if it does
+    // (the reported symptom), the audio started fine and was just silent,
+    // which points at the server-side peak-amplitude check instead.
+    console.warn("[tts] play() rejected -- word cursor should stay frozen at word 0:", e);
+  });
 }
 
 function endOfDocument() {
   playing = false;
   speaking = null;
+  loadingSentence = null;
   stopWordLoop();
   el.play.textContent = "▶ Play";
   repaint();
@@ -807,6 +880,7 @@ function pause() {
   playing = false;
   generation++;
   audioEl.pause();
+  loadingSentence = null;
   stopWordLoop();
   // resume from the sentence that was interrupted, not the one queued behind it
   if (speaking) cursor = speaking;
@@ -822,6 +896,7 @@ function stop() {
   stopWordLoop();
   cursor = null;
   speaking = null;
+  loadingSentence = null;
   el.play.textContent = "▶ Play";
   el.spoken.textContent = "—";
   repaint();
@@ -873,18 +948,52 @@ el.viewer.addEventListener("scroll", () => {
   }
 }, { passive: true });
 
+/** Which sentence, if any, sits under this page-relative point. */
+function hitTest(p, clientX, clientY) {
+  const b = p.div.getBoundingClientRect();
+  const x = (clientX - b.left) / b.width;
+  const y = (clientY - b.top) / b.height;
+  const hit = p.sentences.findIndex((s) =>
+    s.rects.some((r) => x >= r.x - 0.01 && x <= r.x + r.w + 0.01 && y >= r.y && y <= r.y + r.h));
+  return hit >= 0 ? hit : null;
+}
+
 // click a sentence on the page itself to speak from there
 el.pages.addEventListener("click", (ev) => {
   const div = ev.target.closest(".pdfpage");
   if (!div) return;
   const p = pages.get(Number(div.dataset.page));
   if (!p?.rendered) return;
-  const b = div.getBoundingClientRect();
-  const x = (ev.clientX - b.left) / b.width;
-  const y = (ev.clientY - b.top) / b.height;
-  const hit = p.sentences.findIndex((s) =>
-    s.rects.some((r) => x >= r.x - 0.01 && x <= r.x + r.w + 0.01 && y >= r.y && y <= r.y + r.h));
-  if (hit >= 0) { stop(); play({ pn: p.pn, si: hit }); }
+  const hit = hitTest(p, ev.clientX, ev.clientY);
+  if (hit !== null) { stop(); play({ pn: p.pn, si: hit }); }
+});
+
+// Hover-to-preview (16): make it visible before the click that this is
+// clickable and what it will play, not just clickable-and-hope. POC-grade —
+// no debouncing, hitTest runs on every mousemove, fine at this page count.
+el.pages.addEventListener("mousemove", (ev) => {
+  const div = ev.target.closest(".pdfpage");
+  const p = div ? pages.get(Number(div.dataset.page)) : null;
+  const hit = p?.rendered ? hitTest(p, ev.clientX, ev.clientY) : null;
+
+  if (hit === null) {
+    if (hovered) { hovered = null; repaint(); }
+    el.hoverBadge.hidden = true;
+    return;
+  }
+  const changed = !hovered || hovered.pn !== p.pn || hovered.si !== hit;
+  hovered = { pn: p.pn, si: hit };
+  if (changed) repaint();
+
+  el.hoverBadge.hidden = false;
+  el.hoverBadge.style.left = `${ev.clientX}px`;
+  el.hoverBadge.style.top = `${ev.clientY}px`;
+  const already = speaking && speaking.pn === p.pn && speaking.si === hit;
+  el.hoverBadge.textContent = already ? "♪ Playing" : "▶ Play from here";
+});
+el.pages.addEventListener("mouseleave", () => {
+  if (hovered) { hovered = null; repaint(); }
+  el.hoverBadge.hidden = true;
 });
 
 // ---------------------------------------------------------------- voices
