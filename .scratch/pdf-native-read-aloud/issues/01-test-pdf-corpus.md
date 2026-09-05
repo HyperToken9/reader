@@ -19,4 +19,12 @@ All must be born-digital or already-OCR'd, i.e. have a real embedded text layer 
 
 Human-driven — the agent cannot source textbooks. If the human prefers, freely-licensed sources (OpenStax, arXiv papers for the two-column/equation cases) are fine substitutes and avoid any licensing question about committing them.
 
+## Progress
+
+- `game-physics-engine-development.pdf` — Ian Millington, *Game Physics Engine Development*. Added by the human; moved here from the repo root. Covers the **equation-dense** case and likely the **figure-heavy** one. Text layer presence not yet verified.
+
+Corpus files are gitignored (size and licensing) — this file is the record of what the corpus holds.
+
+Still wanted: a single-column prose control, a two-column academic page, and a page with footnotes plus running headers.
+
 ## Answer

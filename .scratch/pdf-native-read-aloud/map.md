@@ -28,6 +28,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 <!-- one line per closed ticket: gist + link -->
 
+- [02 — PDF.js text-layer geometry](issues/02-pdfjs-text-layer-geometry.md): per-word boxes are *not* in the API and are unavoidably approximate — but the route works: render the stock `TextLayer`, segment the concatenated page string with `Intl.Segmenter`, map offsets back to divs, and take `range.getClientRects()`. Highlights go in a separate normalised-fraction SVG overlay, so zoom costs nothing. Pin an exact `pdfjs-dist`; the API moved three times since 2024.
+
 ## Not yet specified
 
 - **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.
