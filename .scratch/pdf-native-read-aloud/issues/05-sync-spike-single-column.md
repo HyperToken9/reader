@@ -1,7 +1,7 @@
 # 05 — Prototype: does audio + highlight over a native render feel right?
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: —
 
 ## Question
