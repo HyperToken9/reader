@@ -47,7 +47,17 @@
         <section>
           <label class="check"><input id="autoscroll" type="checkbox" checked /> Auto-scroll</label>
           <label class="check"><input id="showall" type="checkbox" /> Show every sentence band</label>
-          <label class="check"><input id="showRegions" type="checkbox" /> Show layout regions (06)</label>
+        </section>
+
+        <section>
+          <label class="check">
+            <input id="enableLayout" type="checkbox" />
+            Reading order via layout model (06, experimental)
+          </label>
+          <p class="muted tiny">Off by default: WASM inference runs on the main thread and is several
+            seconds a page, so scrolling with this on will feel it. Only turn it on to judge order
+            correctness on a multi-column or boxed page, not for general reading yet.</p>
+          <label class="check"><input id="showRegions" type="checkbox" /> Show layout regions</label>
         </section>
 
         <section>

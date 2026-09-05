@@ -43,6 +43,7 @@ const el = {
   zoom: $("zoom"), zoomOut: $("zoomOut"),
   play: $("play"), stop: $("stop"),
   autoscroll: $("autoscroll"), showall: $("showall"), showRegions: $("showRegions"),
+  enableLayout: $("enableLayout"),
   state: $("state"), spoken: $("spoken"),
   sentences: $("sentences"), segcount: $("segcount"),
   pages: $("pages"), viewer: $("viewer"), drop: $("drop"),
@@ -232,7 +233,13 @@ async function renderPage(pn) {
   })();
 
   await p.rendering;
-  refineLayout(p); // background, not awaited — see refineLayout's own comment
+  // Opt-in, default off (16 §latest feedback): this used to fire from every
+  // page the IntersectionObserver merely scrolled into view, which meant
+  // *scrolling* a document — not reading it — queued several seconds of
+  // WASM inference per page, on the browser's main thread, for pages the
+  // reader may never listen to. That's the scroll jank that was reported.
+  // Reading order is still worth having; it just has to be asked for.
+  if (el.enableLayout.checked) refineLayout(p); // background, not awaited
   return p;
 }
 
@@ -331,88 +338,103 @@ function buildSentences(p, regions) {
     resolved.push({ divIdx: i, str, sep, indexable: str.length > 0 });
   }
 
+  const box = p.textLayerDiv.getBoundingClientRect();
+  p._geom = { divs, box }; // getWordRects() needs these later; locate is per-sentence, below
+
   // 06: DOM order is a fallback, not the truth. PDF.js emits text in
   // content-stream order, which can interleave columns on a multi-column
   // page. When the layout model has already told us the true region order
   // (regions is set once analysis finishes, on a later render pass -- see
-  // refineLayout), reorder items by which region they fall in, by max-area
-  // overlap, instead of trusting the stream. No regions yet (or analysis
-  // failed) falls back to exactly [[05]]'s original DOM-order behaviour.
-  if (regions && regions.length) {
-    resolved = orderByRegions(resolved, divs, p.textLayerDiv.getBoundingClientRect(), regions);
-  }
-
-  const parts = [];
-  const items = [];
-  let acc = 0;
-  for (const { divIdx, str, sep, indexable } of resolved) {
-    // Index only non-empty items: PDF.js creates a div for an empty str but
-    // never appends it to the DOM, and a Range endpoint inside one throws (02 §3).
-    if (indexable) items.push({ divIdx, start: acc, len: str.length });
-    parts.push(str);
-    acc += str.length;
-    if (sep) { parts.push(" "); acc += 1; }
-  }
-  const pageText = parts.join("");
-
-  const locate = (idx) => {
-    let lo = 0, hi = items.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (items[mid].start <= idx) lo = mid; else hi = mid - 1;
-    }
-    return items[lo];
-  };
+  // refineLayout), GROUP items by which region they fall in, by max-area
+  // overlap, instead of trusting the stream -- each region becomes its own
+  // independently-segmented run. No regions yet (or analysis failed) is one
+  // group, the whole page, DOM order: exactly [[05]]'s original behaviour.
+  //
+  // Grouping, not just reordering, matters: a title has no full stop to end
+  // on, so if its text and the following paragraph's text ever land in the
+  // same Intl.Segmenter pass, nothing tells the segmenter they're different
+  // sentences and it reads the two as one (reported directly: clicking a
+  // paragraph also selected its title). Giving each region its own
+  // segmenter pass makes that boundary structural, not punctuation-dependent.
+  const groups = (regions && regions.length)
+    ? groupByRegion(resolved, divs, box, regions)
+    : [resolved];
 
   const seg = new Intl.Segmenter("en", { granularity: "sentence" });
-  const box = p.textLayerDiv.getBoundingClientRect();
   const out = [];
-  // Kept for getWordRects()'s lazy computation, below.
-  p._geom = { divs, box, locate };
 
-  for (const { segment, index } of seg.segment(pageText)) {
-    let s = index, e = index + segment.length;
-    while (s < e && /\s/.test(pageText[s])) s++;
-    while (e > s && /\s/.test(pageText[e - 1])) e--;
-    if (e <= s) continue;
+  for (const groupItems of groups) {
+    const parts = [];
+    const items = [];
+    let acc = 0;
+    for (const { divIdx, str, sep, indexable } of groupItems) {
+      // Index only non-empty items: PDF.js creates a div for an empty str but
+      // never appends it to the DOM, and a Range endpoint inside one throws (02 §3).
+      if (indexable) items.push({ divIdx, start: acc, len: str.length });
+      parts.push(str);
+      acc += str.length;
+      if (sep) { parts.push(" "); acc += 1; }
+    }
+    const pageText = parts.join("");
+    if (!items.length) continue;
 
-    // One Intl.Segmenter sentence is one unit -- no smaller (an earlier
-    // version of this file split further at clause punctuation to shorten
-    // synth latency; reverted: that's a subtitle-style chop mid-sentence,
-    // and the right fix for latency is prefetching ahead, not a smaller
-    // unit). Still guard against Intl.Segmenter itself under-splitting: it
-    // can occasionally treat two real sentences as one segment (an
-    // abbreviation, an odd quote/citation pattern), and that's a genuine
-    // bug worth catching here rather than living with a chunk that's
-    // *larger* than a sentence.
-    for (const [as, ae] of guardSentenceBoundaries(pageText, s, e)) {
-      const text = pageText.slice(as, ae);
-      if (!/[A-Za-z0-9]/.test(text)) continue;
-
-      const rects = mergeLines(rangeRects(divs, box, locate, as, ae));
-      if (!rects.length) continue;
-      // Glyphs with no Unicode mapping (Δ in the Millington PDF) come through
-      // as C0 control characters, not as nothing. Keep them in the index
-      // space so the geometry stays right, but never hand them to TTS.
-      const unmapped = (text.match(/[\u0000-\u001f]/g) ?? []).length;
-
-      // Per-word geometry for the word cursor (16) is *offsets only* here —
-      // not rects. Computing a Range + getClientRects() per word for every
-      // sentence on every page, the moment it scrolls into view, forces a
-      // synchronous layout reflow per word; on a normal page that's hundreds
-      // of extra reflows just from scrolling past it, never mind reading it.
-      // (Measured: this is what made fast scrolling through a multi-page
-      // document stall.) getWordRects() below computes and caches the actual
-      // rects lazily, the first time a sentence is about to be spoken.
-      const wordSpans = [];
-      for (const m of text.matchAll(/\S+/g)) {
-        wordSpans.push({ text: m[0], ws: as + m.index, we: as + m.index + m[0].length });
+    const locate = (idx) => {
+      let lo = 0, hi = items.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (items[mid].start <= idx) lo = mid; else hi = mid - 1;
       }
+      return items[lo];
+    };
 
-      out.push({
-        pn: p.pn, si: out.length, text, rects, wordSpans, words: null, unmapped,
-        speech: text.replace(/[\u0000-\u001f]+/g, " "),
-      });
+    for (const { segment, index } of seg.segment(pageText)) {
+      let s = index, e = index + segment.length;
+      while (s < e && /\s/.test(pageText[s])) s++;
+      while (e > s && /\s/.test(pageText[e - 1])) e--;
+      if (e <= s) continue;
+
+      // One Intl.Segmenter sentence is one unit -- no smaller (an earlier
+      // version of this file split further at clause punctuation to shorten
+      // synth latency; reverted: that's a subtitle-style chop mid-sentence,
+      // and the right fix for latency is prefetching ahead, not a smaller
+      // unit). Still guard against Intl.Segmenter itself under-splitting: it
+      // can occasionally treat two real sentences as one segment (an
+      // abbreviation, an odd quote/citation pattern), and that's a genuine
+      // bug worth catching here rather than living with a chunk that's
+      // *larger* than a sentence.
+      for (const [as, ae] of guardSentenceBoundaries(pageText, s, e)) {
+        const text = pageText.slice(as, ae);
+        if (!/[A-Za-z0-9]/.test(text)) continue;
+
+        const rects = mergeLines(rangeRects(divs, box, locate, as, ae));
+        if (!rects.length) continue;
+        // Glyphs with no Unicode mapping (Δ in the Millington PDF) come
+        // through as C0 control characters, not as nothing. Keep them in the
+        // index space so the geometry stays right, but never hand them to TTS.
+        const unmapped = (text.match(/[\u0000-\u001f]/g) ?? []).length;
+
+        // Per-word geometry for the word cursor (16) is *offsets only* here —
+        // not rects. Computing a Range + getClientRects() per word for every
+        // sentence on every page, the moment it scrolls into view, forces a
+        // synchronous layout reflow per word; on a normal page that's
+        // hundreds of extra reflows just from scrolling past it, never mind
+        // reading it. (Measured: this is what made fast scrolling through a
+        // multi-page document stall.) getWordRects() below computes and
+        // caches the actual rects lazily, the first time a sentence is about
+        // to be spoken -- using *this group's* locate, stashed per-sentence,
+        // since with regions on, different sentences on the same page can
+        // come from different groups with different offset spaces.
+        const wordSpans = [];
+        for (const m of text.matchAll(/\S+/g)) {
+          wordSpans.push({ text: m[0], ws: as + m.index, we: as + m.index + m[0].length });
+        }
+
+        out.push({
+          pn: p.pn, si: out.length, text, rects, wordSpans, words: null, unmapped,
+          speech: text.replace(/[\u0000-\u001f]+/g, " "),
+          _locate: locate,
+        });
+      }
     }
   }
   p.sentences = out;
@@ -446,16 +468,23 @@ function guardSentenceBoundaries(pageText, s, e) {
 }
 
 /**
- * Reorder resolved text items by which layout region they fall in (max-area
- * overlap, matching [[06]]'s research at a 10% threshold), then by original
- * relative order within a region (stable sort — correct almost always,
- * since a single column/region's own stream order is already top-to-bottom).
+ * Group resolved text items by which layout region they fall in (max-area
+ * overlap, matching [[06]]'s research at a 10% threshold): sorted first by
+ * region (in the model's reading order), then by original relative order
+ * within a region (stable sort — correct almost always, since a single
+ * column/region's own stream order is already top-to-bottom). Returns
+ * contiguous per-region runs, each to be segmented independently by
+ * buildSentences — a title's region and the following paragraph's region
+ * must never share one Intl.Segmenter pass, or a title with no ending
+ * punctuation reads as the first clause of the next sentence (reported
+ * directly: clicking a paragraph also selected its title).
+ *
  * An item with no region above threshold inherits its nearest preceding
  * item's region rather than being dropped or scattered — [[06]] left "what
  * the fallback does" as an open decision; this is that decision, made the
  * cheap way rather than the correct-for-every-case way.
  */
-function orderByRegions(resolved, divs, box, regions) {
+function groupByRegion(resolved, divs, box, regions) {
   const boxOf = (divIdx) => {
     const r = divs[divIdx].getBoundingClientRect();
     return {
@@ -483,13 +512,36 @@ function orderByRegions(resolved, divs, box, regions) {
   });
 
   tagged.sort((a, b) => a.region - b.region || a.i - b.i);
-  return tagged.map((t) => t.item);
+
+  // Consecutive same-label regions (the model splits one paragraph into two
+  // adjacent "text" boxes more often than it splits a title from its body)
+  // merge into one group -- the hard boundary this function exists to add
+  // is a *label change* (title -> text), not merely a *region change*.
+  // Getting this wrong the other way round reintroduced a splitting bug
+  // this fix wasn't meant to add: "It is easy" / "to study individual
+  // enzyme systems..." as two sentences, on this corpus, at the boundary
+  // between two same-label boxes.
+  const groups = [];
+  let current = null, currentRegion = null, currentLabel = null;
+  for (const t of tagged) {
+    const label = t.region >= 0 ? regions[t.region].label : null;
+    const sameRun = current && (t.region === currentRegion || (label !== null && label === currentLabel));
+    if (!sameRun) {
+      current = [];
+      groups.push(current);
+      currentRegion = t.region;
+      currentLabel = label;
+    }
+    current.push(t.item);
+  }
+  return groups;
 }
 
 /** Compute (and cache) a sentence's per-word rects, only when it's about to speak. */
 function getWordRects(p, sentence) {
   if (sentence.words) return sentence.words;
-  const { divs, locate } = p._geom;
+  const { divs } = p._geom;
+  const locate = sentence._locate;
   // A fresh box, not the one buildSentences captured: this can run long
   // after render, once the page has scrolled, and range.getClientRects()
   // below always reports *current* viewport position — mixing a stale box
@@ -1247,6 +1299,12 @@ el.zoom.oninput = () => {
 
 el.showall.onchange = repaint;
 el.showRegions.onchange = repaint;
+el.enableLayout.onchange = () => {
+  if (!el.enableLayout.checked) return;
+  // Only pages already on screen need a nudge; renderPage() checks the box
+  // itself for anything rendered from here on.
+  for (const p of pages.values()) if (p.rendered && !p.regions) refineLayout(p);
+};
 
 addEventListener("beforeunload", () => audioEl.pause());
 
