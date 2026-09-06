@@ -1,59 +1,58 @@
-# Reading Lenses
+# reader
 
-A Chrome/Edge (MV3) extension that applies eight evidence-based reading aids **in place**, on
-whatever page you are already reading — no reader view, no copy-paste, no separate app.
+Two reading tools, one repo. They share an idea — meet the reader where the text
+already is, instead of moving the text somewhere else — and nothing else.
 
-## Install (unpacked)
+## Blitz — [`app/`](app/)
 
-1. `chrome://extensions` → enable **Developer mode**
-2. **Load unpacked** → select this folder
-3. Open any article. `Alt+R` opens the panel.
+A desktop app that reads a textbook aloud **on the actual PDF page**. The page you
+look at is the real render: figures, equations, columns, all of it, exactly as
+authored. The reading experience is an overlay on top — a band over the sentence
+being spoken, a cursor on the word.
 
-Shortcuts are editable at `chrome://extensions/shortcuts`.
+That constraint is the whole point. Apps that read PDFs aloud generally extract the
+text into their own reflowed environment first, which is exactly where diagrams and
+equations fall apart. Nothing here reflows anything.
 
-| Key | Action |
-| --- | --- |
-| `Alt+R` | Show/hide the in-page panel |
-| `Alt+M` | Toggle the reading mask |
-| `Alt+S` | RSVP the selection, or the whole article |
-| `Alt+click` a word | Start the pacer / read-aloud / RSVP from that word |
-| `Esc` | Leave RSVP |
+Electron, with local models and no network at read time: **Kokoro** for speech
+(with phoneme-level timings, which is what makes the word cursor honest) and
+**PP-DocLayoutV2** for reading order. Linux, packaged as an AppImage and a `.deb`.
 
-The toolbar popup carries the four most-used toggles, the typeface picker, and a
-**Pause on this site** switch. Right-click gives the same actions from the page context menu.
+```sh
+cd app
+npm install
+npm run setup:speech    # one time, ~500 MB of model weights
+npm run dev
+```
 
-## The eight techniques, and where each one lives
+[`app/README.md`](app/README.md) covers the architecture, the speech engine's two
+sharp edges, and the branch model.
 
-| Technique | Control | How it works here |
-| --- | --- | --- |
-| Visual crowding reduction | *Crowding & spacing* sliders | Tracking, word gap, leading, size and measure are written as custom properties on the detected article element; a manifest stylesheet applies them to prose descendants only, so headings and code keep their own scale. |
-| Typographic switching | *Typeface* | Atkinson Hyperlegible, Lexend and OpenDyslexic ship as latin-subset `woff2` inside the extension. Nothing is fetched at runtime. |
-| Bionic / fixation anchoring | *Fixation anchoring* | Word openings wrapped in `<rl-b>`, strength 25–62%. The bolded slice is measured over the word's leading *letters*, so punctuation doesn't eat the anchor. |
-| Chromatic line guidance | *Chromatic line guidance* | Word boxes are measured to find real rendered lines, then each line gets a hue ramp whose end colour opens the next line. Page background luminance picks the lightness, so it stays legible on dark sites. Links keep their own colour. |
-| Screen masking / reading ruler | *Reading mask* | A fixed band with a `100vmax` box-shadow follows the cursor; aperture is 1–4 lines, sized from the article's computed `line-height`. |
-| Digital meta-guiding | *Pacer* | A `requestAnimationFrame` highlight walks the wrapped words at 150–700 wpm, holding 1.55× on commas and 2.1× on sentence ends, and scrolling to keep itself on screen. |
-| Bimodal audio-visual | *Read aloud* | `speechSynthesis` with `onboundary` → word mapping. Long pages are split into 220-word utterances (Chrome silently drops long ones). If a voice emits no boundary events, it says so and falls back to estimated cadence. |
-| RSVP | *RSVP* | Full-screen single-word reader, ORP character held on a fixed centre line. Takes your selection if you have one, otherwise the detected article. |
+## Reading Lenses — [`src/`](src/)
 
-## How it stays out of the page's way
+An MV3 Chrome extension that applies eight evidence-based reading aids in place on
+whatever web page you are already reading — crowding and spacing, typeface
+switching, bionic-style fixation anchoring, a pacer, a reading mask, RSVP, and
+read-aloud. It predates Blitz and is not part of it, though Blitz's read-aloud
+began as a critique of this one's.
 
-- **No `<style>` injection.** Page rules come from a manifest content-script stylesheet (exempt
-  from the page's CSP); the panel's own CSS is a constructed `CSSStyleSheet` on a shadow root.
-  Dynamic values are set through CSSOM, which CSP does not restrict.
-- **The panel is a shadow root** on a `<reading-lenses>` host with `all: initial`, so no page
-  selector reaches in and no page `*` rule reaches out.
-- **Word wrappers are custom elements** (`<rl-t>`, `<rl-w>`, `<rl-b>`) — nothing a site writes for
-  `div` or `span` can hit them by accident.
-- **Reversible.** Each wrapped text node keeps its original string; *Reset* restores the DOM,
-  drops the classes and clears the custom properties.
-- **No network, no telemetry, no remote code.** Fonts are bundled. Settings live in
-  `chrome.storage.local`.
+See [`README-reading-lenses.md`](README-reading-lenses.md).
 
-## Known limits
+## How this project is planned
 
-- The article detector scores paragraph density and picks the most specific element holding the
-  prose. On unusual layouts, hit **↻** in the panel header to re-scan.
-- SPA route changes don't re-scan automatically — same **↻** button.
-- Wrapping every word costs a layout pass; on a very long page the first toggle takes a beat.
-- Chrome blocks all extensions on `chrome://` pages, the Web Store and the built-in PDF viewer.
-  The popup says so rather than failing silently.
+Blitz is charted as a **Wayfinder map**: a destination, and a route of tickets that
+each resolve one decision rather than slicing up a build. The map is the issue
+labelled `wayfinder:map`; every ticket is an issue linked from it, and every ticket
+that is closed carries the answer it reached and the evidence behind it.
+
+Working copies live in [`.scratch/pdf-native-read-aloud/`](.scratch/pdf-native-read-aloud/),
+along with the throwaway prototypes the answers were read off. Those prototypes are
+kept deliberately: they are the primary sources, not clutter.
+
+## A note on the test corpus
+
+`sample_books/` holds real textbook PDFs and is gitignored — for size and because
+they are licensed material. They were briefly committed early on and have since been
+purged from history. Don't re-add them.
+[Ticket 01](.scratch/pdf-native-read-aloud/issues/01-test-pdf-corpus.md) records what
+the corpus needs to contain; OpenStax and arXiv are fine substitutes.

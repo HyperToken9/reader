@@ -38,7 +38,7 @@
         "deb"
       ],
       "category": "Education",
-      "maintainer": "nathan <nathansaldanha02@gmail.com>"
+      "maintainer": "HyperToken9 <HyperToken9@users.noreply.github.com>"
     },
     "directories": {
       "output": "release"
@@ -52,9 +52,10 @@
     "onnxruntime-node@1.29.0": true,
     "esbuild@0.28.2": true
   },
-  "homepage": "https://github.com/nathan/blitz",
-  "author": {
-    "name": "nathan",
-    "email": "nathansaldanha02@gmail.com"
+  "homepage": "https://github.com/HyperToken9/reader",
+  "author": "HyperToken9",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HyperToken9/reader.git"
   }
 }
