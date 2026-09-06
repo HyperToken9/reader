@@ -37,12 +37,24 @@
         "AppImage",
         "deb"
       ],
-      "category": "Education"
-    }
+      "category": "Education",
+      "maintainer": "nathan <nathansaldanha02@gmail.com>"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "asarUnpack": [
+      "electron/tts_server.py"
+    ]
   },
   "allowScripts": {
     "electron@33.4.11": true,
     "onnxruntime-node@1.29.0": true,
     "esbuild@0.28.2": true
+  },
+  "homepage": "https://github.com/nathan/blitz",
+  "author": {
+    "name": "nathan",
+    "email": "nathansaldanha02@gmail.com"
   }
 }

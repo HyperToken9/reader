@@ -13,13 +13,19 @@
  */
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 
 import * as layout from "./layout.js";
 import * as tts from "./tts.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const TTS_SCRIPT = join(here, "tts_server.py");
+// The speech engine is a separate process, and Python cannot read a file from
+// inside the asar archive -- so tts_server.py is listed in build.asarUnpack and
+// read from the unpacked tree beside it.
+const TTS_SCRIPT = join(here, "tts_server.py").replace(
+  `${sep}app.asar${sep}`,
+  `${sep}app.asar.unpacked${sep}`,
+);
 
 let win = null;
 
