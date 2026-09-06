@@ -20,6 +20,18 @@ npm run setup:speech    # one time, ~500 MB of model weights (see below)
 npm run dev             # Vite + Electron with hot reload
 ```
 
+### Reading gestures
+
+| Gesture | What it does |
+| --- | --- |
+| Ctrl + scroll wheel | Zoom, anchored on the pointer |
+| Ctrl + `+` / `-` / `0` | Zoom in, out, back to 1.2× |
+| Zoom slider | The same zoom, anchored on the middle of the view |
+
+Zoom is a single CSS variable on the page container, so a wheel gesture resizes
+the whole document with one style write and the already-drawn bitmaps stretch
+to match; the pages re-rasterise once the gesture stops.
+
 Other commands:
 
 | Command | What it does |
@@ -95,6 +107,14 @@ test could see, and every file silently did nothing.
 
 The fixture is a minimal PDF written by hand in `scripts/fixture-pdf.mjs`, so
 the test needs nothing from `sample_books/`, which is gitignored.
+
+`scripts/scroll-check.mjs <binary|.> <some.pdf>` is the other harness: it flings
+a real several-hundred-page book, measures the frame gaps while it moves,
+checks the page it lands on renders, then ctrl+wheel zooms and checks the point
+under the pointer stayed under the pointer and the text and overlay layers
+still cover the page. It is not part of `npm run smoke` because it needs a real
+textbook, and those are gitignored. Run it when touching the scroll or zoom
+path.
 
 `npm run smoke:dist` runs the same checks against `release/linux-unpacked/`;
 `BLITZ_SMOKE_BIN=release/Blitz-0.1.0.AppImage node scripts/smoke.mjs` runs them

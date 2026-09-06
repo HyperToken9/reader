@@ -146,6 +146,7 @@ class PageEntry {
     this.sentences = [];
     this.rendered = false;
     this.rendering = null;
+    this.base = null;         // unscaled viewport size, so zoom can resize without PDF.js
     this.regions = null;      // set once layout analysis resolves (06)
     this.layoutLoading = false;
     this.renderTask = null;   // in-flight PDF.js RenderTask, so it can be cancelled
@@ -180,29 +181,171 @@ async function openDoc(data) {
     div.innerHTML = `<canvas width="0" height="0"></canvas><div class="textLayer"></div>` +
       `<svg class="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>` +
       `<div class="regionLabels"></div>`;
-    sizePage(div, base.width * scale, base.height * scale);
+    sizePage(div, base);
     el.pages.append(div);
-    pages.set(pn, new PageEntry(pn, div));
+    const entry = new PageEntry(pn, div);
+    // Page 1's size, as a stand-in until this page is actually opened. Every
+    // shell needs *a* height for the scrollbar to be honest, and asking PDF.js
+    // for 611 real ones up front is the thing lazy rendering exists to avoid.
+    entry.base = { width: base.width, height: base.height };
+    pages.set(pn, entry);
     observer.observe(div);
   }
+  markGeomDirty();
 
   await renderPage(1);
   report();
 }
 
-function sizePage(div, w, h) {
-  div.style.width = `${Math.floor(w)}px`;
-  div.style.height = `${Math.floor(h)}px`;
+/*
+ * Where each page sits in the scroll container.
+ *
+ * Everything on the scroll path used to ask the DOM: the scroll handler called
+ * getBoundingClientRect() on *every* page to find the one under the midpoint,
+ * which is 611 forced layouts per scroll event on a big textbook. This reads
+ * the offsets once into a sorted array and rebuilds only when page sizes
+ * actually change (open, zoom, a shell learning its real size).
+ */
+let geomIndex = null;
+
+function markGeomDirty() { geomIndex = null; }
+
+function geom() {
+  if (!geomIndex) {
+    geomIndex = [...pages.values()]
+      .map((p) => ({ pn: p.pn, top: p.div.offsetTop, bottom: p.div.offsetTop + p.div.offsetHeight }))
+      .sort((a, b) => a.top - b.top);
+  }
+  return geomIndex;
+}
+
+/** The page containing this scroll offset, or the nearest one. */
+function pageAtOffset(y) {
+  const g = geom();
+  if (!g.length) return null;
+  let lo = 0, hi = g.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (g[mid].top <= y) lo = mid; else hi = mid - 1;
+  }
+  return g[lo];
+}
+
+/*
+ * Zoom scales page heights but not the gaps between them, so the index can be
+ * transformed exactly rather than re-read: each page keeps its ordinal, its
+ * height scales, and the constant gap stays put. Saves a forced layout on
+ * every wheel event of a zoom gesture.
+ */
+function rescaleGeom(ratio) {
+  if (!geomIndex || geomIndex.length === 0 || ratio === 1) return;
+  const gap = geomIndex.length > 1 ? geomIndex[1].top - geomIndex[0].bottom : 0;
+  let top = geomIndex[0].top;
+  for (const e of geomIndex) {
+    const h = (e.bottom - e.top) * ratio;
+    e.top = top;
+    e.bottom = top + h;
+    top += h + gap;
+  }
+}
+
+function geomFor(pn) {
+  return geom().find((e) => e.pn === pn) ?? null;
+}
+
+/** Record a page's unscaled size; CSS multiplies it by the document zoom. */
+function sizePage(div, base) {
+  div.style.setProperty("--pw", String(base.width));
+  div.style.setProperty("--ph", String(base.height));
 }
 
 const observer = new IntersectionObserver(
   (entries) => {
     for (const e of entries) {
-      if (e.isIntersecting) renderPage(Number(e.target.dataset.page));
+      if (e.isIntersecting) queueRender(Number(e.target.dataset.page));
     }
   },
   { root: null, rootMargin: "400px 0px" },
 );
+
+/*
+ * Scrolling outranks rendering.
+ *
+ * The observer used to call renderPage() the instant a page crossed the
+ * margin, so flinging through a 600-page book queued a rasterise, a
+ * getTextContent, a TextLayer build and a sentence pass for every page the
+ * scroll swept over -- hundreds of them, all on the thread that has to move
+ * the scrollbar. That is the lag: the work was for pages already long gone by
+ * the time it ran.
+ *
+ * So intersecting only *queues* a page. The pump waits for the scroll to slow
+ * down, then renders one page at a time, nearest the viewport first, dropping
+ * anything that has since scrolled away. A fast fling therefore costs nothing
+ * but the scroll itself, and settles into rendering what you actually stopped
+ * on. Slow reading-speed scrolling is not throttled at all -- the gate is
+ * velocity, not movement.
+ */
+const renderQueue = new Set();
+const FAST_SCROLL = 1.5;   // px/ms — above this, rendering waits
+const SCROLL_IDLE_MS = 100;
+const DROP_MARGIN = 1200;  // px from the viewport; queued pages past this are dropped
+let lastScrollAt = 0;
+let lastScrollTop = 0;
+let scrollVelocity = 0;    // px/ms, decayed to 0 once scrolling stops
+let pumping = false;
+
+function scrollingFast() {
+  if (performance.now() - lastScrollAt > SCROLL_IDLE_MS) return false;
+  return scrollVelocity > FAST_SCROLL;
+}
+
+/** Distance in px from the viewport, or Infinity if the page is gone from the index. */
+function offViewport(pn) {
+  const g = geomFor(pn);
+  if (!g) return Infinity;
+  const top = el.viewer.scrollTop;
+  const bottom = top + el.viewer.clientHeight;
+  if (g.bottom < top) return top - g.bottom;
+  if (g.top > bottom) return g.top - bottom;
+  return 0;
+}
+
+function queueRender(pn) {
+  const p = pages.get(pn);
+  if (!p || p.rendered || p.rendering) return;
+  renderQueue.add(pn);
+  pump();
+}
+
+async function pump() {
+  if (pumping) return;
+  pumping = true;
+  try {
+    while (renderQueue.size) {
+      if (scrollingFast()) {
+        await new Promise((r) => setTimeout(r, SCROLL_IDLE_MS));
+        continue;
+      }
+      let next = null;
+      let nearest = Infinity;
+      for (const pn of renderQueue) {
+        const p = pages.get(pn);
+        if (!p || p.rendered) { renderQueue.delete(pn); continue; }
+        const d = offViewport(pn);
+        if (d > DROP_MARGIN) { renderQueue.delete(pn); continue; } // scrolled past
+        if (d < nearest) { nearest = d; next = pn; }
+      }
+      if (next === null) continue;
+      renderQueue.delete(next);
+      await renderPage(next);
+      // Yield a frame between pages so a scroll that starts mid-queue is felt
+      // immediately rather than after the whole backlog.
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  } finally {
+    pumping = false;
+  }
+}
 
 /**
  * Rasterise a page into its own canvas, cancelling whatever was already
@@ -320,11 +463,15 @@ async function renderPage(pn) {
 
   p.rendering = (async () => {
     p.proxy = await doc.getPage(pn);
+    const base = p.proxy.getViewport({ scale: 1 });
+    const resized = !p.base || p.base.height !== base.height || p.base.width !== base.width;
+    p.base = { width: base.width, height: base.height };
     const viewport = p.proxy.getViewport({ scale });
-    sizePage(p.div, viewport.width, viewport.height);
-    // The text layer reads --total-scale-factor; everything else about its
-    // positioning is percentage-based, so this is all it needs (02 §3).
-    p.div.style.setProperty("--total-scale-factor", String(scale));
+    sizePage(p.div, p.base);
+    if (resized) markGeomDirty(); // this page was standing in with page 1's size
+    // The text layer positions itself off --total-scale-factor, which it
+    // inherits from #pages; everything else about it is percentage-based, so
+    // that one variable is all it needs (02 §3).
 
     await paintCanvas(p, viewport);
 
@@ -409,27 +556,81 @@ async function refineLayout(p) {
   }
 }
 
-async function reZoom(next) {
-  scale = next;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 4;
+
+/*
+ * Zoom in two halves.
+ *
+ * `applyScale` is synchronous and instant: it resizes every page shell from
+ * the cached unscaled size and fixes the scroll position so the point under
+ * the cursor stays under the cursor. The canvases are CSS-sized to their
+ * shell, so the already-drawn bitmaps stretch immediately -- blurry, but
+ * there, and the text layer follows because it positions everything off
+ * --total-scale-factor. Ctrl+wheel therefore tracks the wheel with no
+ * rasterising in the loop at all.
+ *
+ * `rasteriseAtScale` then redraws the pages that are actually rendered, once
+ * the gesture settles. This used to be one pass that awaited doc.getPage() per
+ * page while resizing, which made the document's height change 611 times
+ * during a zoom and put the anchor somewhere else entirely.
+ */
+function applyScale(next, anchorClientY = null) {
+  const prev = scale;
+  scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
   el.zoomOut.textContent = scale.toFixed(2);
+  el.zoom.value = String(scale);
+  if (!doc || scale === prev) return;
+
+  // Anchor: the point that must not move. Default is the middle of the
+  // viewport, which is what the zoom slider should feel like; ctrl+wheel
+  // passes the pointer instead.
+  const viewerTop = el.viewer.getBoundingClientRect().top;
+  const anchor = anchorClientY == null
+    ? el.viewer.clientHeight / 2
+    : Math.max(0, Math.min(el.viewer.clientHeight, anchorClientY - viewerTop));
+  const at = el.viewer.scrollTop + anchor;
+  const before = pageAtOffset(at);
+  const frac = before && before.bottom > before.top
+    ? (at - before.top) / (before.bottom - before.top)
+    : null;
+
+  el.pages.style.setProperty("--zoom", String(scale));
+  el.pages.style.setProperty("--total-scale-factor", String(scale));
+  rescaleGeom(scale / prev);
+
+  // Re-anchor off the same page rather than scaling scrollTop by the zoom
+  // ratio: the gaps between pages do not scale, so the ratio drifts. The
+  // anchor page's new position is read back from the DOM rather than taken
+  // from the rescaled index -- that read forces one layout, but a stale
+  // half-pixel here compounds across a wheel gesture into visible slippage.
+  const anchorDiv = before ? pages.get(before.pn)?.div : null;
+  if (anchorDiv && frac !== null) {
+    const top = anchorDiv.offsetTop;
+    const height = anchorDiv.offsetHeight;
+    const e = geomFor(before.pn);
+    if (e) { e.top = top; e.bottom = top + height; }
+    el.viewer.scrollTop = top + frac * height - anchor;
+  } else {
+    el.viewer.scrollTop = (at * (scale / prev)) - anchor;
+  }
+
+  // No repaint: the overlay is a viewBox="0 0 1 1" SVG over a page-fraction
+  // coordinate system, so it rescales with the page for free.
+  report();
+}
+
+async function rasteriseAtScale() {
   if (!doc) return;
-  // Zoom walks every already-rendered page. Two of those walks overlapping
-  // means two render tasks per canvas, which PDF.js refuses; the generation
-  // check drops the older walk as soon as a newer zoom starts.
+  // Two of these overlapping means two render tasks per canvas, which PDF.js
+  // refuses; the generation check drops the older walk.
   const gen = ++zoomGeneration;
   for (const p of pages.values()) {
     if (gen !== zoomGeneration) return;
-    if (!p.rendered) {
-      // Not rasterised yet — just resize the shell.
-      const base = (await doc.getPage(p.pn)).getViewport({ scale: 1 });
-      sizePage(p.div, base.width * scale, base.height * scale);
-      continue;
-    }
+    if (!p.rendered) continue;
     const viewport = p.proxy.getViewport({ scale });
-    sizePage(p.div, viewport.width, viewport.height);
-    p.div.style.setProperty("--total-scale-factor", String(scale));
     await paintCanvas(p, viewport);
-    if (gen !== zoomGeneration) return; // a newer zoom superseded this pass
+    if (gen !== zoomGeneration) return;
     // The page can be evicted while that await is outstanding, which nulls
     // the text layer out from under us.
     if (!p.rendered || !p.textLayer) continue;
@@ -438,8 +639,18 @@ async function reZoom(next) {
     // fractions, so zoom is meant to cost nothing. If the band drifts after a
     // zoom, that claim (02 §6) is wrong and the ticket should say so.
   }
+  // The index was transformed rather than re-measured during the gesture;
+  // resync it from the DOM now that the zoom has stopped moving.
+  markGeomDirty();
   repaint();
   report();
+}
+
+let rasterTimer;
+function reZoom(next, anchorClientY = null) {
+  applyScale(next, anchorClientY);
+  clearTimeout(rasterTimer);
+  rasterTimer = setTimeout(rasteriseAtScale, 150);
 }
 
 // ------------------------------------------------- sentences and geometry
@@ -1310,17 +1521,36 @@ function markSentenceList(c) {
   el.sentences.children[c.si]?.scrollIntoView({ block: "nearest" });
 }
 
-let sweepTimer = null;
+/*
+ * The scroll handler does the least it possibly can: measure how fast we are
+ * moving, and set a timer. Everything else -- eviction, the sentence list,
+ * resuming the render pump -- happens once the scroll settles. It used to call
+ * getBoundingClientRect() on every page in the document on every scroll event,
+ * which on a 611-page book is 611 forced layouts per event.
+ */
+let settleTimer = null;
 el.viewer.addEventListener("scroll", () => {
-  if (!sweepTimer) {
-    sweepTimer = setTimeout(() => { sweepTimer = null; sweepEvictions(); }, 300);
-  }
-  const mid = el.viewer.getBoundingClientRect().top + el.viewer.clientHeight / 2;
-  for (const p of pages.values()) {
-    const b = p.div.getBoundingClientRect();
-    if (b.top <= mid && b.bottom >= mid) { renderSentenceList(p.pn); break; }
-  }
+  const now = performance.now();
+  const top = el.viewer.scrollTop;
+  const dt = now - lastScrollAt;
+  // A gap longer than an idle beat is a new gesture, not a slow one.
+  scrollVelocity = dt > 0 && dt < SCROLL_IDLE_MS * 4 ? Math.abs(top - lastScrollTop) / dt : 0;
+  lastScrollAt = now;
+  lastScrollTop = top;
+
+  if (!pumping && renderQueue.size && !scrollingFast()) pump();
+
+  clearTimeout(settleTimer);
+  settleTimer = setTimeout(onScrollSettled, 150);
 }, { passive: true });
+
+function onScrollSettled() {
+  scrollVelocity = 0;
+  sweepEvictions();
+  const hit = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
+  if (hit) renderSentenceList(hit.pn);
+  pump();
+}
 
 /** Which sentence, if any, sits under this page-relative point. */
 function hitTest(p, clientX, clientY) {
@@ -1502,12 +1732,33 @@ el.voice.onchange = () => {
   if (cursor) ensurePrefetch(cursor, { priority: true }).catch(() => {});
 };
 
-let zoomTimer;
-el.zoom.oninput = () => {
-  el.zoomOut.textContent = Number(el.zoom.value).toFixed(2);
-  clearTimeout(zoomTimer);
-  zoomTimer = setTimeout(() => reZoom(Number(el.zoom.value)), 180);
-};
+el.zoom.oninput = () => reZoom(Number(el.zoom.value));
+
+/*
+ * Ctrl+wheel zoom, anchored on the pointer -- the gesture every PDF reader
+ * has. passive:false because it has to preventDefault: left alone, Chromium
+ * turns ctrl+wheel into browser zoom, which scales the chrome along with the
+ * page and is not what anyone means by zooming a document.
+ *
+ * The step is exponential so each notch is the same proportional change at
+ * every zoom level; deltaMode 1 is a line-scrolling mouse rather than a
+ * trackpad, so its deltas are much coarser.
+ */
+el.viewer.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const per = e.deltaMode === 1 ? 0.05 : 0.0012;
+  reZoom(scale * Math.exp(-e.deltaY * per), e.clientY);
+}, { passive: false });
+
+// Keyboard zoom, for the same reason: ctrl +/-/0 is the other half of the
+// gesture people already have in their hands.
+addEventListener("keydown", (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  if (e.key === "+" || e.key === "=") { e.preventDefault(); reZoom(scale * 1.1); }
+  else if (e.key === "-") { e.preventDefault(); reZoom(scale / 1.1); }
+  else if (e.key === "0") { e.preventDefault(); reZoom(1.2); }
+});
 
 el.showall.onchange = repaint;
 el.showRegions.onchange = repaint;

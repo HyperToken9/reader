@@ -117,10 +117,18 @@ button:disabled { opacity: .45; cursor: default; }
 
 #viewer { flex: 1; overflow: auto; position: relative; padding: 24px 0 120px; }
 
-#pages { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+#pages { display: flex; flex-direction: column; align-items: center; gap: 18px; --zoom: 1.2; }
 
+/*
+ * A page's size is its unscaled size (--pw/--ph, written once) times the
+ * document's zoom (--zoom, written once on #pages). Zooming is therefore a
+ * single style write, not one per page -- which matters when a ctrl+wheel
+ * gesture arrives at 60Hz on a 600-page book.
+ */
 .pdfpage {
   position: relative;
+  width: calc(var(--pw, 0) * var(--zoom) * 1px);
+  height: calc(var(--ph, 0) * var(--zoom) * 1px);
   background: #fff;
   box-shadow: 0 2px 14px rgba(0, 0, 0, .55);
 }
