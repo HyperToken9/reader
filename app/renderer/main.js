@@ -43,6 +43,7 @@ const el = {
   zoom: $("zoom"), zoomOut: $("zoomOut"),
   play: $("play"), stop: $("stop"),
   autoscroll: $("autoscroll"), showall: $("showall"), showRegions: $("showRegions"),
+  layoutHint: $("layoutHint"),
   enableLayout: $("enableLayout"),
   state: $("state"), spoken: $("spoken"),
   sentences: $("sentences"), segcount: $("segcount"),
@@ -189,6 +190,29 @@ async function closeDoc() {
   el.sentences.replaceChildren();
   doc = null;
   docKind = null;
+  syncLayoutControls();
+}
+
+/**
+ * The "reading order via layout model" checkbox only means anything for a
+ * PDF -- an epub chapter's TreeWalker already visits nodes in document
+ * order, which for reflowable HTML *is* the reading order, so there is no
+ * equivalent reordering problem for the layout model to fix (see
+ * el.enableLayout.onchange below). Left checkable-but-inert on an epub, the
+ * control looks broken: nothing happens, with no indication why. Disable it
+ * (and the region-overlay checkbox that depends on it) instead, so an epub
+ * makes the control's irrelevance visible rather than silently doing nothing.
+ */
+function syncLayoutControls() {
+  const isPdf = docKind === "pdf";
+  el.enableLayout.disabled = !isPdf;
+  el.showRegions.disabled = !isPdf;
+  el.layoutHint.textContent =
+    docKind === "epub"
+      ? "Not applicable to an EPUB: its chapters are read in document order already, which for reflowable HTML is the correct reading order -- there's no layout model step to run."
+      : docKind === "pdf"
+        ? "Runs PP-DocLayoutV2 outside the window (~1.4s a page), so scrolling stays smooth. Groups each page into titles, paragraphs and figures so a click picks the paragraph you meant. Off means pages keep their default reading order."
+        : "Open a PDF to enable this.";
 }
 
 /** Build one page/chapter shell, shared innerHTML for whichever fields both formats use. */
@@ -206,6 +230,7 @@ function makeShell(pn, extraClass, bodyHtml) {
 async function openPdf(data) {
   await closeDoc();
   docKind = "pdf";
+  syncLayoutControls();
 
   doc = await pdfjsLib.getDocument({ data }).promise;
   el.drop.classList.add("hide");
@@ -246,6 +271,7 @@ const EPUB_PLACEHOLDER_HEIGHT = 900;
 async function openEpub(data) {
   await closeDoc();
   docKind = "epub";
+  syncLayoutControls();
 
   const parsed = await parseEpub(data);
   // numPages, not numChapters: every generic page-shaped codepath below
@@ -2226,6 +2252,7 @@ el.enableLayout.onchange = () => {
   // itself for anything rendered from here on.
   for (const p of pages.values()) if (p.rendered && !p.regions) refineLayout(p);
 };
+syncLayoutControls(); // no doc open yet -- starts disabled
 
 addEventListener("beforeunload", () => audioEl.pause());
 
