@@ -2,7 +2,7 @@
   "name": "blitz",
   "version": "0.1.0",
   "private": true,
-  "description": "Read textbooks aloud on the real PDF page, with the spoken words highlighted in place.",
+  "description": "Read textbooks aloud on the real page -- PDF or EPUB -- with the spoken words highlighted in place.",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -15,6 +15,7 @@
     "smoke:dist": "BLITZ_SMOKE_BIN=release/linux-unpacked/blitz node scripts/smoke.mjs"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "onnxruntime-node": "^1.29.0",
     "pdfjs-dist": "6.3.289",
     "ppu-doclayout": "^1.0.0"

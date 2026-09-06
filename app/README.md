@@ -1,13 +1,18 @@
 # Blitz
 
-Read a textbook aloud **on the actual PDF page**. The page you look at is the
-real render — figures, equations, columns, all of it — and the reading
-experience is an overlay on top: a band over the sentence being spoken and a
-cursor on the word.
+Read a textbook aloud **on the actual page**. For a PDF, that's the real
+render — figures, equations, columns, all of it — with the reading experience
+as an overlay on top: a band over the sentence being spoken and a cursor on
+the word. For an EPUB, "the actual page" means its own reflowable HTML+CSS,
+rendered by the browser exactly as the book's author wrote it, with the same
+overlay on top of *that*.
 
-That constraint is the whole point. Apps that read PDFs aloud generally extract
-the text into their own reflowed environment first, which is exactly where
-diagrams and equations fall apart. Nothing here reflows anything.
+That constraint is the whole point. Apps that read books aloud generally
+extract the text into their own environment first, which for a PDF is exactly
+where diagrams and equations fall apart. Nothing here re-extracts a PDF's
+text or re-flows its layout. An EPUB is a different case — reflowable HTML
+*is* its native form, so rendering its own markup in a browser is already
+staying true to the original; there's no separate extraction step to avoid.
 
 Planning and the prototypes that led to this live in
 [`.scratch/pdf-native-read-aloud/`](../.scratch/pdf-native-read-aloud/).
@@ -30,7 +35,40 @@ npm run dev             # Vite + Electron with hot reload
 
 Zoom is a single CSS variable on the page container, so a wheel gesture resizes
 the whole document with one style write and the already-drawn bitmaps stretch
-to match; the pages re-rasterise once the gesture stops.
+to match; the pages re-rasterise once the gesture stops. An EPUB has no bitmap
+to stretch — zoom there is a font-size variable inside each chapter's own
+iframe, reflowed on every tick rather than debounced, since reflowing one
+chapter (an isolated document, unlike the whole PDF) is cheap on its own.
+
+## EPUB
+
+Opening a `.epub` (drag-and-drop or the file picker; sniffed by extension,
+falling back to the file's magic bytes) routes to a separate renderer path in
+[`renderer/epub.js`](renderer/epub.js) and the `docKind === "epub"` branches
+in `renderer/main.js`, not a PDF.js document. Each spine chapter becomes one
+sandboxed `<iframe sandbox="allow-same-origin">` — no `allow-scripts`, so the
+book's own markup (and any script it ships) never runs, but the parent can
+still read `contentDocument` synchronously to find real text nodes and build
+real Ranges against them, the same role PDF.js's text layer plays for a PDF
+page. Every resource a chapter references (images, stylesheets, fonts, and
+the `url()`s inside them) is resolved to a `blob:` URL up front by
+[`fflate`](https://github.com/101arrowz/fflate) unzipping the archive, so a
+chapter renders with no `<base>` and no network reachability at all.
+
+The same scroll-priority render queue, LRU canvas/iframe eviction, and
+geometry index that make a 600-page PDF scroll smoothly (see "Reading
+gestures" above) apply unchanged to chapters — `PageEntry` duck-types the
+same shape either way, so that whole pipeline doesn't know which format it's
+looking at. What's format-specific: a chapter's sentence *rects* are computed
+lazily, the first time one is painted or hit-tested, rather than eagerly at
+render time the way a PDF page's dozen sentences are — a chapter can hold
+hundreds, and forcing `Range().getClientRects()` for all of them the moment
+it scrolls into view would reintroduce the exact scroll stall fixed earlier
+for PDF, just from a new cause. Hovering to preview a sentence likewise
+doesn't test every sentence's rects on every mousemove; it asks the browser
+directly which text offset sits under the pointer
+(`caretRangeFromPoint`/`caretPositionFromPoint`) and binary-searches sentence
+boundaries from there.
 
 Other commands:
 
@@ -62,6 +100,7 @@ electron/main.js        window, IPC handlers, owns both models
         tts.js          owns the speech engine; the renderer never sees how it works
         tts_server.py   Kokoro, spawned as a child process (see "Speech engine")
 renderer/               PDF.js render, sentence geometry, highlight overlay, audio
+        epub.js         EPUB parsing: unzip, resolve resources to blob: URLs, per spine chapter
 ```
 
 Context isolation is on and `nodeIntegration` is off. The renderer gets
@@ -106,7 +145,10 @@ that could not open a single document: the window was healthy in every way the
 test could see, and every file silently did nothing.
 
 The fixture is a minimal PDF written by hand in `scripts/fixture-pdf.mjs`, so
-the test needs nothing from `sample_books/`, which is gitignored.
+the test needs nothing from `sample_books/`, which is gitignored. `npm run
+smoke` does not yet open an EPUB — there's no hand-written EPUB fixture the
+way there is a PDF one — so EPUB changes still need manual verification
+against a real book from `sample_books/` until one exists.
 
 `scripts/scroll-check.mjs <binary|.> <some.pdf>` is the other harness: it flings
 a real several-hundred-page book, measures the frame gaps while it moves,

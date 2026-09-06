@@ -15,8 +15,8 @@
         <p class="proto" id="engineStatus">starting the speech engine…</p>
 
         <section>
-          <button id="pick">Choose a PDF…</button>
-          <input id="file" type="file" accept="application/pdf" hidden />
+          <button id="pick">Choose a PDF or EPUB…</button>
+          <input id="file" type="file" accept="application/pdf,.pdf,application/epub+zip,.epub" hidden />
           <div id="docinfo" class="muted">no document</div>
         </section>
 
@@ -76,7 +76,7 @@
 
       <main id="viewer">
         <div id="pages"></div>
-        <div id="drop">Drop a textbook PDF here</div>
+        <div id="drop">Drop a textbook PDF or EPUB here</div>
       </main>
     </div>
 

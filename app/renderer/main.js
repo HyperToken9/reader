@@ -29,6 +29,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { analyzeLayout } from "./layout.js";
+import { parseEpub } from "./epub.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -55,6 +56,11 @@ const el = {
 // ---------------------------------------------------------------- state
 
 let doc = null;
+// "pdf" or "epub". PageEntry (below) duck-types the same shape either way --
+// pn/div/rendered/sentences/base -- so the whole scroll, zoom, eviction and
+// playback pipeline below is shared unmodified; only shell-building,
+// renderPage, evictPage and zoom reflow branch on this.
+let docKind = null;
 /** @type {Map<number, PageEntry>} */
 const pages = new Map();
 let scale = 1.2;
@@ -141,6 +147,7 @@ class PageEntry {
     this.textLayerDiv = div.querySelector(".textLayer");
     this.svg = div.querySelector(".overlay");
     this.labels = div.querySelector(".regionLabels");
+    this.iframe = div.querySelector("iframe"); // epub only; null for a PDF shell
     this.textLayer = null;
     this.proxy = null;
     this.sentences = [];
@@ -153,14 +160,52 @@ class PageEntry {
   }
 }
 
-async function openDoc(data) {
-  if (doc) await doc.destroy();
+/** Sniff format from the filename first, falling back to the bytes themselves. */
+function sniffKind(name, data) {
+  if (/\.epub$/i.test(name || "")) return "epub";
+  if (/\.pdf$/i.test(name || "")) return "pdf";
+  const head = new Uint8Array(data, 0, Math.min(data.byteLength, 4));
+  if (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) return "pdf"; // %PDF
+  if (head[0] === 0x50 && head[1] === 0x4b) return "epub"; // PK.. (zip)
+  return null;
+}
+
+async function openFile(file) {
+  const data = await file.arrayBuffer();
+  const kind = sniffKind(file.name, data);
+  if (kind === "epub") return openEpub(data);
+  if (kind === "pdf") return openPdf(data);
+  status(`Can't tell what kind of file "${file.name}" is -- expected a .pdf or .epub`);
+}
+
+/** Teardown shared by both openers: stop playback, release the old document's pages. */
+async function closeDoc() {
   stop();
-  for (const p of pages.values()) evictPage(p); // release canvases before dropping the map
+  if (doc && docKind === "pdf") await doc.destroy();
+  for (const p of pages.values()) evictPage(p); // release canvases/iframes before dropping the map
   renderOrder.length = 0;
   pages.clear();
   el.pages.replaceChildren();
   el.sentences.replaceChildren();
+  doc = null;
+  docKind = null;
+}
+
+/** Build one page/chapter shell, shared innerHTML for whichever fields both formats use. */
+function makeShell(pn, extraClass, bodyHtml) {
+  const div = document.createElement("div");
+  div.className = `page ${extraClass}`;
+  div.dataset.page = String(pn);
+  div.innerHTML = bodyHtml +
+    `<svg class="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>` +
+    `<div class="regionLabels"></div>`;
+  el.pages.append(div);
+  return div;
+}
+
+async function openPdf(data) {
+  await closeDoc();
+  docKind = "pdf";
 
   doc = await pdfjsLib.getDocument({ data }).promise;
   el.drop.classList.add("hide");
@@ -172,22 +217,51 @@ async function openDoc(data) {
   const base = first.getViewport({ scale: 1 });
 
   for (let pn = 1; pn <= doc.numPages; pn++) {
-    const div = document.createElement("div");
-    div.className = "pdfpage";
-    div.dataset.page = String(pn);
     // width/height 0 until rasterised: a default <canvas> is 300x150, and at
     // 4 bytes a pixel that is ~180 KB per page of pure shell -- 145 MB of it
     // on an 809-page book, before anything has been rendered at all.
-    div.innerHTML = `<canvas width="0" height="0"></canvas><div class="textLayer"></div>` +
-      `<svg class="overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>` +
-      `<div class="regionLabels"></div>`;
+    const div = makeShell(pn, "pdfpage",
+      `<canvas width="0" height="0"></canvas><div class="textLayer"></div>`);
     sizePage(div, base);
-    el.pages.append(div);
     const entry = new PageEntry(pn, div);
     // Page 1's size, as a stand-in until this page is actually opened. Every
     // shell needs *a* height for the scrollbar to be honest, and asking PDF.js
     // for 611 real ones up front is the thing lazy rendering exists to avoid.
     entry.base = { width: base.width, height: base.height };
+    pages.set(pn, entry);
+    observer.observe(div);
+  }
+  markGeomDirty();
+
+  await renderPage(1);
+  report();
+}
+
+// A book with no per-chapter width info yet gets a guessed placeholder height
+// so the scrollbar is roughly honest before anything has actually reflowed --
+// same idea as the PDF shell borrowing page 1's size, just a flat guess since
+// an EPUB chapter has no upfront aspect ratio to ask for.
+const EPUB_PLACEHOLDER_HEIGHT = 900;
+
+async function openEpub(data) {
+  await closeDoc();
+  docKind = "epub";
+
+  const parsed = await parseEpub(data);
+  // numPages, not numChapters: every generic page-shaped codepath below
+  // (nextCursor, firstPageWithSentences, report(), the render queue) already
+  // reads doc.numPages and only PDF-specific call sites (getPage, destroy)
+  // need to know the difference, gated on docKind instead.
+  doc = { numPages: parsed.numChapters, chapters: parsed.chapters, title: parsed.title };
+  el.drop.classList.add("hide");
+  el.docinfo.textContent = `${parsed.title} -- ${doc.numPages} chapter${doc.numPages === 1 ? "" : "s"}`;
+
+  for (let pn = 1; pn <= doc.numPages; pn++) {
+    const div = makeShell(pn, "epubchapter",
+      `<iframe sandbox="allow-same-origin" tabindex="-1"></iframe>`);
+    div.style.height = `${EPUB_PLACEHOLDER_HEIGHT * scale}px`;
+    const entry = new PageEntry(pn, div);
+    entry.base = { width: 0, height: EPUB_PLACEHOLDER_HEIGHT * scale };
     pages.set(pn, entry);
     observer.observe(div);
   }
@@ -435,6 +509,19 @@ function evictFarPages() {
 /** Release a page's pixels and DOM. It re-renders from scratch when scrolled back to. */
 function evictPage(p) {
   if (!p || !p.rendered) return;
+  if (p.iframe) {
+    // Epub chapter: drop the iframe's document (frees its whole render tree —
+    // DOM, fonts, decoded images) but keep the div's measured height, the
+    // same way a PDF shell keeps p.base, so the scrollbar doesn't jump.
+    p.iframe.removeAttribute("srcdoc");
+    p.svg.replaceChildren();
+    p.labels.replaceChildren();
+    p.sentences = [];
+    p._epubNodeIndex = null;
+    p.rendered = false;
+    p.rendering = null;
+    return;
+  }
   if (p.renderTask) {
     try { p.renderTask.cancel(); } catch { /* already finished */ }
     p.renderTask = null;
@@ -460,7 +547,11 @@ async function renderPage(pn) {
   const p = pages.get(pn);
   if (!p || p.rendered) return p;
   if (p.rendering) return p.rendering.then(() => p);
+  return docKind === "epub" ? renderChapter(pn) : renderPdfPage(pn);
+}
 
+async function renderPdfPage(pn) {
+  const p = pages.get(pn);
   p.rendering = (async () => {
     p.proxy = await doc.getPage(pn);
     const base = p.proxy.getViewport({ scale: 1 });
@@ -502,6 +593,62 @@ async function renderPage(pn) {
   // Reading order is still worth having; it just has to be asked for.
   if (el.enableLayout.checked) refineLayout(p); // background, not awaited
   return p;
+}
+
+/**
+ * An EPUB chapter's iframe *is* its text layer -- there is no separate
+ * extraction step. The sandbox has allow-same-origin but not allow-scripts,
+ * so the book's own markup can't run anything, but contentDocument is
+ * synchronously readable from here, which is what buildEpubSentences (below)
+ * walks with a TreeWalker to find real text nodes and build real Ranges
+ * against, the same way [[02]]'s PDF text layer does.
+ */
+async function renderChapter(pn) {
+  const p = pages.get(pn);
+  p.rendering = (async () => {
+    const chapter = doc.chapters[pn - 1];
+    const html = epubShellHtml(chapter, scale);
+
+    await new Promise((resolve) => {
+      p.iframe.addEventListener("load", resolve, { once: true });
+      p.iframe.srcdoc = html;
+    });
+    try { await p.iframe.contentDocument.fonts?.ready; } catch { /* not fatal if unsupported */ }
+
+    const h = Math.max(1, p.iframe.contentDocument.documentElement.scrollHeight);
+    const resized = !p.base || p.base.height !== h;
+    p.base = { width: p.div.clientWidth, height: h };
+    p.div.style.height = `${h}px`;
+    if (resized) markGeomDirty();
+
+    buildEpubSentences(p);
+    p.rendered = true;
+    noteRendered(pn);
+    if (el.showall.checked) paintAllBands(p);
+    report();
+  })();
+
+  await p.rendering;
+  return p;
+}
+
+/** The HTML document an epub chapter's sandboxed iframe gets as its srcdoc. */
+function epubShellHtml(chapter, zoom) {
+  return `<!doctype html><html style="--zoom:${zoom}"><head><meta charset="utf-8">` +
+    `<style>
+      html, body { margin: 0; background: #fff; color: #14161a; }
+      body {
+        font: calc(var(--zoom, 1) * 1em)/1.6 Georgia, "Times New Roman", serif;
+        padding: 48px 60px;
+        max-width: 720px;
+        margin: 0 auto;
+        overflow-wrap: break-word;
+      }
+      img, svg { max-width: 100%; height: auto; }
+      * { -webkit-user-select: none; user-select: none; }
+    </style>` +
+    chapter.headHtml +
+    `</head><body>${chapter.bodyHtml}</body></html>`;
 }
 
 /** Is this page in or near the visible scroll window? */
@@ -648,9 +795,59 @@ async function rasteriseAtScale() {
 
 let rasterTimer;
 function reZoom(next, anchorClientY = null) {
+  if (docKind === "epub") return applyEpubScale(next, anchorClientY);
   applyScale(next, anchorClientY);
   clearTimeout(rasterTimer);
   rasterTimer = setTimeout(rasteriseAtScale, 150);
+}
+
+/**
+ * Epub has no PDF-style raster/CSS-var split for zoom: reflowing a chapter
+ * means changing --zoom (a font-size multiplier) inside its own iframe and
+ * remeasuring, and there is no bitmap to stretch for cheap instant feedback
+ * the way a canvas gives PDF. What keeps it feeling instant anyway is that
+ * each chapter is its own isolated iframe -- reflowing one means reflowing a
+ * single short document, not the 611-page one the scroll fix earlier this
+ * session was about -- and the render queue already keeps only a handful of
+ * chapters rendered at once. So this runs synchronously on every tick,
+ * across whichever chapters are actually rendered; nothing is debounced.
+ */
+function applyEpubScale(next, anchorClientY = null) {
+  const prev = scale;
+  scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
+  el.zoomOut.textContent = scale.toFixed(2);
+  el.zoom.value = String(scale);
+  if (!doc || scale === prev) return;
+
+  const viewerTop = el.viewer.getBoundingClientRect().top;
+  const anchor = anchorClientY == null
+    ? el.viewer.clientHeight / 2
+    : Math.max(0, Math.min(el.viewer.clientHeight, anchorClientY - viewerTop));
+  const at = el.viewer.scrollTop + anchor;
+  const before = pageAtOffset(at);
+  const frac = before && before.bottom > before.top
+    ? (at - before.top) / (before.bottom - before.top)
+    : null;
+
+  for (const p of pages.values()) {
+    if (!p.rendered || !p.iframe?.contentDocument) continue;
+    p.iframe.contentDocument.documentElement.style.setProperty("--zoom", String(scale));
+    const h = Math.max(1, p.iframe.contentDocument.documentElement.scrollHeight);
+    p.div.style.height = `${h}px`;
+    p.base = { width: p.base?.width ?? 0, height: h };
+    // Old Range()-derived rects and word rects describe the layout from
+    // before this reflow; drop them so the next paint recomputes fresh ones.
+    for (const s of p.sentences) { s.rects = null; s.words = null; }
+  }
+  markGeomDirty();
+
+  const g = geomFor(before?.pn);
+  el.viewer.scrollTop = g && frac !== null
+    ? g.top + frac * (g.bottom - g.top) - anchor
+    : Math.max(0, at - anchor);
+
+  repaint();
+  report();
 }
 
 // ------------------------------------------------- sentences and geometry
@@ -920,9 +1117,168 @@ function groupByRegion(resolved, divs, box, regions) {
   return groups;
 }
 
+/*
+ * ---- EPUB sentences and rects ----
+ *
+ * An EPUB chapter's iframe is its own text layer: TreeWalker finds real Text
+ * nodes directly, so items reference nodes themselves rather than PDF's
+ * textDivs-by-index, and there is no textPosition() descent to do. The
+ * sentence *text* is still built and segmented eagerly (buildEpubSentences,
+ * cheap -- Intl.Segmenter is one linear pass over the chapter's string) but
+ * unlike a PDF page's dozen sentences, a chapter can hold hundreds, and each
+ * one's line RECTS cost a forced layout via Range().getClientRects(). Doing
+ * that for every sentence the moment a chapter renders would reintroduce the
+ * scroll stall this session just fixed for PDF, just from a new cause -- so
+ * rects are computed lazily, the first time a sentence is actually painted
+ * or hit-tested, exactly like getWordRects below already does for words.
+ */
+
+const BLOCK_TAGS = /^(P|DIV|H[1-6]|LI|BLOCKQUOTE|SECTION|ARTICLE|TABLE|TR|TD|TH|UL|OL|BR|HR|FIGURE|FIGCAPTION|PRE|HEADER|FOOTER|ASIDE|NAV|DT|DD)$/;
+
+function blockAncestor(node) {
+  let el = node.parentElement;
+  while (el && !BLOCK_TAGS.test(el.tagName)) el = el.parentElement;
+  return el;
+}
+
+function buildEpubSentences(p) {
+  const idoc = p.iframe.contentDocument;
+  const walker = idoc.createTreeWalker(idoc.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue || !/\S/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+      const tag = n.parentElement?.tagName;
+      if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT") return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  // Concatenate text nodes in document order, trusting the source's own
+  // whitespace where it exists (an inline split mid-word, e.g. bold "act" +
+  // plain "ive", has none between the nodes and must not gain a space) and
+  // adding exactly one only where reading across a block-element boundary
+  // (paragraph, heading, list item...) would otherwise weld two unrelated
+  // runs together with nothing between them at all.
+  const items = []; // { node, start, len }
+  const parts = [];
+  let acc = 0;
+  let prevNode = null;
+  let node;
+  while ((node = walker.nextNode())) {
+    const str = node.nodeValue;
+    if (prevNode && blockAncestor(prevNode) !== blockAncestor(node) &&
+        !/\s$/.test(parts[parts.length - 1]) && !/^\s/.test(str)) {
+      parts.push(" ");
+      acc += 1;
+    }
+    items.push({ node, start: acc, len: str.length });
+    parts.push(str);
+    acc += str.length;
+    prevNode = node;
+  }
+  if (!items.length) { p.sentences = []; p._epubNodeIndex = null; return; }
+  const pageText = parts.join("");
+  // node -> item, for epubHitTest (below) to turn a point under the pointer
+  // straight into a global text offset without testing every sentence's
+  // rects on every mousemove -- the thing that made [[05]]'s "POC-grade,
+  // fine at this page count" hitTest not fine at all once a page (chapter)
+  // can hold hundreds of sentences.
+  p._epubNodeIndex = new Map(items.map((it) => [it.node, it]));
+
+  const locate = (idx) => {
+    let lo = 0, hi = items.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (items[mid].start <= idx) lo = mid; else hi = mid - 1;
+    }
+    return items[lo];
+  };
+
+  const seg = new Intl.Segmenter("en", { granularity: "sentence" });
+  const spans = [];
+  for (const { segment, index } of seg.segment(pageText)) {
+    let s = index, e = index + segment.length;
+    while (s < e && /\s/.test(pageText[s])) s++;
+    while (e > s && /\s/.test(pageText[e - 1])) e--;
+    if (e <= s) continue;
+    for (const span of guardSentenceBoundaries(pageText, s, e)) spans.push(span);
+  }
+
+  // Same "nothing unpronounceable stands alone" merge as buildSentences (02
+  // §"kept"): a lone list marker or figure-reference tail gets folded into
+  // its neighbour rather than sent to Kokoro to reject.
+  const kept = [];
+  for (let i = 0; i < spans.length; i++) {
+    const [a, b] = spans[i];
+    if (!/[A-Za-z]/.test(pageText.slice(a, b))) {
+      if (i + 1 < spans.length) { spans[i + 1][0] = a; continue; }
+      if (kept.length) { kept[kept.length - 1][1] = b; continue; }
+      continue;
+    }
+    kept.push([a, b]);
+  }
+
+  const out = [];
+  for (const [as, ae] of kept) {
+    const text = pageText.slice(as, ae);
+    const wordSpans = [];
+    for (const m of text.matchAll(/\S+/g)) {
+      wordSpans.push({ text: m[0], ws: as + m.index, we: as + m.index + m[0].length });
+    }
+    out.push({
+      pn: p.pn, si: out.length, text, rects: null, wordSpans, words: null, unmapped: 0,
+      speech: text, _locate: locate, _start: as, _end: ae,
+    });
+  }
+  p.sentences = out;
+}
+
+/** DOM Range -> normalised page-fraction rects, epub version. Items reference
+ * real Text nodes directly (no textPosition descent needed), and the box is
+ * the iframe element's own client rect: content inside it is a different
+ * document, so range.getClientRects() reports positions in *its* viewport,
+ * which the iframe element's box converts back into the main document. */
+function epubRangeRects(p, locate, s, e) {
+  if (e <= s) return [];
+  const a = locate(s), b = locate(e - 1);
+  try {
+    const range = p.iframe.contentDocument.createRange();
+    range.setStart(a.node, Math.max(0, Math.min(s - a.start, a.node.length)));
+    range.setEnd(b.node, Math.max(0, Math.min(e - 1 - b.start + 1, b.node.length)));
+    const box = p.iframe.getBoundingClientRect();
+    return [...range.getClientRects()]
+      .filter((r) => r.width > 0 && r.height > 0)
+      .map((r) => ({
+        x: (r.x - box.x) / box.width, y: (r.y - box.y) / box.height,
+        w: r.width / box.width, h: r.height / box.height,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * A sentence's line rects. PDF sentences already have theirs filled in
+ * eagerly by buildSentences -- cheap there, a page has ~a dozen -- so this
+ * is a plain cache read for them; epub sentences start with rects:null and
+ * compute (and cache) lazily here, the first time one is actually painted,
+ * hit-tested or scrolled to.
+ */
+function sentenceRects(p, s) {
+  if (s.rects) return s.rects;
+  if (!p.iframe) return [];
+  s.rects = mergeLines(epubRangeRects(p, s._locate, s._start, s._end));
+  return s.rects;
+}
+
 /** Compute (and cache) a sentence's per-word rects, only when it's about to speak. */
 function getWordRects(p, sentence) {
   if (sentence.words) return sentence.words;
+  if (p.iframe) {
+    sentence.words = sentence.wordSpans
+      .map(({ text, ws, we }) => ({ text, rects: mergeLines(epubRangeRects(p, sentence._locate, ws, we)) }))
+      .filter((w) => w.rects.length);
+    return sentence.words;
+  }
   const { divs } = p._geom;
   const locate = sentence._locate;
   // A fresh box, not the one buildSentences captured: this can run long
@@ -1078,7 +1434,7 @@ function paintWordCursor(p, sentence, wordIdxs) {
   mask.setAttribute("id", id);
   mask.setAttribute("maskUnits", "userSpaceOnUse");
   mask.append(rect(0, 0, 1, 1, "#000"));
-  for (const b of sentence.rects.map(pad)) mask.append(rect(b.x, b.y, b.w, b.h, "#fff"));
+  for (const b of sentenceRects(p, sentence).map(pad)) mask.append(rect(b.x, b.y, b.w, b.h, "#fff"));
   for (const b of wordBoxes) mask.append(rect(b.x, b.y, b.w, b.h, "#000"));
   p.svg.append(mask);
   p.svg.append(rect(0, 0, 1, 1, "rgba(10, 12, 18, 0.24)", { mask: `url(#${id})` }));
@@ -1086,8 +1442,11 @@ function paintWordCursor(p, sentence, wordIdxs) {
 
 function paintAllBands(p) {
   clearOverlay(p);
+  // Debug-only (the "show every sentence band" checkbox): forces every
+  // sentence's rects, which on an epub chapter with hundreds of them is
+  // real work. Fine when explicitly opted into; never called otherwise.
   for (const s of p.sentences) {
-    for (const r of s.rects.map(pad)) {
+    for (const r of sentenceRects(p, s).map(pad)) {
       p.svg.append(rect(r.x, r.y, r.w, r.h, "rgba(80, 160, 255, 0.12)", {
         stroke: "rgba(80, 160, 255, 0.55)",
         "stroke-width": 1,
@@ -1144,13 +1503,14 @@ function repaint() {
       if (speaking && speaking.pn === p.pn) {
         // still show where the voice is, on top of the debug bands
         const s = p.sentences[speaking.si];
-        if (s) for (const b of s.rects.map(pad)) {
+        if (s) for (const b of sentenceRects(p, s).map(pad)) {
           p.svg.append(rect(b.x, b.y, b.w, b.h, "rgba(255, 212, 0, 0.40)"));
         }
       }
     } else if (speaking && speaking.pn === p.pn) {
-      paintBand(p, p.sentences[speaking.si]?.rects);
-      if (variant.key === "C") paintWordCursor(p, p.sentences[speaking.si], activeWordIdxs);
+      const s = p.sentences[speaking.si];
+      paintBand(p, s ? sentenceRects(p, s) : null);
+      if (variant.key === "C") paintWordCursor(p, s, activeWordIdxs);
     } else if (variant.key === "C" && speaking) {
       clearOverlay(p);
       p.svg.append(rect(0, 0, 1, 1, "rgba(10, 12, 18, 0.42)"));
@@ -1175,7 +1535,7 @@ const isSame = (a, b) => Boolean(a && b && a.pn === b.pn && a.si === b.si);
 /** Pulsing dashed outline: synthesis is in flight for this sentence. */
 function paintLoading(p, sentence) {
   if (!sentence) return;
-  for (const b of sentence.rects.map(pad)) {
+  for (const b of sentenceRects(p, sentence).map(pad)) {
     const r = rect(b.x, b.y, b.w, b.h, "none", {
       stroke: "rgba(124, 196, 255, 0.9)",
       "stroke-width": 2,
@@ -1190,7 +1550,7 @@ function paintLoading(p, sentence) {
 /** Quiet outline: this is what a click here would play. */
 function paintHover(p, sentence) {
   if (!sentence) return;
-  for (const b of sentence.rects.map(pad)) {
+  for (const b of sentenceRects(p, sentence).map(pad)) {
     p.svg.append(rect(b.x, b.y, b.w, b.h, "rgba(124, 196, 255, 0.10)", {
       stroke: "rgba(124, 196, 255, 0.55)",
       "stroke-width": 1,
@@ -1400,7 +1760,7 @@ async function speakOne(c) {
   const p = pages.get(c.pn);
   getWordRects(p, s); // pay the per-word layout cost for this one sentence, now that it's needed
   repaint();
-  scrollTo(p, s.rects);
+  scrollTo(p, sentenceRects(p, s));
   markSentenceList(c);
   report();
 
@@ -1505,7 +1865,11 @@ function renderSentenceList(pn) {
     ...p.sentences.map((s, i) => {
       const li = document.createElement("li");
       li.textContent = s.text;
-      li.title = `${s.rects.length} line rect(s)` +
+      // s.rects may still be null here (epub: computed lazily) -- reading the
+      // list must not itself force a Range().getClientRects() pass over
+      // every sentence in the chapter, so this only reports a count when the
+      // rects already happen to be cached.
+      li.title = (s.rects ? `${s.rects.length} line rect(s)` : "") +
         (s.unmapped ? ` · ${s.unmapped} unmapped glyph(s)` : "");
       if (s.unmapped) li.style.color = "#ff9b6b";
       li.onclick = () => { stop(); play({ pn, si: i }); };
@@ -1554,6 +1918,7 @@ function onScrollSettled() {
 
 /** Which sentence, if any, sits under this page-relative point. */
 function hitTest(p, clientX, clientY) {
+  if (p.iframe) return epubHitTest(p, clientX, clientY);
   const b = p.div.getBoundingClientRect();
   const x = (clientX - b.left) / b.width;
   const y = (clientY - b.top) / b.height;
@@ -1562,9 +1927,54 @@ function hitTest(p, clientX, clientY) {
   return hit >= 0 ? hit : null;
 }
 
+/**
+ * The epub equivalent of hitTest above, but taking a completely different
+ * route to it: this runs on every mousemove for the hover-to-preview badge,
+ * and testing every sentence's rects (the PDF approach -- fine there, "a
+ * page has ~a dozen") would force sentenceRects for hundreds of sentences on
+ * every pixel the pointer crosses. caretRangeFromPoint asks the browser
+ * directly which text offset is under the cursor -- no rects computed at
+ * all -- and a binary search over sentence boundaries (already sorted,
+ * built in order) finds which sentence that offset falls in.
+ */
+function epubHitTest(p, clientX, clientY) {
+  const idoc = p.iframe.contentDocument;
+  if (!idoc || !p._epubNodeIndex) return null;
+  const ib = p.iframe.getBoundingClientRect();
+  const ix = clientX - ib.left, iy = clientY - ib.top;
+  let range = null;
+  if (idoc.caretRangeFromPoint) {
+    range = idoc.caretRangeFromPoint(ix, iy);
+  } else if (idoc.caretPositionFromPoint) {
+    const pos = idoc.caretPositionFromPoint(ix, iy);
+    if (pos) { range = idoc.createRange(); range.setStart(pos.offsetNode, pos.offset); }
+  }
+  if (!range) return null;
+
+  let node = range.startContainer, offset = range.startOffset;
+  if (node.nodeType !== Node.TEXT_NODE) {
+    let n = node.childNodes[offset] ?? node.childNodes[offset - 1] ?? node.firstChild;
+    while (n && n.nodeType !== Node.TEXT_NODE) n = n.firstChild ?? n.nextSibling;
+    if (!n) return null;
+    node = n; offset = 0;
+  }
+  const item = p._epubNodeIndex.get(node);
+  if (!item) return null;
+  const idx = item.start + Math.min(offset, item.len);
+
+  const arr = p.sentences;
+  if (!arr.length) return null;
+  let lo = 0, hi = arr.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (arr[mid]._start <= idx) lo = mid; else hi = mid - 1;
+  }
+  return idx >= arr[lo]._start && idx < arr[lo]._end ? lo : null;
+}
+
 // click a sentence on the page itself to speak from there
 el.pages.addEventListener("click", (ev) => {
-  const div = ev.target.closest(".pdfpage");
+  const div = ev.target.closest(".page");
   if (!div) return;
   const p = pages.get(Number(div.dataset.page));
   if (!p?.rendered) return;
@@ -1573,10 +1983,13 @@ el.pages.addEventListener("click", (ev) => {
 });
 
 // Hover-to-preview (16): make it visible before the click that this is
-// clickable and what it will play, not just clickable-and-hope. POC-grade —
-// no debouncing, hitTest runs on every mousemove, fine at this page count.
+// clickable and what it will play, not just clickable-and-hope. No
+// debouncing -- hitTest runs on every mousemove -- fine for a PDF page's
+// dozen-odd rects; an epub chapter's hundreds route through epubHitTest
+// instead, which asks the browser for the offset under the point rather
+// than testing every sentence's rects.
 el.pages.addEventListener("mousemove", (ev) => {
-  const div = ev.target.closest(".pdfpage");
+  const div = ev.target.closest(".page");
   const p = div ? pages.get(Number(div.dataset.page)) : null;
   const hit = p?.rendered ? hitTest(p, ev.clientX, ev.clientY) : null;
 
@@ -1689,9 +2102,9 @@ $("hide").onclick = () => document.getElementById("app").classList.toggle("bare"
 // ---------------------------------------------------------------- wiring
 
 el.pick.onclick = () => el.file.click();
-el.file.onchange = async () => {
+el.file.onchange = () => {
   const f = el.file.files?.[0];
-  if (f) openDoc(await f.arrayBuffer());
+  if (f) openFile(f);
 };
 
 el.viewer.addEventListener("dragover", (e) => {
@@ -1699,11 +2112,11 @@ el.viewer.addEventListener("dragover", (e) => {
   el.viewer.classList.add("dragging");
 });
 el.viewer.addEventListener("dragleave", () => el.viewer.classList.remove("dragging"));
-el.viewer.addEventListener("drop", async (e) => {
+el.viewer.addEventListener("drop", (e) => {
   e.preventDefault();
   el.viewer.classList.remove("dragging");
   const f = e.dataTransfer?.files?.[0];
-  if (f) openDoc(await f.arrayBuffer());
+  if (f) openFile(f);
 });
 
 el.play.onclick = () => play();
@@ -1763,7 +2176,11 @@ addEventListener("keydown", (e) => {
 el.showall.onchange = repaint;
 el.showRegions.onchange = repaint;
 el.enableLayout.onchange = () => {
-  if (!el.enableLayout.checked) return;
+  if (!el.enableLayout.checked || docKind !== "pdf") return;
+  // Only meaningful for PDF: reading order there can interleave columns in
+  // content-stream order. An epub chapter's TreeWalker already visits nodes
+  // in document order, which for reflowable HTML *is* the reading order --
+  // there's no equivalent reordering problem for the layout model to fix.
   // Only pages already on screen need a nudge; renderPage() checks the box
   // itself for anything rendered from here on.
   for (const p of pages.values()) if (p.rendered && !p.regions) refineLayout(p);
