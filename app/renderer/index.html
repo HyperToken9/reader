@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blitz</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%94%8A%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <button id="hide" title="Hide/show the panel (h)">☰</button>
+    <div id="app">
+      <aside id="side">
+        <h1>Blitz</h1>
+        <p class="proto" id="engineStatus">starting the speech engine…</p>
+
+        <section>
+          <button id="pick">Choose a PDF…</button>
+          <input id="file" type="file" accept="application/pdf" hidden />
+          <div id="docinfo" class="muted">no document</div>
+        </section>
+
+        <section>
+          <label>Voice
+            <select id="voice"></select>
+          </label>
+          <label>Native speed (Kokoro; re-synthesizes)
+            <select id="nativeSpeed">
+              <option value="0.8">0.8×</option>
+              <option value="1.0" selected>1.0×</option>
+              <option value="1.25">1.25×</option>
+              <option value="1.5">1.5×</option>
+            </select>
+          </label>
+          <label>Playback rate (live) <output id="rateOut">1.00</output>
+            <input id="rate" type="range" min="0.5" max="2" step="0.05" value="1" />
+          </label>
+          <label>Zoom <output id="zoomOut">1.20</output>
+            <input id="zoom" type="range" min="0.5" max="3" step="0.1" value="1.2" />
+          </label>
+        </section>
+
+        <section class="row">
+          <button id="play">▶ Play</button>
+          <button id="stop">■ Stop</button>
+        </section>
+
+        <section>
+          <label class="check"><input id="autoscroll" type="checkbox" checked /> Auto-scroll</label>
+          <label class="check"><input id="showall" type="checkbox" /> Show every sentence band</label>
+        </section>
+
+        <section>
+          <label class="check">
+            <input id="enableLayout" type="checkbox" />
+            Reading order via layout model (experimental)
+          </label>
+          <p class="muted tiny">Runs PP-DocLayoutV2 outside the window (~1.4s a page), so scrolling
+            stays smooth. Groups each page into titles, paragraphs and figures so a click picks the
+            paragraph you meant. Off means pages keep their default reading order.</p>
+          <label class="check"><input id="showRegions" type="checkbox" /> Show layout regions</label>
+        </section>
+
+        <section>
+          <h2>State <span id="busyDot" class="busyDot" hidden title="Synthesizing in the background">●</span></h2>
+          <div id="state" class="state">idle</div>
+          <div id="spoken" class="spoken">—</div>
+        </section>
+
+        <section class="grow">
+          <h2>Segmentation <span id="segcount" class="muted"></span></h2>
+          <p class="muted tiny">Every sentence <code>Intl.Segmenter</code> found on the page in view. Click one to speak from there.</p>
+          <ol id="sentences"></ol>
+        </section>
+      </aside>
+
+      <main id="viewer">
+        <div id="pages"></div>
+        <div id="drop">Drop a textbook PDF here</div>
+      </main>
+    </div>
+
+    <div id="hoverBadge" hidden>▶ Play from here</div>
+
+    <div id="switcher">
+      <button id="prevVariant" aria-label="Previous band style">←</button>
+      <span id="variantLabel">A (Tint)</span>
+      <button id="nextVariant" aria-label="Next band style">→</button>
+    </div>
+
+    <div id="cursorSwitcher">
+      <button id="prevCursor" aria-label="Previous word-cursor style">←</button>
+      <span id="cursorLabel">dim (Nested dim)</span>
+      <button id="nextCursorBtn" aria-label="Next word-cursor style">→</button>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

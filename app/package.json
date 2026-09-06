@@ -1,0 +1,48 @@
+{
+  "name": "blitz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read textbooks aloud on the real PDF page, with the spoken words highlighted in place.",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "setup:speech": "./scripts/setup-speech.sh",
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder",
+    "smoke": "npm run build && node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "onnxruntime-node": "^1.29.0",
+    "pdfjs-dist": "6.3.289",
+    "ppu-doclayout": "^1.0.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "vite": "^7.1.5",
+    "ws": "^8.21.3"
+  },
+  "build": {
+    "appId": "dev.blitz.reader",
+    "productName": "Blitz",
+    "files": [
+      "electron/**/*",
+      "dist/renderer/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Education"
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "onnxruntime-node@1.29.0": true,
+    "esbuild@0.28.2": true
+  }
+}

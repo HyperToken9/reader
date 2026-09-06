@@ -1,0 +1,102 @@
+# Blitz
+
+Read a textbook aloud **on the actual PDF page**. The page you look at is the
+real render — figures, equations, columns, all of it — and the reading
+experience is an overlay on top: a band over the sentence being spoken and a
+cursor on the word.
+
+That constraint is the whole point. Apps that read PDFs aloud generally extract
+the text into their own reflowed environment first, which is exactly where
+diagrams and equations fall apart. Nothing here reflows anything.
+
+Planning and the prototypes that led to this live in
+[`.scratch/pdf-native-read-aloud/`](../.scratch/pdf-native-read-aloud/).
+
+## Running it
+
+```sh
+npm install
+npm run setup:speech    # one time, ~500 MB of model weights (see below)
+npm run dev             # Vite + Electron with hot reload
+```
+
+Other commands:
+
+| Command | What it does |
+| --- | --- |
+| `npm run build` | Builds the renderer into `dist/renderer/` |
+| `npm start` | Builds, then runs the app the way a packaged copy runs |
+| `npm run smoke` | Launches the app and asserts it came up wired (see below) |
+| `npm run dist` | Packages an AppImage and a .deb via electron-builder |
+
+## Why Electron
+
+The premise is a real PDF render with an overlay locked to it, and PDF.js in a
+real browser engine is what makes that true. Electron is the browser engine we
+already validated the whole highlight pipeline against, so shipping it means
+shipping what we tested.
+
+It also gives the two models a native Node process to live in. That is not a
+detail: running the layout model in the *page* under onnxruntime-web cost 86s
+on the first page and pulled 213 MB into the tab. In the main process under
+onnxruntime-node it is ~1.4s a page, off the thread that paints the UI.
+
+## How it fits together
+
+```
+electron/main.js        window, IPC handlers, owns both models
+        preload.cjs     the only bridge to the renderer: five calls, nothing else
+        layout.js       PP-DocLayoutV2 via onnxruntime-node, in process
+        tts.js          owns the speech engine; the renderer never sees how it works
+        tts_server.py   Kokoro, spawned as a child process (see "Speech engine")
+renderer/               PDF.js render, sentence geometry, highlight overlay, audio
+```
+
+Context isolation is on and `nodeIntegration` is off. The renderer gets
+`window.blitz.{synthesize, voices, ttsStatus, analyzeLayout, layoutReady}` and
+no other reach into Node.
+
+## Speech engine
+
+`npm run setup:speech` builds a Python venv and the Kokoro model under
+`$BLITZ_TTS_HOME` (default `~/.local/share/blitz-tts`) — outside the repo,
+because it is ~500 MB of weights, and outside `/tmp`, because a routine
+cleanup once wiped the whole thing.
+
+Two things about that setup are easy to get wrong:
+
+- **The stock `kokoro-v1.0.onnx` release will not work.** It has no `duration`
+  output, so `create_timed()` returns no phoneme timings, so the word cursor
+  never moves — silently, with audio that sounds fine. The setup script exports
+  its own model from the PyTorch checkpoint to get that output, and
+  `tts_server.py` refuses to start on a model without it.
+- **Punctuation-only text has no phonemes.** Kokoro raises `Nothing to
+  synthesize` on a "sentence" that is just `-` or `2.`. Hyphens *inside* words
+  are fine (`well-known`, `Michaelis–Menten` and `self-organising` all
+  synthesize); the failure is only ever a fragment with no letters in it, which
+  the renderer now filters before it asks for audio.
+
+The engine runs as a child process on an OS-assigned loopback port that only
+the main process learns, so two copies of the app can run at once.
+
+`tts.js` is the seam. Replacing Python with an in-process onnxruntime-node
+engine — which is what a real download needs, so users never install Python —
+changes that file and nothing else.
+
+## Testing
+
+`npm run smoke` launches the real app under Electron, drives it over CDP, and
+asserts the window came up wired: speech engine reachable, voice list
+populated, viewer mounted, layout model answering, no console errors. It is a
+startup gate, not a coverage suite.
+
+## Branches
+
+| Branch | Holds |
+| --- | --- |
+| `main` | Released. Only ever fast-forwarded from `staging`. |
+| `staging` | Release candidate: what is being verified by hand before it ships. |
+| `dev` | Integration. Feature branches merge here. |
+| `prototype/*` | Throwaway spikes that answered a question. Never merged; kept as primary sources. |
+
+Work goes `feature → dev → staging → main`.
