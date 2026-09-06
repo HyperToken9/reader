@@ -87,8 +87,24 @@ changes that file and nothing else.
 
 `npm run smoke` launches the real app under Electron, drives it over CDP, and
 asserts the window came up wired: speech engine reachable, voice list
-populated, viewer mounted, layout model answering, no console errors. It is a
-startup gate, not a coverage suite.
+populated, viewer mounted, layout model answering, no console errors. It then
+*opens a PDF* and asserts page 1 finishes rendering with words in its text
+layer. That second half exists because the first half once passed on a build
+that could not open a single document: the window was healthy in every way the
+test could see, and every file silently did nothing.
+
+The fixture is a minimal PDF written by hand in `scripts/fixture-pdf.mjs`, so
+the test needs nothing from `sample_books/`, which is gitignored.
+
+`npm run smoke:dist` runs the same checks against `release/linux-unpacked/`;
+`BLITZ_SMOKE_BIN=release/Blitz-0.1.0.AppImage node scripts/smoke.mjs` runs them
+against the AppImage. Run at least one of those before calling a build good —
+the packaged app has now diverged from the source tree twice.
+
+**Electron cannot be downgraded freely.** PDF.js 6 calls
+`Uint8Array.prototype.toHex`, which needs Chromium 140+; on Electron 33
+(Chromium 130) `getDocument()` rejected before parsing anything. Moving
+backwards here breaks document loading silently, not loudly.
 
 ## Branches
 
