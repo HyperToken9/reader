@@ -53,6 +53,9 @@ const el = {
   prevCursor: $("prevCursor"), nextCursor: $("nextCursorBtn"), cursorLabel: $("cursorLabel"),
   busyDot: $("busyDot"), hoverBadge: $("hoverBadge"),
   variantPills: $("variantPills"), cursorPills: $("cursorPills"), themePills: $("themePills"),
+  typefacePills: $("typefacePills"), typographyHint: $("typographyHint"),
+  lineWidth: $("lineWidth"), lineWidthOut: $("lineWidthOut"),
+  lineHeight: $("lineHeight"), lineHeightOut: $("lineHeightOut"),
 };
 
 // ---------------------------------------------------------------- state
@@ -169,6 +172,14 @@ const CURSOR_STYLES = [
 ];
 let cursorStyle = CURSOR_STYLES[0];
 
+// Epub-only reading typography (20): meaningless for a PDF canvas, which has
+// no reflowable text to apply a typeface or line width to. loadPref is a
+// function declaration further down and is hoisted, so it's safe to call
+// this early.
+let epubFont = loadPref("blitz.epubFont", "original");
+let epubLineWidth = Number(loadPref("blitz.epubLineWidth", 720));
+let epubLineHeight = Number(loadPref("blitz.epubLineHeight", 1.6));
+
 // ---------------------------------------------------------------- utils
 
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
@@ -247,6 +258,7 @@ async function closeDoc() {
   doc = null;
   docKind = null;
   syncLayoutControls();
+  syncTypographyControls();
 }
 
 /**
@@ -271,6 +283,21 @@ function syncLayoutControls() {
         : "Open a PDF to enable this.";
 }
 
+/**
+ * Mirror image of syncLayoutControls: typeface and line width/spacing are
+ * meaningless over a PDF canvas (nothing reflowable to apply them to) and
+ * only mean something for an EPUB chapter's own CSS.
+ */
+function syncTypographyControls() {
+  const isEpub = docKind === "epub";
+  el.typefacePills.querySelectorAll("button").forEach((b) => { b.disabled = !isEpub; });
+  el.lineWidth.disabled = !isEpub;
+  el.lineHeight.disabled = !isEpub;
+  el.typographyHint.textContent = isEpub
+    ? "Only affects this EPUB's own reflow -- a book's own styling still applies underneath \"Original.\""
+    : "Only applies to an EPUB -- a PDF page is a fixed render, with no reflowable text to apply a typeface or line width to.";
+}
+
 /** Build one page/chapter shell, shared innerHTML for whichever fields both formats use. */
 function makeShell(pn, extraClass, bodyHtml) {
   const div = document.createElement("div");
@@ -287,6 +314,7 @@ async function openPdf(data) {
   await closeDoc();
   docKind = "pdf";
   syncLayoutControls();
+  syncTypographyControls();
 
   doc = await pdfjsLib.getDocument({ data }).promise;
   el.drop.classList.add("hide");
@@ -328,6 +356,7 @@ async function openEpub(data) {
   await closeDoc();
   docKind = "epub";
   syncLayoutControls();
+  syncTypographyControls();
 
   const parsed = await parseEpub(data);
   // numPages, not numChapters: every generic page-shaped codepath below
@@ -743,14 +772,38 @@ async function renderChapter(pn) {
  * it costs the *one* case where a book deliberately set a smaller display
  * width or height on a figure, but wins every fixed-layout-flavoured page.
  */
+// A book's own headHtml loads *after* this shell's <style>, so any font it
+// sets on `body` already wins over an unenforced default here -- true both
+// before this change (the original Georgia fallback) and after. What's new
+// is a deliberate, `!important` override once the reader has actually
+// picked a non-"original" typeface: at that point the choice is meant to
+// win regardless of what the book asked for, the same way the position/
+// height overrides above always win over the book's own fixed-layout CSS.
+// "original" leaves no font-family rule here at all, so the book's own
+// choice (or the browser default, if it set none) applies untouched.
+const EPUB_FONT_STACKS = {
+  serif: '"Lora", Georgia, "Times New Roman", serif',
+  sans: '"Work Sans", ui-sans-serif, sans-serif',
+  mono: '"IBM Plex Mono", ui-monospace, monospace',
+};
+
 function epubShellHtml(chapter, zoom) {
-  return `<!doctype html><html style="--zoom:${zoom}"><head><meta charset="utf-8">` +
+  const fontRule = EPUB_FONT_STACKS[epubFont]
+    ? `font-family: ${EPUB_FONT_STACKS[epubFont]} !important;`
+    : "";
+  // Line width/spacing are custom properties, not baked-in values, so a
+  // slider drag can restyle already-open chapters live (applyEpubTypography)
+  // the same way --zoom does for the zoom slider, instead of re-rendering a
+  // chapter (losing scroll position and playback state) on every tick.
+  return `<!doctype html><html style="--zoom:${zoom}; --reader-max-width:${epubLineWidth}px; --reader-line-height:${epubLineHeight}"><head><meta charset="utf-8">` +
     `<style>
       html, body { margin: 0; background: #fff; color: #14161a; overflow: hidden; }
       body {
-        font: calc(var(--zoom, 1) * 1em)/1.6 Georgia, "Times New Roman", serif;
+        font-size: calc(var(--zoom, 1) * 1em);
+        line-height: var(--reader-line-height, 1.6);
+        ${fontRule}
         padding: 48px 60px;
-        max-width: 720px;
+        max-width: var(--reader-max-width, 720px);
         margin: 0 auto;
         overflow-wrap: break-word;
         position: static !important;
@@ -963,6 +1016,29 @@ function applyEpubScale(next, anchorClientY = null) {
     ? g.top + frac * (g.bottom - g.top) - anchor
     : Math.max(0, at - anchor);
 
+  repaint();
+  report();
+}
+
+/**
+ * Line width/spacing, live -- same shape as applyEpubScale just above, minus
+ * the scroll-anchoring math: a settings-panel slider isn't zooming toward a
+ * pointer, so preserving absolute scrollTop (not a fractional position
+ * within whichever page is under the cursor) is the right anchor here.
+ */
+function applyEpubTypography() {
+  if (!doc || docKind !== "epub") return;
+  for (const p of pages.values()) {
+    if (!p.rendered || !p.iframe?.contentDocument) continue;
+    const root = p.iframe.contentDocument.documentElement;
+    root.style.setProperty("--reader-max-width", `${epubLineWidth}px`);
+    root.style.setProperty("--reader-line-height", String(epubLineHeight));
+    const h = Math.max(1, root.scrollHeight);
+    p.div.style.height = `${h}px`;
+    p.base = { width: p.base?.width ?? 0, height: h };
+    for (const s of p.sentences) { s.rects = null; s.words = null; }
+  }
+  markGeomDirty();
   repaint();
   report();
 }
@@ -2265,6 +2341,45 @@ el.themePills?.addEventListener("click", (e) => {
   if (name) setTheme(name);
 });
 
+// ---------------------------------------------------------------- epub typography
+
+function setEpubFont(name) {
+  epubFont = name;
+  savePref("blitz.epubFont", name);
+  syncPillGroup(el.typefacePills, "typeface", name);
+  // Unlike line width/spacing, a font-family swap (and the !important that
+  // makes a non-"original" choice actually win over the book's own CSS) has
+  // to be baked into a fresh shell -- there's no live-updatable custom
+  // property for a full font stack toggle the way --zoom/--reader-* work.
+  if (docKind === "epub") {
+    for (const [pn, p] of pages) {
+      if (p.rendered) { evictPage(p); renderPage(pn); }
+    }
+  }
+}
+setEpubFont(epubFont); // sync the pill's active state at startup
+el.typefacePills?.addEventListener("click", (e) => {
+  const name = e.target.closest("button")?.dataset.typeface;
+  if (name) setEpubFont(name);
+});
+
+el.lineWidth.addEventListener("input", () => {
+  epubLineWidth = Number(el.lineWidth.value);
+  el.lineWidthOut.textContent = `${epubLineWidth}px`;
+  savePref("blitz.epubLineWidth", String(epubLineWidth));
+  applyEpubTypography();
+});
+el.lineHeight.addEventListener("input", () => {
+  epubLineHeight = Number(el.lineHeight.value);
+  el.lineHeightOut.textContent = epubLineHeight.toFixed(1);
+  savePref("blitz.epubLineHeight", String(epubLineHeight));
+  applyEpubTypography();
+});
+el.lineWidth.value = String(epubLineWidth);
+el.lineWidthOut.textContent = `${epubLineWidth}px`;
+el.lineHeight.value = String(epubLineHeight);
+el.lineHeightOut.textContent = epubLineHeight.toFixed(1);
+
 addEventListener("keydown", (e) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
   if (e.key === "ArrowLeft") setVariant(VARIANTS.indexOf(variant) - 1);
@@ -2363,6 +2478,7 @@ el.enableLayout.onchange = () => {
   for (const p of pages.values()) if (p.rendered && !p.regions) refineLayout(p);
 };
 syncLayoutControls(); // no doc open yet -- starts disabled
+syncTypographyControls();
 
 addEventListener("beforeunload", () => audioEl.pause());
 
