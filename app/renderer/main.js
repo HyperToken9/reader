@@ -92,6 +92,61 @@ audioEl.addEventListener("loadedmetadata", () => {
 audioEl.addEventListener("playing", () => {
   console.log(`[tts] playing  currentTime=${audioEl.currentTime.toFixed(2)}  paused=${audioEl.paused}`);
 });
+
+/**
+ * The reported bug: the first sentence of a read, only sometimes, loses its
+ * opening syllable. Every sentence is synthesized independently and none of
+ * the server-side code trims anything, so a per-sentence artifact would
+ * happen on *every* sentence, not just the first -- this only being the
+ * first playback in a fresh renderer points at the OS audio device instead.
+ * Chromium's media clock starts advancing the instant `.play()` is called;
+ * opening the actual PulseAudio/ALSA output is not instant, and whatever
+ * the clock ticks past while that's still opening never reaches the
+ * speakers. Every later play() reuses an already-open device and doesn't
+ * lose anything -- which is exactly the "only sometimes, only first"
+ * pattern reported (the race is won or lost depending on how fast the
+ * device happens to open that run). The (probably) sibling bug logged
+ * above it -- a first click with a moving cursor and no sound at all --
+ * is the same race taken to its extreme: the device wasn't even open by
+ * the time the (short) first utterance had already finished playing out
+ * its buffer.
+ *
+ * Fix: open the device once, on purpose, with true silence, before the
+ * reader can ever hear the real first sentence. `play(true)` calls this
+ * and awaits it before touching audioEl for anything real.
+ */
+let audioWarmedUp = false;
+const SILENT_WAV_URL = (() => {
+  const sr = 8000, samples = Math.round(sr * 0.2); // 200ms -- plenty for a device open
+  const dataBytes = samples * 2;
+  const buf = new ArrayBuffer(44 + dataBytes); // rest of the buffer is zeroed: true silence, no click
+  const dv = new DataView(buf);
+  const str = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); dv.setUint32(4, 36 + dataBytes, true); str(8, "WAVE");
+  str(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); // PCM
+  dv.setUint16(22, 1, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true);
+  dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  str(36, "data"); dv.setUint32(40, dataBytes, true);
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+})();
+
+async function warmUpAudioOnce() {
+  if (audioWarmedUp) return;
+  audioWarmedUp = true;
+  try {
+    audioEl.src = SILENT_WAV_URL;
+    await audioEl.play();
+    await new Promise((resolve) => {
+      audioEl.addEventListener("ended", resolve, { once: true });
+      setTimeout(resolve, 400); // don't block a real sentence if `ended` never fires
+    });
+  } catch (e) {
+    // Harmless either way: worst case the first real sentence risks the
+    // clipped-syllable race this exists to close, same as before this fix.
+    console.warn("[tts] audio warm-up failed (harmless):", e);
+  }
+}
+
 let currentBlobUrl = null;
 let currentSpans = [];     // this sentence's [{start,end,words:[idx,...]}], time-ordered
 let activeWordIdxs = [];   // word indices lit right now
@@ -1790,7 +1845,13 @@ async function speakOne(c) {
 
   let data, nc;
   try {
-    [data, nc] = await Promise.all([ensurePrefetch(c, { priority: true }), nextCursor(c)]);
+    // Runs alongside synthesis, not before it -- the device-open warm-up
+    // (see warmUpAudioOnce) is a genuine no-op after the first call, and on
+    // the first call it's normally shorter than a synthesis round trip, so
+    // this doesn't add latency to the common case. It still has to settle
+    // here, before speakOne below ever touches audioEl.src for real audio,
+    // or reassigning src mid-warm-up risks cutting the open short.
+    [data, nc] = await Promise.all([ensurePrefetch(c, { priority: true }), nextCursor(c), warmUpAudioOnce()]);
   } catch (e) {
     if (gen !== generation) return;
     console.warn("[tts] synth error, skipping sentence", e, "—", s.text.slice(0, 60));
