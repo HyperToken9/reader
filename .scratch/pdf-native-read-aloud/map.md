@@ -1,5 +1,13 @@
 # Map: PDF-native read-aloud
 
+> **The canonical map is [issue #18](https://github.com/HyperToken9/reader/issues/18)**, and
+> the canonical tickets are the issues labelled `wayfinder:*` — ticket **N** is issue **#N**.
+> This file is a working copy kept in the tree so a session can read the whole map without
+> the network. When they disagree, the issue wins.
+>
+> GitHub's issue-dependencies API is not available on this repo, so blocking is written into
+> each ticket body as a **Blocked by:** line rather than expressed natively.
+
 ## Destination
 
 A working prototype: a local web app that renders a textbook PDF at native fidelity (PDF.js canvas, zero reflow — diagrams, equations and multi-column layout exactly as authored) and overlays synchronized read-aloud — a locally-run neural voice speaking body prose in correct reading order, tracked by a spotlight band and a word cursor drawn over the real page.

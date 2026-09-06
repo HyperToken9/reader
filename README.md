@@ -41,9 +41,10 @@ See [`README-reading-lenses.md`](README-reading-lenses.md).
 ## How this project is planned
 
 Blitz is charted as a **Wayfinder map**: a destination, and a route of tickets that
-each resolve one decision rather than slicing up a build. The map is the issue
-labelled `wayfinder:map`; every ticket is an issue linked from it, and every ticket
-that is closed carries the answer it reached and the evidence behind it.
+each resolve one decision rather than slicing up a build. The map is
+[**issue #18**](https://github.com/HyperToken9/reader/issues/18); every ticket is a
+sub-issue of it, numbered so that ticket **N** is issue **#N**, and every closed ticket
+carries the answer it reached and the evidence behind it.
 
 Working copies live in [`.scratch/pdf-native-read-aloud/`](.scratch/pdf-native-read-aloud/),
 along with the throwaway prototypes the answers were read off. Those prototypes are
