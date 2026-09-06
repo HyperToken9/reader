@@ -72,7 +72,12 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 ## Not yet specified
 
-- **What a reader keeps between sessions, minus the settings panel** — a library of documents and remembered reading *position* specifically, and where either would be stored now that there is a real app to store it in. Split off from the settings-panel half of this fog, which graduated into [20](https://github.com/HyperToken9/reader/issues/20) once [16](https://github.com/HyperToken9/reader/issues/16) settled what the panel would expose. Still too loose to ticket — no library UI exists yet to hang "remembered position" off of.
+- **What a reader keeps between sessions, minus the settings panel** — a library of documents and remembered reading *position* specifically, and where either would be stored now that there is a real app to store it in. Split off from the settings-panel half of this fog, which graduated into [20](https://github.com/HyperToken9/reader/issues/20) once [16](https://github.com/HyperToken9/reader/issues/16) settled what the panel would expose. The human has flagged this as the next priority after 20's settings-panel work, "based on discussion" rather than a decision to make solo -- sharpening the questions below without answering any of them, so the discussion has somewhere concrete to start:
+  - **Library scope**: reopen-the-last-book only, or an actual multi-book shelf (the comp has one)? Different amounts of UI to build.
+  - **Position granularity**: silently resume exactly where playback stopped, or an explicit "bookmark this position" the reader triggers themselves (the comp does the latter, deliberately manual)?
+  - **What a saved position is keyed to**: `sample_books/` entries are files outside the app's control -- gitignored, movable, renameable. A file-path key breaks the moment a book moves; a content-hash key survives that at the cost of hashing on open.
+  - **Where it lives**: `localStorage` (already used for the settings panel's prefs, per [20](https://github.com/HyperToken9/reader/issues/20)) vs. a real file under an app-data directory, the way the TTS weights already live outside the repo under `$BLITZ_TTS_HOME` rather than in browser storage. A viewer's per-book position feels like it wants the durability of a file more than a font preference does.
+  Still too loose to ticket — these are the shape of the conversation, not answers.
 - **Scanned / image-only PDFs** — OCR to obtain a text layer at all. Assumed away for this effort; a real concern for textbooks sourced as scans.
 - **What a richer overlay unlocks, once there is structure to hang it on** — definition popovers, re-typeset equations, per-paragraph controls, notes. [13](https://github.com/HyperToken9/reader/issues/13) decides the substrate; what gets built on it is fog until it does, and most of it is past the prototype's destination anyway.
 - **The other Reading Lenses techniques over a PDF surface** — spacing, typeface swap, fixation anchoring, chromatic line guidance, masking, pacer, RSVP. To be revisited per-technique on use-case and importance, and harder here than in HTML since the page is rendered pixels, not reflowable text.
@@ -101,4 +106,5 @@ every open, unassigned ticket whose blockers are closed:
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
 
