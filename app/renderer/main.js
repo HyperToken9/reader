@@ -258,7 +258,7 @@ async function openEpub(data) {
 
   for (let pn = 1; pn <= doc.numPages; pn++) {
     const div = makeShell(pn, "epubchapter",
-      `<iframe sandbox="allow-same-origin" tabindex="-1"></iframe>`);
+      `<iframe sandbox="allow-same-origin" tabindex="-1" scrolling="no"></iframe>`);
     div.style.height = `${EPUB_PLACEHOLDER_HEIGHT * scale}px`;
     const entry = new PageEntry(pn, div);
     entry.base = { width: 0, height: EPUB_PLACEHOLDER_HEIGHT * scale };
@@ -614,6 +614,16 @@ async function renderChapter(pn) {
       p.iframe.srcdoc = html;
     });
     try { await p.iframe.contentDocument.fonts?.ready; } catch { /* not fatal if unsupported */ }
+    // An <img> with no size yet reports zero height, so a cover or figure
+    // page measured before its image decodes comes out far too short --
+    // that's what an internal iframe scrollbar on an otherwise-plain page
+    // was: the div was sized to a too-small pre-image measurement, and the
+    // image then finished loading into a box too short to hold it.
+    await Promise.all(
+      [...p.iframe.contentDocument.images].map((img) => img.complete
+        ? null
+        : new Promise((r) => { img.addEventListener("load", r, { once: true }); img.addEventListener("error", r, { once: true }); })),
+    ).catch(() => {});
 
     const h = Math.max(1, p.iframe.contentDocument.documentElement.scrollHeight);
     const resized = !p.base || p.base.height !== h;
@@ -632,19 +642,44 @@ async function renderChapter(pn) {
   return p;
 }
 
-/** The HTML document an epub chapter's sandboxed iframe gets as its srcdoc. */
+/**
+ * The HTML document an epub chapter's sandboxed iframe gets as its srcdoc.
+ *
+ * The !important rules here are a deliberate fight with the book's own CSS,
+ * not an oversight. A cover or title page is routinely authored assuming a
+ * fixed device screen -- this book's cover.xhtml sets
+ * `body{position:absolute;height:100%}` and `img{height:90vh}` -- which is a
+ * reasonable thing to author against a real e-reader viewport and a broken
+ * thing to hand a div that's supposed to size itself to its content: the
+ * image renders at 90% of whatever height the iframe happens to have *that
+ * instant* with no matching width constraint, so it can overflow the page
+ * sideways, and the chapter's real content height becomes unmeasurable
+ * (position:absolute takes an element out of the flow scrollHeight sums).
+ * Forcing position/height/display back to normal flow, and forcing images
+ * to fit the page's own width instead of the book's assumed screen, is what
+ * every general-purpose reflowable reading view does with this pattern --
+ * it costs the *one* case where a book deliberately set a smaller display
+ * width or height on a figure, but wins every fixed-layout-flavoured page.
+ */
 function epubShellHtml(chapter, zoom) {
   return `<!doctype html><html style="--zoom:${zoom}"><head><meta charset="utf-8">` +
     `<style>
-      html, body { margin: 0; background: #fff; color: #14161a; }
+      html, body { margin: 0; background: #fff; color: #14161a; overflow: hidden; }
       body {
         font: calc(var(--zoom, 1) * 1em)/1.6 Georgia, "Times New Roman", serif;
         padding: 48px 60px;
         max-width: 720px;
         margin: 0 auto;
         overflow-wrap: break-word;
+        position: static !important;
+        height: auto !important;
+        width: auto !important;
       }
-      img, svg { max-width: 100%; height: auto; }
+      img, svg {
+        max-width: 100% !important;
+        width: auto !important;
+        height: auto !important;
+      }
       * { -webkit-user-select: none; user-select: none; }
     </style>` +
     chapter.headHtml +
@@ -1233,10 +1268,16 @@ function buildEpubSentences(p) {
 }
 
 /** DOM Range -> normalised page-fraction rects, epub version. Items reference
- * real Text nodes directly (no textPosition descent needed), and the box is
- * the iframe element's own client rect: content inside it is a different
- * document, so range.getClientRects() reports positions in *its* viewport,
- * which the iframe element's box converts back into the main document. */
+ * real Text nodes directly (no textPosition descent needed). Unlike a PDF
+ * page's textLayer -- which lives in the *main* document, so its rects need
+ * the outer document's coordinate space -- these nodes live inside the
+ * iframe's own document, and getClientRects() already reports positions in
+ * *that* document's own viewport (its own (0,0) is the iframe's top-left,
+ * independent of where the iframe itself sits in the main page). So this
+ * only needs to divide by the iframe's own size to get a page fraction, not
+ * subtract its position too -- doing that (an earlier version of this did)
+ * double-offsets every rect by the iframe's own position, which is exactly
+ * what made every highlight render shifted and truncated. */
 function epubRangeRects(p, locate, s, e) {
   if (e <= s) return [];
   const a = locate(s), b = locate(e - 1);
@@ -1248,7 +1289,7 @@ function epubRangeRects(p, locate, s, e) {
     return [...range.getClientRects()]
       .filter((r) => r.width > 0 && r.height > 0)
       .map((r) => ({
-        x: (r.x - box.x) / box.width, y: (r.y - box.y) / box.height,
+        x: r.x / box.width, y: r.y / box.height,
         w: r.width / box.width, h: r.height / box.height,
       }));
   } catch {
