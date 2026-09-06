@@ -1,7 +1,7 @@
 # 01 — Assemble a test corpus of textbook PDFs
 
 Type: task
-Status: open
+Status: resolved
 
 ## Question
 
@@ -27,7 +27,7 @@ Corpus lives at `sample_books/` in the repo root (human-supplied, gitignored for
 | --- | --- | --- | --- | --- |
 | `theCodeBook.pdf` — Singh, *The Code Book* | calibre 3.42 | 427 | no | **Single-column prose control.** Clean narrative text, the easy case [[05]] wants. |
 | `crafting-interpreters-….pdf` — Nystrom, *Crafting Interpreters* | Safari → Quartz (HTML print) | 611 | no | Single-column prose with **code listings and grammar snippets** — a skip-policy case [[07]] did not anticipate. |
-| `Game Physics Engine Development….pdf` — Millington | Elsevier / Distiller 7 | 481 | no | **Equation-dense and figure-heavy.** Real typeset book, 336×414pt, wide left margin, `FIGURE N.N` captions, display equations, matrix brackets. |
+| `Game Physics Engine Development….pdf` — Millington | Elsevier / Distiller 7 | 481 | no | **Equation-dense and figure-heavy.** Real typeset book, 540×665pt (`page.rect`; cropbox `(36, 36.2)–(576, 701.2)`) — an earlier reading of 336×414pt here was wrong, corrected by [[12]] — wide left margin, `FIGURE N.N` captions, display equations, matrix brackets. |
 
 **All three are untagged.** So the tagged-PDF fast path [[03]] found is unavailable across the entire corpus — geometry-first isn't just the recommended route, it's the only one here. Consistent with [[03]]'s finding that only ~12.6% of PDFs are tagged and STEM skews lower.
 
@@ -36,6 +36,29 @@ Corpus lives at `sample_books/` in the repo root (human-supplied, gitignored for
 **Two gaps remain:**
 
 - **No two-column page.** All three are single-column, so the corpus cannot currently exercise [[06]] — the go/no-go spike — at all. An open-access arXiv paper or an OpenStax chapter would close this, and licensing is clean.
+
+  **Still open, but worked around once (2026-09-05).** [[12]] needed a two-column page and used PDF.js's own bundled `compressed.tracemonkey-pldi-09.pdf`, fetched to `/tmp/claude-1000/dla/twocol.pdf` and deliberately not committed. Worth knowing before repeating the search: **arXiv 1706.03762 is not two-column** — it is NeurIPS single-column, and [[12]] tried it first. A permanent addition to `sample_books/` is still wanted.
+
+## Both gaps closed (2026-09-05)
+
+**Added: `Textbook of Biochemistry for Medical Students` (Vasudevan & Sreekumari).** 809 pages, 595×814pt, Foxit PhantomPDF Printer 3.1. It closes both open gaps at once and brings two things the corpus did not have:
+
+| | |
+|---|---|
+| **Genuinely two-column** | The gap [[12]] had to borrow a paper for. Now permanent, and in a *textbook*, not a paper — different typesetting, tighter gutter, boxed panels spanning columns. |
+| **The first TAGGED PDF in the corpus** | `StructTreeRoot` present. [[03]] found only ~12.6% of PDFs are tagged and proposed an MCID-join fast path it could never test. Now it can be. |
+| Boxed summary panels | "QUICK LOOK OF CHAPTER 6" and similar — the sidebar case [[03]] named. |
+| Dense numbered lists, tables, structural formulae | New shapes for [[07]]. |
+
+**Measured with [[12]]'s pipeline over 12 random pages** (`/tmp/claude-1000/dla/out_bio.json`):
+
+- **Reading order on a real two-column textbook page is correct.** p99 returned header and folio, then the *entire* left column top-to-bottom, then the *entire* right column. No interleaving. This is the result [[06]] exists to de-risk, now confirmed on a textbook rather than a borrowed paper.
+- **`aside_text` never fired — not once in 12 pages, on a book that visibly has boxed panels.** The "QUICK LOOK OF CHAPTER 6" panel came back as ordinary `text`, one region per list item. So [[03]]'s central worry is **confirmed real and confirmed unsolved**: the model does not distinguish a boxed panel from body prose here. It is a classification gap, not an ordering one — the boxes are in the right *place*, just not labelled as special. [[07]] must decide policy knowing this label is unreliable, and [[06]] cannot lean on it.
+- Labels seen across the 12 pages: `text` 151, `paragraph_title` 44, `figure_title` 15, `image` 14, `header` 12, `number` 11, `display_formula` 6, `inline_formula` 6, `table` 3, plus `header_image` and `doc_title`.
+
+**Note for [[09]]**: this book is a print-driver output (Foxit PhantomPDF *Printer*), a different production path from the other three, so its text-layer fidelity is worth measuring separately rather than assumed.
+
+- ~~**No sidebar-heavy textbook, and this now matters more than the two-column gap.**~~ *(Closed by the addition above — though see the `aside_text` finding: having the pages did not make the label work.)* [[03]] named boxed panels and sidebars as the dominant textbook-specific failure. [[12]] found the layout model has an `aside_text` label for exactly that case — but it fired **once in 40 pages** across this corpus, so the label is real and untested. A modern undergraduate textbook full of worked-example boxes is the single highest-value addition to the corpus now.
 - **No page with footnotes or running headers** as a deliberate case. Partially covered incidentally by the Millington book's running heads.
 
 **Finding that changes [[09]]:** extraction on Millington p.60 silently **drops the Δ glyphs** — `Δp/Δt` extracts as `p`/`t`, and no U+0394 appears anywhere in pages 58–64 despite the prose plainly requiring it. Matrix bracket glyphs (`⎡⎣⎢⎤⎦⎥`) *do* survive and would be spoken as gibberish. See [[09]].

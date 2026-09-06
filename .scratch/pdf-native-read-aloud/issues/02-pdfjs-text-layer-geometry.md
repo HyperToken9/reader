@@ -45,6 +45,16 @@ item granularity entirely — a word split across a font change is one segment o
 a multi-word item is several segments in one div — and it returns one rect per line fragment,
 which is exactly the shape a sentence band wants.
 
+**Correction from [[05]] (2026-09-05), important because the recipe above is what gets copied**:
+"concatenate `textContentItemsStr`" must not be a plain `join("")`. PDF.js emits **no whitespace
+at a line break** — the break exists only as a `<br>` appended to the DOM — so a plain join welds
+the last word of one line onto the first of the next (`"It is thispersonality that…"`),
+mis-segmenting the sentence *and* feeding TTS a non-word. Inject a separator after every item
+whose source `hasEOL` is true (and drop a trailing hyphen instead, for a word broken across
+lines). The separator belongs to no item, so the `(divIdx, offset)` map simply steps over it,
+and since sentence endpoints are always trimmed of whitespace no `Range` endpoint can land
+inside one. Verified working in `../prototype-05/`.
+
 **Accuracy, plainly**: exact at item boundaries (the span sits at the item's true origin and
 `--scale-x` forces its total width to the item's true width), **interpolated inside them** —
 because PDF.js lays the text layer out in a *generic* `sans-serif`/`monospace`, not the embedded

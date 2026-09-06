@@ -8,3 +8,6 @@ sample_books/
 app/node_modules/
 app/dist/
 app/release/
+
+# Throwaway prototype deps
+.scratch/**/node_modules/
