@@ -11,7 +11,8 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder",
-    "smoke": "npm run build && node scripts/smoke.mjs"
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "smoke:dist": "BLITZ_SMOKE_BIN=release/linux-unpacked/blitz node scripts/smoke.mjs"
   },
   "dependencies": {
     "onnxruntime-node": "^1.29.0",
@@ -19,8 +20,8 @@
     "ppu-doclayout": "^1.0.0"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
     "vite": "^7.1.5",
     "ws": "^8.21.3"
   },
@@ -48,9 +49,9 @@
     ]
   },
   "allowScripts": {
-    "electron@33.4.11": true,
     "onnxruntime-node@1.29.0": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "electron@44.2.0": true
   },
   "homepage": "https://github.com/HyperToken9/reader",
   "author": "HyperToken9",
