@@ -1,10 +1,41 @@
-/* Blitz — reader chrome. Page geometry lives in main.js. */
+/* Blitz — reader chrome. Page geometry lives in main.js.
+ *
+ * Palette and font tokens are pulled from insp/starting_reader's design
+ * comp (ticket 20), not re-derived by eye: three named themes (light is the
+ * default "Paper", plus sepia and dark), each an oklch token set, switched
+ * by [data-theme] on <html> rather than prefers-color-scheme -- this is a
+ * reader's own explicit choice, not a system setting to defer to.
+ */
 
 :root {
-  --bg: #14161a;
-  --panel: #1c1f25;
-  --ink: #e8eaed;
-  --muted: #9aa3af;
+  --bg: oklch(98% 0.01 80);
+  --panel: oklch(99% 0.006 80);
+  --ink: oklch(19% 0.008 75);
+  --muted: oklch(48% 0.01 75);
+  --border: oklch(87% 0.01 75);
+  --dim: oklch(70% 0.008 75);
+  --accent: #b45a32;
+  --font-serif: "Lora", Georgia, serif;
+  --font-ui: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+
+:root[data-theme="sepia"] {
+  --bg: oklch(93% 0.028 75);
+  --panel: oklch(96% 0.02 75);
+  --ink: oklch(28% 0.03 55);
+  --muted: oklch(48% 0.03 60);
+  --border: oklch(80% 0.03 70);
+  --dim: oklch(62% 0.03 60);
+}
+
+:root[data-theme="dark"] {
+  --bg: oklch(17% 0.008 260);
+  --panel: oklch(21% 0.008 260);
+  --ink: oklch(92% 0.005 90);
+  --muted: oklch(62% 0.01 90);
+  --border: oklch(32% 0.01 260);
+  --dim: oklch(45% 0.01 90);
   --accent: #7cc4ff;
   color-scheme: dark;
 }
@@ -14,22 +45,24 @@
 html, body { height: 100%; margin: 0; }
 
 body {
-  font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+  font: 13px/1.5 var(--font-ui);
   background: var(--bg);
   color: var(--ink);
 }
 
 #app { display: flex; height: 100%; }
 
-/* The panel is scaffolding, not the product. Get it out of the way so the
-   page can actually be read at a comfortable zoom. */
+/* The gear opens/closes the settings panel -- top-right, out of the way of
+   the page itself until summoned, per the comp. */
 #hide {
   position: fixed;
-  top: 8px;
-  left: 8px;
+  top: 18px;
+  right: 24px;
   z-index: 60;
-  opacity: .35;
-  padding: 3px 8px;
+  opacity: .55;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 15px;
 }
 #hide:hover { opacity: 1; }
 #app.bare #side { display: none; }
@@ -41,7 +74,7 @@ body {
   width: 330px;
   flex: 0 0 330px;
   background: var(--panel);
-  border-right: 1px solid #2c313a;
+  border-right: 1px solid var(--border);
   padding: 14px;
   overflow: auto;
   display: flex;
@@ -49,14 +82,36 @@ body {
   gap: 14px;
 }
 
-#side h1 { font-size: 15px; margin: 0; }
-#side h2 { font-size: 12px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+#side h1 { font: italic 500 20px/1 var(--font-serif); margin: 0; color: var(--ink); }
+#side h2 { font: 500 11px var(--font-ui); margin: 0 0 6px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+
+.rowLabel {
+  font: 500 10.5px var(--font-ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 2px 0 -2px;
+}
+
+.pillRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.pillRow button {
+  flex: 1 1 auto;
+  font-size: 11px;
+  letter-spacing: .02em;
+  padding: 7px 10px;
+  border-radius: 999px;
+}
+.pillRow button.active {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
 
 .proto {
   margin: 0;
-  font-size: 11px;
-  color: #ffbf6b;
-  border: 1px dashed #6b5122;
+  font: 11px var(--font-ui);
+  color: var(--accent);
+  border: 1px dashed var(--border);
   padding: 4px 6px;
   border-radius: 4px;
 }
@@ -71,22 +126,22 @@ label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--i
 select, input[type="range"] { width: 100%; }
 
 button {
-  background: #2a2f38;
+  background: var(--panel);
   color: var(--ink);
-  border: 1px solid #3a414d;
+  border: 1px solid var(--border);
   border-radius: 5px;
   padding: 6px 10px;
   font: inherit;
   cursor: pointer;
 }
-button:hover { background: #333a45; }
+button:hover { background: var(--bg); }
 button:disabled { opacity: .45; cursor: default; }
 
 .muted { color: var(--muted); }
 .tiny { font-size: 11px; margin: 0; }
 
 .state {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-ui);
   font-size: 11px;
   white-space: pre-wrap;
   color: var(--accent);
@@ -94,12 +149,30 @@ button:disabled { opacity: .45; cursor: default; }
 
 .spoken {
   font-size: 12px;
-  background: #0f1115;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 7px;
   max-height: 110px;
   overflow: auto;
 }
+
+/* ---------------- diagnostics (collapsed by default) ---------------- */
+
+#diagnostics {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+#diagnostics summary {
+  font: 500 11px var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+#diagnostics[open] summary { margin-bottom: 10px; }
+#diagnostics section { margin-top: 12px; }
 
 #sentences {
   margin: 0;
@@ -238,6 +311,12 @@ button:disabled { opacity: .45; cursor: default; }
 #hoverBadge[hidden] { display: none; }
 
 /* ---------------- variant switcher ---------------- */
+
+/* Both switchers set display:flex below, which otherwise beats the
+   attribute selector the browser uses to hide [hidden] elements -- an ID
+   selector always outranks a plain attribute one regardless of source
+   order. Needs its own rule, not just the hidden attribute in the HTML. */
+#switcher[hidden], #cursorSwitcher[hidden] { display: none; }
 
 #switcher {
   position: fixed;

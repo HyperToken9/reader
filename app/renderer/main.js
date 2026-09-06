@@ -52,6 +52,7 @@ const el = {
   prevVariant: $("prevVariant"), nextVariant: $("nextVariant"), variantLabel: $("variantLabel"),
   prevCursor: $("prevCursor"), nextCursor: $("nextCursorBtn"), cursorLabel: $("cursorLabel"),
   busyDot: $("busyDot"), hoverBadge: $("hoverBadge"),
+  variantPills: $("variantPills"), cursorPills: $("cursorPills"), themePills: $("themePills"),
 };
 
 // ---------------------------------------------------------------- state
@@ -2182,22 +2183,47 @@ loadVoices();
 
 // ---------------------------------------------------------------- variants
 
+// Reading a bad value out of localStorage (corrupted, from an older schema,
+// or just not there) should never break startup -- fall back silently.
+function loadPref(key, fallback) {
+  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+function savePref(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* private mode, quota, etc -- not fatal */ }
+}
+
+function syncPillGroup(container, attr, activeKey) {
+  if (!container) return;
+  for (const btn of container.children) {
+    btn.classList.toggle("active", btn.dataset[attr] === activeKey);
+  }
+}
+
 function setVariant(i) {
   variant = VARIANTS[(i + VARIANTS.length) % VARIANTS.length];
   el.variantLabel.textContent = `${variant.key} (${variant.name})`;
   const url = new URL(location.href);
   url.searchParams.set("variant", variant.key);
   history.replaceState(null, "", url);
+  savePref("blitz.variant", variant.key);
+  syncPillGroup(el.variantPills, "variant", variant.key);
   repaint();
 }
 
+// A URL param (used for judging-mode A/B links) wins over the saved
+// preference, which wins over the shipped default (spotlight + nested dim,
+// see 16).
 const startVariant = VARIANTS.findIndex(
-  (v) => v.key === (new URL(location.href).searchParams.get("variant") ?? "C"),
+  (v) => v.key === (new URL(location.href).searchParams.get("variant") ?? loadPref("blitz.variant", "C")),
 );
 setVariant(startVariant < 0 ? 0 : startVariant);
 
 el.prevVariant.onclick = () => setVariant(VARIANTS.indexOf(variant) - 1);
 el.nextVariant.onclick = () => setVariant(VARIANTS.indexOf(variant) + 1);
+el.variantPills?.addEventListener("click", (e) => {
+  const key = e.target.closest("button")?.dataset.variant;
+  if (key) setVariant(VARIANTS.findIndex((v) => v.key === key));
+});
 
 function setCursorStyle(i) {
   cursorStyle = CURSOR_STYLES[(i + CURSOR_STYLES.length) % CURSOR_STYLES.length];
@@ -2205,16 +2231,39 @@ function setCursorStyle(i) {
   const url = new URL(location.href);
   url.searchParams.set("cursor", cursorStyle.key);
   history.replaceState(null, "", url);
+  savePref("blitz.cursor", cursorStyle.key);
+  syncPillGroup(el.cursorPills, "cursor", cursorStyle.key);
   repaint();
 }
 
 const startCursor = CURSOR_STYLES.findIndex(
-  (c) => c.key === (new URL(location.href).searchParams.get("cursor") ?? "dim"),
+  (c) => c.key === (new URL(location.href).searchParams.get("cursor") ?? loadPref("blitz.cursor", "dim")),
 );
 setCursorStyle(startCursor < 0 ? 0 : startCursor);
 
 el.prevCursor.onclick = () => setCursorStyle(CURSOR_STYLES.indexOf(cursorStyle) - 1);
 el.nextCursor.onclick = () => setCursorStyle(CURSOR_STYLES.indexOf(cursorStyle) + 1);
+el.cursorPills?.addEventListener("click", (e) => {
+  const key = e.target.closest("button")?.dataset.cursor;
+  if (key) setCursorStyle(CURSOR_STYLES.findIndex((c) => c.key === key));
+});
+
+// ---------------------------------------------------------------- theme
+//
+// Only the app's own chrome (sidebar, switchers) reads these tokens -- the
+// page itself stays real paper-white regardless of theme, same as a PDF or
+// EPUB's own background is never recolored (13's "overlays may add, never
+// replace" applies to the chrome/page boundary too, not just the overlay).
+function setTheme(name) {
+  document.documentElement.dataset.theme = name;
+  savePref("blitz.theme", name);
+  syncPillGroup(el.themePills, "themeChoice", name);
+}
+setTheme(loadPref("blitz.theme", "light"));
+el.themePills?.addEventListener("click", (e) => {
+  const name = e.target.closest("button")?.dataset.themeChoice;
+  if (name) setTheme(name);
+});
 
 addEventListener("keydown", (e) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
