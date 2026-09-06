@@ -6,6 +6,8 @@ A working prototype: a local web app that renders a textbook PDF at native fidel
 
 Reached when that prototype exists and has been driven against real textbook PDFs, well enough to judge whether the audio+highlight-over-native-render experience actually works.
 
+**Destination redrawn, 2026-09-06.** The prototype answered its question, so the human extended the destination: *a desktop app you download and use*. Productionising was explicitly Out of scope under the old destination; it is now the destination. The route so far is unchanged and every decision below still holds — [08](issues/08-ship-platform.md) is the hinge, and the app lives in `app/` on `dev`.
+
 ## Notes
 
 **Domain**: PDF rendering and text-layer geometry, document layout analysis (reading order, region classification), local neural speech synthesis and audio-clock scheduling, formula recognition, overlay UI.
@@ -54,9 +56,11 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [15 — Formula recognition](issues/15-formula-recognition.md): **the recogniser reads what the text layer destroyed.** `pix2text-mfr` (MIT code *and* weights, 113 MB) runs under `onnxruntime-node` with no Python at all, and on Millington p60 returned `\Delta` correctly where [09](issues/09-text-fidelity.md) found literal U+0003. **21/25 display equations exact, 25/25 parse in KaTeX, ~495 ms each**; KaTeX renders LaTeX to MathML in-process, so MathML is free and `throwOnError` doubles as a correctness gate. Cost has the best shape on the map — a charge on a *rare event* (11 of 18 sampled pages have no equations), cacheable, lazy. **Scope to `display_formula` only**: all 27 inline crops failed, and the fault is [12](issues/12-document-layout-models.md)'s boxes being loose, not the model. Also overturns a [12](issues/12-document-layout-models.md) conclusion — a mislabelled region was "free" there, but is not free once something gets rendered on top, so never occlude.
 
+- [08 — What platform does the real app ship on?](issues/08-ship-platform.md): **Electron, packaged as an AppImage and a .deb.** The browser candidate did not survive measurement — the layout model in-page cost 86s on the first page and froze scrolling, against ~1.4s a page in a native Node process. Tauri loses on WebKitGTK: the whole highlight pipeline was judged against Chromium and sub-pixel alignment is the thing being judged. Flutter and mobile are out; they would discard [02](issues/02-pdfjs-text-layer-geometry.md)'s text-layer geometry. Cost carried: Python is still required for speech, so `tts.js` is a seam and removing it is [17](issues/17-node-speech-engine.md).
+
 ## Not yet specified
 
-- **Graduating the prototype into a v1 app** — persistence, a PDF library, remembered reading position, settings surface. Hangs on the prototype proving the core experience first.
+- **What a reader keeps between sessions** — a library of documents, remembered reading position, a settings surface, and where any of that is stored now that there is a real app to store it in. In scope since the destination was redrawn; still too loose to ticket until [16](issues/16-kokoro-reading-loop.md) settles what the reading loop finally looks like.
 - **Scanned / image-only PDFs** — OCR to obtain a text layer at all. Assumed away for this effort; a real concern for textbooks sourced as scans.
 - **What a richer overlay unlocks, once there is structure to hang it on** — definition popovers, re-typeset equations, per-paragraph controls, notes. [13](issues/13-overlay-substrate.md) decides the substrate; what gets built on it is fog until it does, and most of it is past the prototype's destination anyway.
 - **The other Reading Lenses techniques over a PDF surface** — spacing, typeface swap, fixation anchoring, chromatic line guidance, masking, pacer, RSVP. To be revisited per-technique on use-case and importance, and harder here than in HTML since the page is rendered pixels, not reflowable text.
@@ -65,5 +69,5 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 ## Out of scope
 
-- **Building and shipping the production v1 app.** The destination is a prototype that answers whether the experience works. Productionising it is a separate effort against a redrawn destination.
+- ~~**Building and shipping the production v1 app.**~~ No longer out of scope: the destination was redrawn on 2026-09-06 to include it, rather than starting a fresh map, because the route already walked is the route this app is built on. Kept here struck through so the boundary's move is legible.
 - **OCR / scanned-page support.** Ruled out by the embedded-text-layer assumption. Listed above as fog only insofar as a future effort may need it; this map will not chart it.

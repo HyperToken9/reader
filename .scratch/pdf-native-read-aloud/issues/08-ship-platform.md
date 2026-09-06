@@ -1,7 +1,7 @@
 # 08 — What platform does the real app ship on?
 
 Type: grilling
-Status: open
+Status: closed
 Blocked by: 06
 
 ## Question
@@ -31,3 +31,17 @@ Decide against real weight: where does textbook reading actually happen for this
 Consult `grilling` and `domain-modeling`.
 
 ## Answer
+
+**Electron, packaged as an AppImage and a .deb. Downloadable desktop app; the browser is out.**
+
+The human decided the *form*: "something that you can download and use." The runtime choice was delegated, and every piece of evidence this ticket was blocked on points the same way.
+
+**Why not the browser.** [[12]]'s unmeasured `onnxruntime-web` path got measured, in [[06]]'s integration: the layout model in the page cost **86s on the first page** — a 213 MB model pulled into the tab, every session — and ~7s per page after, all on the thread painting the UI. With layout on, a trivial scroll loop could not complete in 180 seconds. That is what the reported "crashing instantaneously" actually was. The same model under `onnxruntime-node` in a process that is not the one painting: **~1.4s a page**. The browser candidate did not survive contact.
+
+**Why Electron and not Tauri.** Tauri is genuinely lighter, and on a blank slate it would be a real contest. It is not a blank slate: the entire highlight pipeline — `TextLayer`, `Intl.Segmenter` offsets, `Range.getClientRects()` normalised into an SVG overlay — was built and judged against Chromium. Tauri renders in the system webview, which on Linux is WebKitGTK. Every geometry number this map has recorded would have to be re-verified there, and the thing being verified is sub-pixel highlight alignment. Electron ships the engine the work was validated on. The cost is a ~350 MB AppImage, and for a single-user desktop reader that is the cheaper side of the trade.
+
+**Flutter, native mobile and Capacitor are out**, and not narrowly. [[02]] established that per-word boxes come from browser text-layer geometry that has no Flutter equivalent; rebuilding on worse foundations would discard [[05]], [[06]] and [[16]] together. [[10]]'s Linux-only constraint had already removed the mobile-reach argument that was Flutter's only real draw.
+
+**What this costs.** Python is still required, because [[14]] adopted Kokoro and its only working implementation is `kokoro-onnx`. A downloadable app that asks the user to install Python is not finished, so `app/electron/tts.js` is deliberately a seam: the renderer only ever calls `synthesize`/`voices` over IPC and cannot see how speech is produced. Replacing the child process with an in-process `onnxruntime-node` engine changes that one file. Graduated to its own ticket.
+
+**Built and verified.** `app/` on `dev`. Both models run in the Electron main process; the renderer reaches them over IPC with context isolation on and `nodeIntegration` off, so nothing listens on a port a browser could find. `npm run dist` produces `Blitz-0.1.0.AppImage` and `blitz_0.1.0_amd64.deb`. The AppImage was launched and driven, not assumed: speech engine ready, 54 voices, synthesize round trip returning words, spans and audio.
