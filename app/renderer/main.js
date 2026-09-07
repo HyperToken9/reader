@@ -30,6 +30,10 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { analyzeLayout } from "./layout.js";
 import { parseEpub } from "./epub.js";
+import loraUrl from "./fonts/lora.woff2?url";
+import loraItalicUrl from "./fonts/lora-italic.woff2?url";
+import workSansUrl from "./fonts/work-sans.woff2?url";
+import plexMonoUrl from "./fonts/ibm-plex-mono-400.woff2?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -54,6 +58,7 @@ const el = {
   busyDot: $("busyDot"), hoverBadge: $("hoverBadge"),
   variantPills: $("variantPills"), cursorPills: $("cursorPills"), themePills: $("themePills"),
   typefacePills: $("typefacePills"), typographyHint: $("typographyHint"),
+  fontSize: $("fontSize"), fontSizeOut: $("fontSizeOut"),
   lineWidth: $("lineWidth"), lineWidthOut: $("lineWidthOut"),
   lineHeight: $("lineHeight"), lineHeightOut: $("lineHeightOut"),
 };
@@ -172,11 +177,22 @@ const CURSOR_STYLES = [
 ];
 let cursorStyle = CURSOR_STYLES[0];
 
+// The CSS-pixel width every chapter lays out at, at every zoom level. Fixed
+// on purpose: zoom scales the rendered result instead of changing this, so
+// magnifying a chapter never re-wraps its lines (applyEpubScale).
+const EPUB_PAGE_WIDTH = 760;
+
 // Epub-only reading typography (20): meaningless for a PDF canvas, which has
 // no reflowable text to apply a typeface or line width to. loadPref is a
 // function declaration further down and is hoisted, so it's safe to call
 // this early.
 let epubFont = loadPref("blitz.epubFont", "original");
+let epubFontSize = Number(loadPref("blitz.epubFontSize", 18));
+// Text size is expressed to the reader in px (18px is "as the book set it")
+// but applied as a ratio, since it scales the book's own sizes rather than
+// replacing them.
+const EPUB_BASE_FONT_SIZE = 18;
+const epubTextScale = () => epubFontSize / EPUB_BASE_FONT_SIZE;
 let epubLineWidth = Number(loadPref("blitz.epubLineWidth", 720));
 let epubLineHeight = Number(loadPref("blitz.epubLineHeight", 1.6));
 
@@ -249,7 +265,16 @@ async function openFile(file) {
 /** Teardown shared by both openers: stop playback, release the old document's pages. */
 async function closeDoc() {
   stop();
-  if (doc && docKind === "pdf") await doc.destroy();
+  // `destroy()` lives on the *loading task*, not on the document proxy, in
+  // pdfjs 6 -- `doc.destroy()` is a TypeError, and because it threw before
+  // any of the teardown below ran, opening a second file in one session
+  // silently left the first document on screen. Only ever reachable on the
+  // second open, which is why the single-open smoke test never saw it.
+  // Teardown must not be able to wedge the app either way, hence the catch.
+  if (doc && docKind === "pdf") {
+    try { await doc.loadingTask.destroy(); }
+    catch (e) { console.warn("[doc] destroying the previous document failed", e); }
+  }
   for (const p of pages.values()) evictPage(p); // release canvases/iframes before dropping the map
   renderOrder.length = 0;
   pages.clear();
@@ -291,6 +316,7 @@ function syncLayoutControls() {
 function syncTypographyControls() {
   const isEpub = docKind === "epub";
   el.typefacePills.querySelectorAll("button").forEach((b) => { b.disabled = !isEpub; });
+  el.fontSize.disabled = !isEpub;
   el.lineWidth.disabled = !isEpub;
   el.lineHeight.disabled = !isEpub;
   el.typographyHint.textContent = isEpub
@@ -370,9 +396,11 @@ async function openEpub(data) {
   for (let pn = 1; pn <= doc.numPages; pn++) {
     const div = makeShell(pn, "epubchapter",
       `<iframe sandbox="allow-same-origin" tabindex="-1" scrolling="no"></iframe>`);
-    div.style.height = `${EPUB_PLACEHOLDER_HEIGHT * scale}px`;
     const entry = new PageEntry(pn, div);
-    entry.base = { width: 0, height: EPUB_PLACEHOLDER_HEIGHT * scale };
+    // Natural (unscaled) placeholder size; sizeEpubChapter applies the zoom,
+    // the same contract renderChapter fills in once the real height is known.
+    entry.base = { width: EPUB_PAGE_WIDTH, height: EPUB_PLACEHOLDER_HEIGHT };
+    sizeEpubChapter(entry);
     pages.set(pn, entry);
     observer.observe(div);
   }
@@ -718,7 +746,14 @@ async function renderChapter(pn) {
   const p = pages.get(pn);
   p.rendering = (async () => {
     const chapter = doc.chapters[pn - 1];
-    const html = epubShellHtml(chapter, scale);
+    const html = epubShellHtml(chapter);
+
+    // Lay the chapter out at its natural width before measuring: the iframe
+    // must not still be carrying a previous zoom's transform or size, or the
+    // height we measure is the wrong one to scale from.
+    p.iframe.style.transform = "none";
+    p.iframe.style.width = `${EPUB_PAGE_WIDTH}px`;
+    p.iframe.style.height = "";
 
     await new Promise((resolve) => {
       p.iframe.addEventListener("load", resolve, { once: true });
@@ -738,8 +773,10 @@ async function renderChapter(pn) {
 
     const h = Math.max(1, p.iframe.contentDocument.documentElement.scrollHeight);
     const resized = !p.base || p.base.height !== h;
-    p.base = { width: p.div.clientWidth, height: h };
-    p.div.style.height = `${h}px`;
+    // Natural, unscaled size -- the same contract as a PDF page's p.base,
+    // which holds its scale-1 viewport. sizeEpubChapter multiplies by zoom.
+    p.base = { width: EPUB_PAGE_WIDTH, height: h };
+    sizeEpubChapter(p);
     if (resized) markGeomDirty();
 
     buildEpubSentences(p);
@@ -787,23 +824,55 @@ const EPUB_FONT_STACKS = {
   mono: '"IBM Plex Mono", ui-monospace, monospace',
 };
 
-function epubShellHtml(chapter, zoom) {
+// A chapter renders in its own srcdoc document, so the fonts the app itself
+// loaded are not available to it -- naming "Lora" in there without this
+// silently fell back to a generic serif. Importing the files through Vite
+// gets URLs that survive the production build's asset fingerprinting, which
+// hardcoded paths would not.
+const EPUB_FONT_FACE_CSS = `
+  @font-face { font-family: "Lora"; font-style: normal; font-weight: 400 700; src: url("${loraUrl}") format("woff2"); }
+  @font-face { font-family: "Lora"; font-style: italic; font-weight: 400 700; src: url("${loraItalicUrl}") format("woff2"); }
+  @font-face { font-family: "Work Sans"; font-style: normal; font-weight: 400 700; src: url("${workSansUrl}") format("woff2"); }
+  @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; src: url("${plexMonoUrl}") format("woff2"); }
+`;
+
+function epubShellHtml(chapter) {
   const fontRule = EPUB_FONT_STACKS[epubFont]
     ? `font-family: ${EPUB_FONT_STACKS[epubFont]} !important;`
     : "";
-  // Line width/spacing are custom properties, not baked-in values, so a
-  // slider drag can restyle already-open chapters live (applyEpubTypography)
-  // the same way --zoom does for the zoom slider, instead of re-rendering a
-  // chapter (losing scroll position and playback state) on every tick.
-  return `<!doctype html><html style="--zoom:${zoom}; --reader-max-width:${epubLineWidth}px; --reader-line-height:${epubLineHeight}"><head><meta charset="utf-8">` +
+  // Font size, line width and line spacing are custom properties, not
+  // baked-in values, so a slider drag can restyle already-open chapters live
+  // (applyEpubTypography) instead of re-rendering a chapter -- and losing
+  // scroll position and playback state -- on every tick.
+  //
+  // Note what is NOT here: zoom. A chapter always lays out at
+  // EPUB_PAGE_WIDTH, so its line breaks are the same at every zoom level;
+  // magnification is a transform applied to the whole rendered chapter from
+  // outside (sizeEpubChapter). Font size is the separate control that does
+  // reflow, which is the distinction real reading systems draw too.
+  return `<!doctype html><html style="--reader-text-scale:${epubTextScale()}; --reader-max-width:${epubLineWidth}px; --reader-line-height:${epubLineHeight}"><head><meta charset="utf-8">` +
     `<style>
+      ${EPUB_FONT_FACE_CSS}
       html, body { margin: 0; background: #fff; color: #14161a; overflow: hidden; }
       body {
-        font-size: calc(var(--zoom, 1) * 1em);
+        /*
+         * Text size is a proportional scale, not an inherited font-size.
+         * Books routinely hardcode absolute sizes -- this one ships
+         * "h3, p { font-size: 18px }" -- and an absolute rule on the
+         * paragraph beats any size inherited from body, so setting
+         * body{font-size} moved the body and left the prose at 18px.
+         * "zoom" multiplies used values instead, so the book's own
+         * hierarchy (heading vs prose vs caption) survives intact and the
+         * text actually reflows. The column and padding are divided by the
+         * same factor so the measure stays physically put and only the
+         * glyphs grow -- which is what makes this a text-size control and
+         * not a second zoom.
+         */
+        zoom: var(--reader-text-scale, 1);
         line-height: var(--reader-line-height, 1.6);
         ${fontRule}
-        padding: 48px 60px;
-        max-width: var(--reader-max-width, 720px);
+        padding: calc(48px / var(--reader-text-scale, 1)) calc(60px / var(--reader-text-scale, 1));
+        max-width: calc(var(--reader-max-width, 720px) / var(--reader-text-scale, 1));
         margin: 0 auto;
         overflow-wrap: break-word;
         position: static !important;
@@ -819,6 +888,25 @@ function epubShellHtml(chapter, zoom) {
     </style>` +
     chapter.headHtml +
     `</head><body>${chapter.bodyHtml}</body></html>`;
+}
+
+/**
+ * Apply the current zoom to one chapter, PDF-style: the chapter's own
+ * document keeps laying out at its natural size (EPUB_PAGE_WIDTH by
+ * p.base.height) and the whole rendered result is scaled visually, so a
+ * zoom gesture magnifies the page instead of re-wrapping its text. The
+ * outer div carries the scaled size because a CSS transform doesn't affect
+ * layout, and the scroll flow -- and therefore the geometry index -- needs
+ * the space the chapter actually occupies.
+ */
+function sizeEpubChapter(p) {
+  if (!p.base) return;
+  p.div.style.width = `${p.base.width * scale}px`;
+  p.div.style.height = `${p.base.height * scale}px`;
+  if (!p.iframe) return;
+  p.iframe.style.width = `${p.base.width}px`;
+  p.iframe.style.height = `${p.base.height}px`;
+  p.iframe.style.transform = `scale(${scale})`;
 }
 
 /** Is this page in or near the visible scroll window? */
@@ -972,15 +1060,18 @@ function reZoom(next, anchorClientY = null) {
 }
 
 /**
- * Epub has no PDF-style raster/CSS-var split for zoom: reflowing a chapter
- * means changing --zoom (a font-size multiplier) inside its own iframe and
- * remeasuring, and there is no bitmap to stretch for cheap instant feedback
- * the way a canvas gives PDF. What keeps it feeling instant anyway is that
- * each chapter is its own isolated iframe -- reflowing one means reflowing a
- * single short document, not the 611-page one the scroll fix earlier this
- * session was about -- and the render queue already keeps only a handful of
- * chapters rendered at once. So this runs synchronously on every tick,
- * across whichever chapters are actually rendered; nothing is debounced.
+ * Zoom for an epub is magnification, not reflow. Earlier this multiplied a
+ * --zoom font-size variable inside each chapter, which re-wrapped every line
+ * on every tick: that is a *text size* control wearing a zoom gesture's
+ * clothes, and it made "zoom in" mean "get different line breaks" rather
+ * than "look closer at the same page". Now a chapter always lays out at
+ * EPUB_PAGE_WIDTH and the rendered result is scaled from outside, exactly
+ * like a PDF page's already-drawn bitmap stretching to the new size.
+ *
+ * That also makes zoom nearly free here, matching PDF: no chapter reflows,
+ * nothing is remeasured, and no sentence rects are dropped -- they are page
+ * fractions, and scaling a page uniformly leaves every fraction unchanged.
+ * Text size, which *does* reflow, is a separate control in the panel.
  */
 function applyEpubScale(next, anchorClientY = null) {
   const prev = scale;
@@ -999,16 +1090,7 @@ function applyEpubScale(next, anchorClientY = null) {
     ? (at - before.top) / (before.bottom - before.top)
     : null;
 
-  for (const p of pages.values()) {
-    if (!p.rendered || !p.iframe?.contentDocument) continue;
-    p.iframe.contentDocument.documentElement.style.setProperty("--zoom", String(scale));
-    const h = Math.max(1, p.iframe.contentDocument.documentElement.scrollHeight);
-    p.div.style.height = `${h}px`;
-    p.base = { width: p.base?.width ?? 0, height: h };
-    // Old Range()-derived rects and word rects describe the layout from
-    // before this reflow; drop them so the next paint recomputes fresh ones.
-    for (const s of p.sentences) { s.rects = null; s.words = null; }
-  }
+  for (const p of pages.values()) sizeEpubChapter(p);
   markGeomDirty();
 
   const g = geomFor(before?.pn);
@@ -1031,11 +1113,13 @@ function applyEpubTypography() {
   for (const p of pages.values()) {
     if (!p.rendered || !p.iframe?.contentDocument) continue;
     const root = p.iframe.contentDocument.documentElement;
+    root.style.setProperty("--reader-text-scale", String(epubTextScale()));
     root.style.setProperty("--reader-max-width", `${epubLineWidth}px`);
     root.style.setProperty("--reader-line-height", String(epubLineHeight));
-    const h = Math.max(1, root.scrollHeight);
-    p.div.style.height = `${h}px`;
-    p.base = { width: p.base?.width ?? 0, height: h };
+    // Unlike zoom, these genuinely reflow the chapter, so its natural height
+    // changes and every cached rect describes the old layout.
+    p.base = { width: EPUB_PAGE_WIDTH, height: Math.max(1, root.scrollHeight) };
+    sizeEpubChapter(p);
     for (const s of p.sentences) { s.rects = null; s.words = null; }
   }
   markGeomDirty();
@@ -1443,12 +1527,20 @@ function epubRangeRects(p, locate, s, e) {
     const range = p.iframe.contentDocument.createRange();
     range.setStart(a.node, Math.max(0, Math.min(s - a.start, a.node.length)));
     range.setEnd(b.node, Math.max(0, Math.min(e - 1 - b.start + 1, b.node.length)));
-    const box = p.iframe.getBoundingClientRect();
+    // Divide by the chapter document's OWN layout size, not the iframe's
+    // outer bounding box. The rects come from inside that document, in its
+    // unscaled coordinates; the outer box carries the zoom transform, so
+    // dividing by it would shrink every fraction by the zoom factor. Using
+    // the internal size keeps these fractions scale-invariant, which is what
+    // lets zoom skip recomputing them at all (applyEpubScale).
+    const root = p.iframe.contentDocument.documentElement;
+    const width = root.clientWidth || 1;
+    const height = root.scrollHeight || 1;
     return [...range.getClientRects()]
       .filter((r) => r.width > 0 && r.height > 0)
       .map((r) => ({
-        x: r.x / box.width, y: r.y / box.height,
-        w: r.width / box.width, h: r.height / box.height,
+        x: r.x / width, y: r.y / height,
+        w: r.width / width, h: r.height / height,
       }));
   } catch {
     return [];
@@ -2145,8 +2237,10 @@ function hitTest(p, clientX, clientY) {
 function epubHitTest(p, clientX, clientY) {
   const idoc = p.iframe.contentDocument;
   if (!idoc || !p._epubNodeIndex) return null;
+  // The pointer arrives in outer (zoomed) client coordinates; the chapter
+  // document hit-tests in its own unscaled ones, so undo the zoom transform.
   const ib = p.iframe.getBoundingClientRect();
-  const ix = clientX - ib.left, iy = clientY - ib.top;
+  const ix = (clientX - ib.left) / scale, iy = (clientY - ib.top) / scale;
   let range = null;
   if (idoc.caretRangeFromPoint) {
     range = idoc.caretRangeFromPoint(ix, iy);
@@ -2363,6 +2457,12 @@ el.typefacePills?.addEventListener("click", (e) => {
   if (name) setEpubFont(name);
 });
 
+el.fontSize.addEventListener("input", () => {
+  epubFontSize = Number(el.fontSize.value);
+  el.fontSizeOut.textContent = `${epubFontSize}px`;
+  savePref("blitz.epubFontSize", String(epubFontSize));
+  applyEpubTypography();
+});
 el.lineWidth.addEventListener("input", () => {
   epubLineWidth = Number(el.lineWidth.value);
   el.lineWidthOut.textContent = `${epubLineWidth}px`;
@@ -2375,6 +2475,8 @@ el.lineHeight.addEventListener("input", () => {
   savePref("blitz.epubLineHeight", String(epubLineHeight));
   applyEpubTypography();
 });
+el.fontSize.value = String(epubFontSize);
+el.fontSizeOut.textContent = `${epubFontSize}px`;
 el.lineWidth.value = String(epubLineWidth);
 el.lineWidthOut.textContent = `${epubLineWidth}px`;
 el.lineHeight.value = String(epubLineHeight);

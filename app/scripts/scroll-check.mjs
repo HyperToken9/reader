@@ -59,9 +59,18 @@ const ev = async (expr) => {
 };
 
 // The packaged app takes noticeably longer to get a document into the window
-// than `npx electron .` does; wait for the DOM rather than assuming it.
+// than `npx electron .` does; wait for the app rather than assuming it.
+//
+// Specifically wait for `window.__spike`, NOT for `#file` to exist: the input
+// is in the static HTML and therefore present at first paint, before the
+// deferred module script has run and attached its onchange handler. Waiting
+// on the element instead means `DOM.setFileInputFiles` fires its synthetic
+// change event into a void, the document never opens, and the run dies at
+// its full timeout with a misleading "the document never opened". __spike is
+// assigned at the very end of main.js's top-level code, so it is the real
+// "the renderer is wired up" signal.
 for (let i = 0; i < 120; i++) {
-  try { if (await ev("!!document.getElementById('file')")) break; } catch { /* no context yet */ }
+  try { if (await ev("typeof window.__spike !== 'undefined'")) break; } catch { /* no context yet */ }
   await new Promise((r) => setTimeout(r, 250));
 }
 const root = await send("DOM.getDocument", { depth: 1 });
