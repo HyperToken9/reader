@@ -336,6 +336,34 @@ function makeShell(pn, extraClass, bodyHtml) {
   return div;
 }
 
+/*
+ * The size an unrendered shell stands at until its page really rasterises.
+ *
+ * This used to be page 1's size, which is wrong in exactly the case it is
+ * most visible: a book whose cover is a different size from its body. Game
+ * Physics Engine Development's page 1 is 336x414 while every other page is
+ * 540x665, so all 480 of its shells stood at 62% of the real size and each
+ * visibly grew the moment it rasterised -- the "small page that expands"
+ * while flinging. Sample a spread of pages and take the most common size
+ * instead: one odd page can no longer set the placeholder for the whole
+ * book, and on a uniform book (the normal case) every shell is exactly
+ * right, so nothing resizes at render time at all.
+ */
+async function placeholderSize(pdf) {
+  const n = pdf.numPages;
+  const picks = [...new Set([1, 2, 3, Math.ceil(n / 2), n])].filter((pn) => pn >= 1 && pn <= n);
+  const seen = new Map();
+  for (const pn of picks) {
+    const v = (await pdf.getPage(pn)).getViewport({ scale: 1 });
+    const key = `${v.width}x${v.height}`;
+    const hit = seen.get(key) ?? { width: v.width, height: v.height, count: 0 };
+    hit.count++;
+    seen.set(key, hit);
+  }
+  // Ties go to the earlier page, which Map iteration order gives for free.
+  return [...seen.values()].sort((a, b) => b.count - a.count)[0];
+}
+
 async function openPdf(data) {
   await closeDoc();
   docKind = "pdf";
@@ -348,8 +376,7 @@ async function openPdf(data) {
 
   // Shell every page up front at the right aspect ratio, so the scrollbar is
   // honest; rasterise lazily as they come into view.
-  const first = await doc.getPage(1);
-  const base = first.getViewport({ scale: 1 });
+  const base = await placeholderSize(doc);
 
   for (let pn = 1; pn <= doc.numPages; pn++) {
     // width/height 0 until rasterised: a default <canvas> is 300x150, and at
@@ -422,6 +449,18 @@ async function openEpub(data) {
 let geomIndex = null;
 
 function markGeomDirty() { geomIndex = null; }
+
+/*
+ * Move the scroll offset without the scroll handler reading it as a fling.
+ * Used to compensate for a page resizing off-screen: the velocity estimate is
+ * a delta over time, so a one-frame jump of a few hundred px would otherwise
+ * look like a fast scroll and stall the render pump for an idle beat.
+ */
+function scrollByWithoutFling(dy) {
+  if (!dy) return;
+  el.viewer.scrollTop += dy;
+  lastScrollTop = el.viewer.scrollTop;
+}
 
 function geom() {
   if (!geomIndex) {
@@ -694,11 +733,24 @@ async function renderPdfPage(pn) {
   p.rendering = (async () => {
     p.proxy = await doc.getPage(pn);
     const base = p.proxy.getViewport({ scale: 1 });
-    const resized = !p.base || p.base.height !== base.height || p.base.width !== base.width;
+    const was = p.base;
+    const resized = !was || was.height !== base.height || was.width !== base.width;
     p.base = { width: base.width, height: base.height };
     const viewport = p.proxy.getViewport({ scale });
     sizePage(p.div, p.base);
-    if (resized) markGeomDirty(); // this page was standing in with page 1's size
+    if (resized) {
+      markGeomDirty(); // this page was standing at the sampled placeholder size
+      // A shell that grows or shrinks while sitting *above* the viewport
+      // moves everything below it down or up -- which reads as the page you
+      // are actually looking at lurching under you, a page you never saw
+      // resize. Take the same delta back out of the scroll offset so the
+      // view stays put. (Pages at or below the viewport top are free to
+      // resize: nothing already on screen moves.)
+      const g = geomFor(pn);
+      if (was && g && g.bottom <= el.viewer.scrollTop) {
+        scrollByWithoutFling((p.base.height - was.height) * scale);
+      }
+    }
     // The text layer positions itself off --total-scale-factor, which it
     // inherits from #pages; everything else about it is percentage-based, so
     // that one variable is all it needs (02 §3).
