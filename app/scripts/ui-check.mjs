@@ -154,6 +154,32 @@ const site = await ev(`(async()=>{
   plainMenu = [...document.getElementById('pageMenu').querySelectorAll('button')].map(x=>x.textContent.replace(/\\s+/g,' ').trim());
   document.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
 
+  // ---- hovering a link says where it goes -----------------------------
+  const peek = document.getElementById('linkPeek');
+  const peekAt = () => peek.hidden ? null : document.getElementById('linkPeekText').textContent;
+  let peekIn = null, peekOut = null, peekOff = null;
+  const inLink = idoc.querySelector('a[data-page]');
+  if (inLink) { fire(inLink,'mouseover'); await new Promise(r=>setTimeout(r,120)); peekIn = peekAt(); }
+  fire(para,'mouseover'); await new Promise(r=>setTimeout(r,120)); peekOff = peekAt();
+  const outLink = idoc.querySelector('a[data-external]');
+  if (outLink) { fire(outLink,'mouseover'); await new Promise(r=>setTimeout(r,120)); peekOut = peekAt(); }
+  fire(para,'mouseover'); await new Promise(r=>setTimeout(r,120));
+
+  // ---- full screen has a way out --------------------------------------
+  await window.blitz.fullscreen.set(true);
+  await new Promise(r=>setTimeout(r,700));
+  const fs = { on: window.__spike.fullScreen, hint: !document.getElementById('fsHint').hidden };
+  dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  await new Promise(r=>setTimeout(r,900));
+  fs.left = window.__spike.fullScreen;
+  // and the key that got you in gets you out too
+  dispatchEvent(new KeyboardEvent('keydown',{key:'F11',bubbles:true}));
+  await new Promise(r=>setTimeout(r,700));
+  fs.f11On = window.__spike.fullScreen;
+  dispatchEvent(new KeyboardEvent('keydown',{key:'F11',bubbles:true}));
+  await new Promise(r=>setTimeout(r,700));
+  fs.f11Off = window.__spike.fullScreen;
+
   const ext = idoc.querySelector('a[data-external]');
   if (ext) { fire(ext,'contextmenu'); await new Promise(r=>setTimeout(r,200));
     linkMenu = [...document.getElementById('pageMenu').querySelectorAll('button')].map(x=>x.textContent.replace(/\\s+/g,' ').trim()); }
@@ -163,6 +189,7 @@ const site = await ev(`(async()=>{
            siteHref: document.getElementById('openSite').title,
            counter: document.getElementById('pageNowText').textContent,
            want, landed, hoverSafe, clickSafe, plainMenu, linkMenu,
+           peekIn, peekOut, peekOff, fs,
            selectable: (()=>{ const rr=idoc.createRange(); rr.selectNodeContents(para);
              idoc.getSelection().removeAllRanges(); idoc.getSelection().addRange(rr);
              return (window.__spike.liveSelection()?.text??'').length; })() };
@@ -178,6 +205,14 @@ const siteChecks = site?.fail ? [] : [
   ["right click in a chapter offers to read", (site.plainMenu || []).some(x => /Play from here/.test(x))],
   ["right click on a link offers to open it", (site.linkMenu || []).some(x => /Open link in browser/.test(x))],
   ["chapter text is still selectable", site.selectable > 50],
+  ["hovering a link says where it goes",
+   !!site.peekIn && !/^page \d+$/.test(site.peekIn) && site.peekIn.length > 3, JSON.stringify(site.peekIn)],
+  ["and shows the address of one leaving the book",
+   !site.peekOut || /\./.test(site.peekOut), JSON.stringify(site.peekOut)],
+  ["the link readout goes away again", site.peekOff === null],
+  ["full screen announces the way out", site.fs.on === true && site.fs.hint],
+  ["escape leaves full screen", site.fs.left === false],
+  ["and so does F11", site.fs.f11On === true && site.fs.f11Off === false],
 ];
 if (site?.fail) console.log("  (site phase skipped:", site.fail + ")");
 

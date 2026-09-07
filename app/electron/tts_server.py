@@ -36,7 +36,17 @@ VOICES = os.environ.get("BLITZ_TTS_VOICES") or os.path.join(HOME, "kokoro", "voi
 PORT = int(os.environ.get("BLITZ_TTS_PORT") or 5177)
 
 so = ort.SessionOptions()
-so.intra_op_num_threads = 16
+# Half the cores, never more than eight.
+#
+# This was a flat 16 -- every core on the machine it was written on, and a
+# number that means nothing on any other. Two things were wrong with it.
+# Speech is synthesized WHILE speech is playing, so pinning every core
+# starves the audio thread, and a starved audio callback is heard as dips in
+# volume and crackle. And it was not even fast: measured over six warm
+# sentences, 16 threads ran at 0.36x real time and 8 at 0.27x -- oversubscribing
+# a 16-core box cost a third of the throughput it was asking for. Half the
+# cores is both quicker and leaves the other half for the sound.
+so.intra_op_num_threads = int(os.environ.get("BLITZ_TTS_THREADS") or max(1, min(8, (os.cpu_count() or 4) // 2)))
 so.inter_op_num_threads = 1
 sess = ort.InferenceSession(MODEL, so, providers=["CPUExecutionProvider"])
 kokoro = Kokoro.from_session(sess, VOICES)

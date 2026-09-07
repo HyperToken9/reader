@@ -54,6 +54,17 @@ function createWindow() {
     win.loadFile(join(here, "../dist/renderer/index.html"));
   }
 
+  /*
+   * Full screen has to be escapable from inside the app.
+   *
+   * The window's own chrome is what you would normally use to leave it, and
+   * full screen is exactly the state that takes the chrome away -- so the
+   * way out has to come from the page. The renderer binds Escape and F11 to
+   * these, and shows a reminder when it is told the state changed.
+   */
+  win.on("enter-full-screen", () => win.webContents.send("win:fullscreen", true));
+  win.on("leave-full-screen", () => win.webContents.send("win:fullscreen", false));
+
   // External links open in the user's browser, never in the app window.
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -81,6 +92,13 @@ ipcMain.handle("library:rememberSite", (_e, meta) => library.rememberSite(meta))
 // file:// page and every cross-origin request it makes is blocked. Bytes come
 // back, nothing else -- see electron/net.js.
 ipcMain.handle("net:fetch", (_e, url, opts) => net.fetchResource(url, opts));
+
+ipcMain.handle("win:fullscreen", (_e, want) => {
+  if (!win) return false;
+  const next = want === undefined || want === null ? !win.isFullScreen() : !!want;
+  win.setFullScreen(next);
+  return next;
+});
 
 app.whenReady().then(() => {
   createWindow();

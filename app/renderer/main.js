@@ -47,7 +47,8 @@ const el = {
   file: $("file"), title: $("docTitle"), openSite: $("openSite"),
   pageNow: $("pageNow"), pageNowText: $("pageNowText"), pageMenu: $("pageMenu"),
   voice: $("voice"), rate: $("rate"), rateOut: $("rateOut"),
-  nativeSpeed: $("nativeSpeed"),
+  linkPeek: $("linkPeek"), linkPeekIcon: $("linkPeekIcon"), linkPeekText: $("linkPeekText"),
+  fsHint: $("fsHint"),
   zoom: $("zoom"), zoomOut: $("zoomOut"),
   autoscroll: $("autoscroll"), showall: $("showall"), showRegions: $("showRegions"),
   layoutHint: $("layoutHint"),
@@ -173,6 +174,11 @@ async function warmUpAudioOnce() {
     console.warn("[tts] audio warm-up failed (harmless):", e);
   }
 }
+
+// Speed. Declared up here with the rest of the playback state because
+// ensurePrefetch reads it long before the slider below is wired up.
+let synthSpeed = 1;    // the speed sentences are being synthesized at
+let playingSpeed = 1;  // the speed the clip currently in the element was made at
 
 let currentBlobUrl = null;
 let currentSpans = [];     // this sentence's [{start,end,words:[idx,...]}], time-ordered
@@ -815,6 +821,7 @@ async function closeDoc() {
   doc = null;
   docKind = null;
   el.pageNow.hidden = true;
+  el.linkPeek.hidden = true;
   el.openSite.hidden = true;
   el.title.textContent = "no document";
   setToc([], "Open a book to see its contents.");
@@ -1692,9 +1699,46 @@ function wireEpubInput(p) {
     const { x, y } = toClient(e);
     openMenu(menuTargetAt(p, x, y, linkAt(e)), x, y);
   });
+  // Where a link goes, before you commit to it. A snapshotted link is a
+  // marker, not an <a href>, so the browser has nothing to put in its own
+  // status bar -- if the app doesn't say, nobody does.
+  // mouseover alone is enough to both show and hide: moving off a link and
+  // onto anything else fires it again, with no link under the pointer.
+  cd.addEventListener("mouseover", (e) => showLinkPeek(linkAt(e)));
+  cd.addEventListener("mouseleave", () => showLinkPeek(null));
   // The menu is in the parent document, so a press inside the frame has to
   // dismiss it explicitly -- the parent never sees this one.
   cd.addEventListener("mousedown", closeMenu);
+}
+
+/*
+ * Say where a link goes, in the corner a browser would.
+ *
+ * An in-book jump is named, not numbered: "page 8" tells a reader nothing
+ * they wanted to know, and the chapter's own title is what the contents
+ * list calls it. An external link shows its address, host first, because
+ * the host is the part that decides whether you want to follow it.
+ */
+function showLinkPeek(link) {
+  if (!link) { el.linkPeek.hidden = true; return; }
+  if (link.page) {
+    const title = doc?.toc?.find((t) => t.pn === link.page)?.title
+      ?? doc?.chapters?.[link.page - 1]?.title
+      ?? `${unitWord()} ${link.page}`;
+    el.linkPeek.classList.remove("external");
+    el.linkPeekIcon.textContent = "↳";
+    el.linkPeekText.textContent = link.frag ? `${title} — ${link.frag.replace(/-/g, " ")}` : title;
+  } else {
+    let shown = link.external;
+    try {
+      const u = new URL(link.external);
+      shown = u.host + (u.pathname === "/" ? "" : u.pathname) + u.search + u.hash;
+    } catch { /* not a URL we can prettify; show it whole */ }
+    el.linkPeek.classList.add("external");
+    el.linkPeekIcon.textContent = "↗";
+    el.linkPeekText.textContent = shown;
+  }
+  el.linkPeek.hidden = false;
 }
 
 /**
@@ -2950,7 +2994,7 @@ function ensurePrefetch(c, opts) {
   prefetchCache.set(k, promise);
 
   const run = () => {
-    fetchSynth(s.speech, el.voice.value, Number(el.nativeSpeed.value))
+    fetchSynth(s.speech, el.voice.value, synthSpeed)
       .then(resolveFn, (e) => { prefetchCache.delete(k); rejectFn(e); })
       .finally(() => { activeRequests--; pumpFetchQueue(); });
   };
@@ -3080,7 +3124,11 @@ async function speakOne(c) {
   const bytes = Uint8Array.from(atob(data.audio_b64), (ch) => ch.charCodeAt(0));
   currentBlobUrl = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
   audioEl.src = currentBlobUrl;
-  audioEl.playbackRate = Number(el.rate.value);
+  // The clip was synthesized at whatever speed was current when it was
+  // asked for; the ratio is what is left for the time-stretcher, which in
+  // the settled case is exactly 1 -- no stretching at all.
+  playingSpeed = synthSpeed;
+  audioEl.playbackRate = Number(el.rate.value) / playingSpeed;
 
   audioEl.onended = () => {
     if (gen !== generation) return;
@@ -3629,22 +3677,42 @@ home.addEventListener("drop", (e) => {
   if (f) openFile(f);
 });
 
+/*
+ * One speed control, two mechanisms, and the reader hears neither.
+ *
+ * This used to be two: a live playback-rate slider and a separate Kokoro
+ * "native speed". The live one is instant because it does not re-synthesize
+ * anything -- but playbackRate with preservesPitch is Chromium's WSOLA time
+ * stretcher, and WSOLA at anything other than 1.0 warbles: periodic dips in
+ * volume and crackle at the overlap-add seams. Anyone who moved that slider
+ * was listening to a stretched signal for the rest of the session.
+ *
+ * So the slider still stretches, but only until the drag stops. Then the
+ * speed is handed to Kokoro, which changes speed by predicting different
+ * durations -- real speech at the new pace, nothing stretched -- and every
+ * sentence from the next one on plays back untouched at rate 1.
+ */
+let rateSettleTimer = null;
+const RATE_SETTLE_MS = 400;
+
 el.rate.oninput = () => {
-  el.rateOut.textContent = Number(el.rate.value).toFixed(2);
-  // Live control: playbackRate + preservesPitch is instant and needs no
-  // re-synthesis, unlike [[05]]'s speechSynthesis.rate — and because it
-  // scales the whole clip by one constant, currentSpans stays correct with
-  // no recomputation (16 §"rate control uses two mechanisms").
-  audioEl.playbackRate = Number(el.rate.value);
+  const want = Number(el.rate.value);
+  el.rateOut.textContent = want.toFixed(2);
+  // Instant, for the sentence already in the element. Stretching by the
+  // ratio, not the absolute rate: this clip may already be a fast one.
+  audioEl.playbackRate = want / playingSpeed;
+  clearTimeout(rateSettleTimer);
+  rateSettleTimer = setTimeout(() => adoptSpeed(want), RATE_SETTLE_MS);
 };
 
-el.nativeSpeed.onchange = () => {
-  // Baseline control: Kokoro's own `speed` needs re-synthesis, so it only
-  // takes effect on sentences not yet fetched — invalidate the lookahead.
+/** Make `speed` the speed we synthesize at, and drop the lookahead made at the old one. */
+function adoptSpeed(speed) {
+  if (speed === synthSpeed) return;
+  synthSpeed = speed;
   prefetchCache.clear();
   fetchQueue.length = 0;
   if (cursor) ensurePrefetch(cursor, { priority: true }).catch(() => {});
-};
+}
 
 el.voice.onchange = () => {
   prefetchCache.clear();
@@ -3696,6 +3764,42 @@ syncLayoutControls(); // no doc open yet -- starts disabled
 syncTypographyControls();
 
 /*
+ * Full screen is the one state whose exit the app has to supply itself: it
+ * hides the window chrome, which is where every other way out lives. So the
+ * page binds both keys, and says so the moment it happens -- a reminder that
+ * appears once and fades, rather than a permanent badge over the reading.
+ */
+let isFullScreen = false;
+let fsHintTimer = null;
+
+window.blitz.fullscreen?.onChange((on) => {
+  isFullScreen = on;
+  clearTimeout(fsHintTimer);
+  el.fsHint.classList.remove("fading");
+  if (!on) { el.fsHint.hidden = true; return; }
+  el.fsHint.hidden = false;
+  fsHintTimer = setTimeout(() => {
+    el.fsHint.classList.add("fading");
+    fsHintTimer = setTimeout(() => { el.fsHint.hidden = true; }, 300);
+  }, 3200);
+});
+
+/*
+ * Its own listener, deliberately outside the transport's guards below: those
+ * ignore keys while a note is being typed, and being unable to leave full
+ * screen because the cursor happens to be in a text box is the same trap
+ * again. Escape only acts here when there is actually something to escape.
+ */
+addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "F11") { e.preventDefault(); window.blitz.fullscreen.set(); return; }
+  if (e.key === "Escape" && isFullScreen && el.pageMenu.hidden) {
+    e.preventDefault();
+    window.blitz.fullscreen.set(false);
+  }
+});
+
+/*
  * The transport, in full. There is deliberately no play button anywhere --
  * the human's call, and the right one: a reading app should look like the
  * thing being read. So reading starts from the page's own menu or from here,
@@ -3712,6 +3816,7 @@ addEventListener("keydown", (e) => {
 
   if (e.key === "Escape") {
     if (!el.pageMenu.hidden) { closeMenu(); return; }
+    if (isFullScreen) return; // handled below, whatever has focus
     if (playing) { stop(); return; }
     return;
   }
@@ -3745,5 +3850,6 @@ window.__spike = {
   geomFor, pageAtOffset, evictPage,
   openSiteForTest: openSite,
   get cursorStyle() { return cursorStyle; },
+  get fullScreen() { return isFullScreen; },
   get activeWordIdxs() { return activeWordIdxs; },
 };

@@ -692,6 +692,62 @@ button.wide {
 #viewer:hover ~ #pageNow, #app:hover #pageNow { opacity: 1; }
 #pageNow.reading { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); opacity: 1; }
 
+/* ---------------- where a link goes ----------------
+ *
+ * Bottom left, the corner every browser uses for this, and for the same
+ * reason: it is the one part of a reading surface nothing important sits in.
+ * Fixed rather than absolute for the same reason #pageNow is -- #viewer is
+ * the scroller, so an absolute child would scroll away with the pages.
+ */
+#linkPeek {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 6;
+  max-width: min(70vw, 820px);
+  padding: 5px 12px 6px;
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 0 8px 0 0;
+  background: color-mix(in oklab, var(--panel) 94%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  font: 500 12px var(--font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+#linkPeekIcon { color: var(--muted); margin-right: 7px; }
+#linkPeek.external #linkPeekText { color: var(--muted); }
+
+/* ---------------- full screen has to be escapable ---------------- */
+#fsHint {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  font: 500 12px var(--font-ui);
+  box-shadow: 0 6px 24px rgb(0 0 0 / .28);
+  transition: opacity .25s ease;
+}
+#fsHint.fading { opacity: 0; }
+#fsHint kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font: 500 11px var(--font-ui);
+}
+
 /* ---------------- the page's own menu ----------------
  *
  * Reading aloud starts here now, on purpose: the page is a document first,

@@ -101,6 +101,12 @@
            #viewer is the scroller. -->
       <div id="pageNow" hidden><span id="pageNowText">—</span></div>
 
+      <!-- Where a link goes, in the corner a browser puts it. -->
+      <div id="linkPeek" hidden><span id="linkPeekIcon"></span><span id="linkPeekText"></span></div>
+
+      <!-- Full screen hides the window chrome, so the way out has to be said here. -->
+      <div id="fsHint" hidden>Full screen — press <kbd>Esc</kbd> or <kbd>F11</kbd> to leave</div>
+
       <aside id="side">
         <header class="panelHead">
           <span class="monoLabel">configure</span>
@@ -166,15 +172,7 @@
             <label>Voice
               <select id="voice"></select>
             </label>
-            <label>Native speed (Kokoro; re-synthesizes)
-              <select id="nativeSpeed">
-                <option value="0.8">0.8×</option>
-                <option value="1.0" selected>1.0×</option>
-                <option value="1.25">1.25×</option>
-                <option value="1.5">1.5×</option>
-              </select>
-            </label>
-            <label>Playback rate (live) <output id="rateOut">1.00</output>
+            <label>Speed <output id="rateOut">1.00</output>
               <input id="rate" type="range" min="0.5" max="2" step="0.05" value="1" />
             </label>
           </div>

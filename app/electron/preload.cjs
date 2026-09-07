@@ -35,6 +35,16 @@ contextBridge.exposeInMainWorld("blitz", {
    */
   fetch: (url, opts) => ipcRenderer.invoke("net:fetch", url, opts),
 
+  /*
+   * Full screen, which the page has to be able to leave: the window chrome
+   * that would otherwise do it is the very thing full screen hides.
+   * set() with no argument toggles and returns the new state.
+   */
+  fullscreen: {
+    set: (want) => ipcRenderer.invoke("win:fullscreen", want),
+    onChange: (cb) => ipcRenderer.on("win:fullscreen", (_e, on) => cb(on)),
+  },
+
   /** The shelf. See electron/library.js. */
   library: {
     list: () => ipcRenderer.invoke("library:list"),
