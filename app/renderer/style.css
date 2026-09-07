@@ -453,24 +453,25 @@ body:has(#app.bare) #hide { display: inline-flex; }
   min-height: 0;
 }
 
-/* Leaving is its own band, on its own ground, above a rule -- so it reads as
-   the way out of this document rather than as the first row of its contents. */
-.railTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 8px 10px 10px;
-}
-
+/*
+ * Leaving lives outside the contents panel, because hiding that panel must
+ * never hide the way out -- which is exactly what it did when this button
+ * sat in the panel's own header. Fixed at the top left, over whichever of
+ * the rail or the page happens to be there.
+ */
 .exitBtn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 22;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 12px 6px 8px;
+  padding: 7px 14px 7px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--panel);
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  backdrop-filter: blur(6px);
   color: var(--muted);
   font: 500 11px var(--font-ui);
   letter-spacing: .06em;
@@ -480,11 +481,43 @@ body:has(#app.bare) #hide { display: inline-flex; }
 .exitBtn:hover { background: var(--ink); border-color: var(--ink); color: var(--panel); }
 .exitBtn svg { flex: none; display: block; }
 
+/*
+ * The panel's handle, on the seam it actually moves. A chevron tucked into
+ * the panel header could not be found once the panel was shut -- and shutting
+ * it was the only way to reach it.
+ */
+#railHandle {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 288px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 62px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  background: var(--panel);
+  color: var(--dim);
+  cursor: pointer;
+  transition: left .16s ease, color .12s ease, background .12s ease;
+}
+#railHandle:hover { color: var(--ink); background: var(--bg); }
+#railHandle svg { display: block; }
+#app.noleft #railHandle { left: 0; }
+#railHandle .whenShut { display: none; }
+#app.noleft #railHandle .whenShut { display: block; }
+#app.noleft #railHandle .whenOpen { display: none; }
+
 /* The book, named. This is what you are in, so it is the largest thing in
    the rail -- the page count it replaced now lives in the counter over the
    page, where a number belongs. */
 .railTitle {
-  padding: 0 12px 12px;
+  padding: 46px 12px 12px;
   border-bottom: 1px solid var(--border);
 }
 .railTitle h1 {
@@ -509,21 +542,15 @@ body:has(#app.bare) #hide { display: inline-flex; }
 }
 #openSite:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
-.railTop .iconBtn { margin: -4px 0; }
-#collapseLeft .whenShut { display: none; }
-#app.noleft #collapseLeft .whenShut { display: block; }
-#app.noleft #collapseLeft .whenOpen { display: none; }
-
-/* Collapsed, the rail keeps a thin strip -- otherwise there is nothing left
-   to click to bring it back. */
+/* Collapsed, the rail goes entirely: its handle is on the page's own left
+   edge now, so there is nothing left in here worth keeping a strip for. */
 #app.noleft #leftPanel {
-  width: 30px;
-  flex: 0 0 30px;
-  padding: 12px 0;
+  width: 0;
+  flex: 0 0 0;
+  padding: 0;
+  overflow: hidden;
+  border-right: none;
 }
-#app.noleft #leftPanel > *:not(.railTop) { display: none; }
-#app.noleft .railTop { padding: 0; justify-content: center; }
-#app.noleft .railTop #toLibrary { display: none; }
 
 .tabRow {
   display: flex;

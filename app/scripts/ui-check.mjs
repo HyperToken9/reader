@@ -71,6 +71,24 @@ const open1 = await ev(`(async()=>{
 console.log("reader:", JSON.stringify(open1));
 await shot("ui-2-reader.png");
 
+// ---- the way out survives the panel being shut ------------------------
+// This is the whole point of moving it out of that panel: the control that
+// leaves must never be inside the thing it can hide.
+const chrome = await ev(`(async()=>{
+  const exitOpen = document.getElementById('toLibrary').getBoundingClientRect();
+  document.getElementById('railHandle').click();
+  await new Promise(r=>setTimeout(r,400));
+  const exitShut = document.getElementById('toLibrary').getBoundingClientRect();
+  const handle = document.getElementById('railHandle').getBoundingClientRect();
+  const rail = document.getElementById('leftPanel').getBoundingClientRect();
+  document.getElementById('railHandle').click();
+  await new Promise(r=>setTimeout(r,400));
+  return { exitOpenW: Math.round(exitOpen.width), exitShutW: Math.round(exitShut.width),
+           handleLeft: Math.round(handle.left), handleMidY: Math.round(handle.top+handle.height/2),
+           windowMidY: Math.round(innerHeight/2), railShutW: Math.round(rail.width) };
+})()`);
+console.log("chrome:", JSON.stringify(chrome));
+
 // ---- hover does nothing; right-click offers to read -------------------
 const inter = await ev(`(async()=>{
   const p = window.__spike.pages.get(window.__want);
@@ -175,6 +193,10 @@ const checks=[
   ["left click does not start reading", !inter.afterClick.playing],
   ["right click offers to read", inter.menuOpen && inter.items.some(t=>/Play from here/.test(t))],
   ["and offers copy + note", inter.items.some(t=>/Copy/.test(t)) && inter.items.some(t=>/Note/.test(t))],
+  ["exit is visible with the panel open", chrome.exitOpenW > 40],
+  ["exit is still visible with the panel shut", chrome.exitShutW > 40],
+  ["the panel collapses completely", chrome.railShutW === 0],
+  ["its handle sits on the left edge, centred", chrome.handleLeft === 0 && Math.abs(chrome.handleMidY - chrome.windowMidY) < 40],
   ...siteChecks,
   ["no page errors", errs.length===0],
 ];

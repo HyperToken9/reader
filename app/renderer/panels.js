@@ -27,7 +27,7 @@ export function initPanels({ onGoTo, onOpenNote, getContext, onSaveNotes }) {
     btn.onclick = () => selectTab(btn.dataset.tab);
   }
   $("addNote").onclick = addNote;
-  $("collapseLeft").onclick = () => document.getElementById("app").classList.toggle("noleft");
+  $("railHandle").onclick = () => document.getElementById("app").classList.toggle("noleft");
   selectTab("contents");
 }
 

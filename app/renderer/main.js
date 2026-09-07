@@ -366,20 +366,42 @@ async function applyToc() {
  * Put a page in view, optionally arming the play cursor at a sentence on it.
  * The one way anything jumps: the TOC, a note, and resuming all come here.
  */
-async function goToPage(pn, si = null) {
+async function goToPage(pn, si = null, frag = null) {
   if (!doc) return;
   pn = Math.min(Math.max(1, pn), doc.numPages);
   await renderPage(pn);
   markGeomDirty();
   const g = geomFor(pn);
   if (g) {
-    el.viewer.scrollTop = g.top;
+    el.viewer.scrollTop = g.top + (frag ? anchorOffset(pn, frag) : 0);
     lastScrollTop = el.viewer.scrollTop;
   }
   if (si != null) cursor = { pn, si };
   markToc(pn);
   renderSentenceList(pn);
   updatePageNow();
+}
+
+/*
+ * How far down a page a named anchor sits, in the viewer's own pixels.
+ *
+ * A chapter lays out at its natural width inside its iframe and is scaled
+ * from outside, so an offset measured in there has to be multiplied by the
+ * zoom to mean anything out here. A little air above it, so the heading you
+ * jumped to is not welded to the top edge.
+ */
+const ANCHOR_AIR = 24;
+
+function anchorOffset(pn, frag) {
+  const idoc = pages.get(pn)?.iframe?.contentDocument;
+  if (!idoc) return 0;
+  let target = null;
+  try {
+    target = idoc.getElementById(frag) ?? idoc.querySelector(`[name="${CSS.escape(frag)}"]`);
+  } catch { /* a fragment that is not a usable selector is just a miss */ }
+  if (!target) return 0;
+  const top = target.getBoundingClientRect().top - idoc.documentElement.getBoundingClientRect().top;
+  return Math.max(0, top * scale - ANCHOR_AIR);
 }
 
 /*
@@ -1491,17 +1513,23 @@ function wireEpubInput(p) {
     // every <a> into a marker rather than a link, because nothing can
     // navigate inside a srcdoc iframe. A link into the book jumps; a link
     // out of it opens in the real browser (main.js's setWindowOpenHandler).
-    const a = e.target?.closest?.("a[data-page], a[data-external]");
+    // Not just anchors: a video that could not be embedded becomes a card
+    // carrying the same data-external, and clicking it should do the same
+    // thing clicking the video would have.
+    const a = e.target?.closest?.("[data-page], [data-external]");
     if (!a) return null;
     const to = a.getAttribute("data-page");
-    return to ? { page: Number(to) } : { external: a.getAttribute("data-external") };
+    return to
+      ? { page: Number(to), frag: a.getAttribute("data-frag") || null }
+      : { external: a.getAttribute("data-external") };
   };
 
   cd.addEventListener("click", (e) => {
     const link = linkAt(e);
     if (!link) return; // a plain click belongs to the document, not to us
     e.preventDefault();
-    if (link.page) goToPage(link.page); else window.open(link.external, "_blank");
+    if (link.page) goToPage(link.page, null, link.frag);
+    else window.open(link.external, "_blank");
   });
   cd.addEventListener("contextmenu", (e) => {
     e.preventDefault();
@@ -1621,9 +1649,66 @@ function epubShellHtml(chapter) {
         overflow-x: auto;
       }
 
-      /* Something on the page that could not be saved -- an oversized clip,
-         an embedded player. Visible on purpose: a page that quietly drops a
-         figure is worse than one that says it dropped it. */
+      /*
+       * A video that could not be carried into the snapshot, shown as the
+       * thing it is: a still, a play badge, and one click out to where it
+       * actually plays. A token reading "[video]" told you something was
+       * missing; this tells you what it is and hands it to you.
+       */
+      .blitzMedia {
+        display: block;
+        margin: 1.4em 0;
+        cursor: pointer;
+      }
+      .blitzMediaFrame {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        aspect-ratio: 16 / 9;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #1b1d21;
+      }
+      .blitzMediaFrame img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+        display: block;
+        opacity: .82;
+        transition: opacity .15s ease, transform .3s ease;
+      }
+      .blitzMedia:hover .blitzMediaFrame img { opacity: 1; transform: scale(1.02); }
+      .blitzMediaPlay {
+        position: absolute;
+        width: 58px;
+        height: 40px;
+        border-radius: 9px;
+        background: rgba(20, 22, 26, .72);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, .35);
+        transition: background .15s ease, transform .15s ease;
+      }
+      .blitzMediaPlay::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-42%, -50%);
+        border-style: solid;
+        border-width: 8px 0 8px 13px;
+        border-color: transparent transparent transparent #fff;
+      }
+      .blitzMedia:hover .blitzMediaPlay { background: #b45a32; transform: scale(1.06); }
+      .blitzMedia figcaption {
+        margin-top: .5em;
+        font-size: .85em;
+        opacity: .72;
+      }
+      .blitzMedia:hover figcaption { opacity: 1; }
+
+      /* Something else that could not be saved -- an embedded demo, a figure
+         whose file would not load. Visible on purpose: a page that quietly
+         drops something is worse than one that says it did. */
       .blitzMissing {
         display: inline-block;
         margin: .6em 0;
@@ -3121,7 +3206,7 @@ function openMenu(target, clientX, clientY) {
     items.push(menuItem("Open link in browser", null, true, () => window.open(link.external, "_blank")));
   } else if (link?.page) {
     items.push(document.createElement("hr"));
-    items.push(menuItem(`Go to ${unitWord()} ${link.page}`, null, true, () => goToPage(link.page)));
+    items.push(menuItem(`Go to ${unitWord()} ${link.page}`, null, true, () => goToPage(link.page, null, link.frag)));
   }
 
   el.pageMenu.replaceChildren(...items);
@@ -3498,6 +3583,7 @@ window.__spike = {
   // harness has to be able to see the way the app does.
   liveSelection, noteContext, addSite, goToNote, locateNote,
   chapterHref: (pn) => doc?.chapters?.[pn - 1]?.href ?? null,
+  goToPage, anchorOffset,
   get siteTally() { return lastTally; },
   geomFor, pageAtOffset,
   openSiteForTest: openSite,

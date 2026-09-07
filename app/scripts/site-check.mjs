@@ -117,6 +117,59 @@ if (fidelity.length) {
 }
 await shot("f-1-page.png");
 
+// ---- the page's own links, and what became of its videos ----------------
+await ev(`window.__opened=[]; window.open = (u) => { window.__opened.push(u); return null; };`);
+const inside = await ev(`(async()=>{
+  const S = window.__spike;
+  let fragCase=null, videoCase=null;
+  for (let pn=1; pn<=S.pages.size && (!fragCase||!videoCase); pn++) {
+    const d = (await S.renderPage(pn))?.iframe?.contentDocument; if(!d) continue;
+    if (!fragCase) {
+      // A target genuinely far down the page: an anchor to something already
+      // at the top proves nothing about scrolling to it.
+      const a = [...d.querySelectorAll('a[data-frag]')].find(x => {
+        if (Number(x.getAttribute('data-page')) !== pn) return false;
+        const t = d.getElementById(x.getAttribute('data-frag'));
+        if (!t) return false;
+        return t.getBoundingClientRect().top - d.documentElement.getBoundingClientRect().top > 700;
+      });
+      if (a) fragCase = { pn, frag: a.getAttribute('data-frag') };
+    }
+    if (!videoCase && d.querySelector('.blitzMedia')) videoCase = { pn };
+  }
+
+  let frag = null;
+  if (fragCase) {
+    const p = S.pages.get(fragCase.pn), d = p.iframe.contentDocument;
+    const a = [...d.querySelectorAll('a[data-frag]')].find(x=>x.getAttribute('data-frag')===fragCase.frag);
+    const b = a.getBoundingClientRect();
+    a.dispatchEvent(new MouseEvent('click',{clientX:Math.round(b.left+b.width/2),clientY:Math.round(b.top+b.height/2),bubbles:true,cancelable:true}));
+    await new Promise(r=>setTimeout(r,700));
+    const t = d.getElementById(fragCase.frag);
+    const natural = t.getBoundingClientRect().top - d.documentElement.getBoundingClientRect().top;
+    // On SCREEN: a rect read inside the frame is in the frame's own
+    // coordinate system, and the frame never scrolls -- the viewer does.
+    frag = { ...fragCase, natural: Math.round(natural),
+             onScreen: Math.round(p.iframe.getBoundingClientRect().top + natural * S.scale),
+             viewerTop: Math.round(document.getElementById('viewer').getBoundingClientRect().top) };
+  }
+
+  let video = null;
+  if (videoCase) {
+    const d = (await S.renderPage(videoCase.pn)).iframe.contentDocument;
+    const card = d.querySelector('.blitzMedia');
+    const cb = card.getBoundingClientRect();
+    card.dispatchEvent(new MouseEvent('click',{clientX:Math.round(cb.left+cb.width/2),clientY:Math.round(cb.top+cb.height/2),bubbles:true,cancelable:true}));
+    await new Promise(r=>setTimeout(r,300));
+    video = { pn: videoCase.pn, h: Math.round(cb.height),
+              caption: card.querySelector('figcaption')?.textContent ?? '',
+              opened: window.__opened.at(-1) ?? null,
+              stranded: d.querySelectorAll('video, audio, iframe').length };
+  }
+  return { frag, video };
+})()`);
+console.log("inside:", JSON.stringify(inside));
+
 // ---- a note, then prove it does not depend on its page number ------------
 const note = await ev(`(async () => {
   const d = window.__spike;
@@ -185,6 +238,11 @@ const checks = [
   ["every page has text", fidelity.every(f=>f.textLen>200), JSON.stringify(fidelity.map(f=>f.textLen))],
   ["pilcrows not spoken", fidelity.every(f=>f.pilcrow===0), "¶ leaked into a sentence"],
   ["page text matches the live page", ratio !== null && ratio > 0.9 && ratio < 1.1, `ratio ${ratio}`],
+  ["an in-page link lands on its heading",
+   !!inside.frag && inside.frag.onScreen - inside.frag.viewerTop > -10 && inside.frag.onScreen - inside.frag.viewerTop < 120],
+  ["a video becomes a card you can watch",
+   !inside.video || (inside.video.h > 80 && /watch on/i.test(inside.video.caption) && /^https?:/.test(inside.video.opened ?? ""))],
+  ["no stranded players left behind", !inside.video || inside.video.stranded === 0],
   ["note quotes the selection", (note.ctx?.quote ?? "").length > 30, ""],
   ["note labelled by page name, not number", !!note.ctx?.title && note.ctx.label === note.ctx.title, JSON.stringify(note.ctx?.label)],
   ["note finds its page despite a wrong number", relocated.found === note.truePn, `got ${relocated.found}, wanted ${note.truePn}`],

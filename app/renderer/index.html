@@ -48,23 +48,24 @@
 
     <button id="hide" class="iconBtn floating" title="Settings (h)" aria-label="Open settings"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><line x1="2" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="2" y1="8.5" x2="15" y2="8.5" stroke="currentColor" stroke-width="1.2"/><line x1="2" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="5" r="1.7" fill="var(--panel)" stroke="currentColor" stroke-width="1.1"/><circle cx="11.5" cy="8.5" r="1.7" fill="var(--panel)" stroke="currentColor" stroke-width="1.1"/><circle cx="4.5" cy="12" r="1.7" fill="var(--panel)" stroke="currentColor" stroke-width="1.1"/></svg></button>
     <div id="app">
+      <!-- Leaving is not part of the contents panel, so it does not live in
+           it: hiding that panel must never hide the way out. Fixed, top
+           left, visible in every state. -->
+      <button id="toLibrary" class="exitBtn" title="Back to the library">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>
+        <span>Leave for library</span>
+      </button>
+
+      <!-- The panel's own handle, on the seam it moves: left edge, vertically
+           centred, where a pull-tab belongs. -->
+      <button id="railHandle" title="Show or hide the contents panel" aria-label="Show or hide the contents panel">
+        <span class="whenOpen"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4 5.5 8l4 4"/></svg></span><span class="whenShut"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4 10.5 8l-4 4"/></svg></span>
+      </button>
+
       <!-- Left rail: the BOOK. Its table of contents, your notes on it, and
            the transport that reads it. Everything about the app itself lives
            in the settings panel on the right. -->
       <aside id="leftPanel">
-        <!-- Three bands, most-important first, and visually separated so the
-             way out does not read as another item in the contents list:
-             leaving, then what you are reading, then the tabs. -->
-        <header class="railTop">
-          <button id="toLibrary" class="exitBtn" title="Back to the library (Esc)">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>
-            <span>Library</span>
-          </button>
-          <button id="collapseLeft" class="iconBtn" title="Hide this panel" aria-label="Hide this panel">
-            <span class="whenOpen"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4 5.5 8l4 4"/></svg></span><span class="whenShut"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4 10.5 8l-4 4"/></svg></span>
-          </button>
-        </header>
-
         <div class="railTitle">
           <h1 id="docTitle">no document</h1>
           <a id="openSite" href="#" hidden>Open in browser

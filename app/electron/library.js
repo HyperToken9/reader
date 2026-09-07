@@ -109,7 +109,13 @@ export async function rememberSite({ url, title, pages, snapshot }) {
   }
   Object.assign(entry, {
     path: file,
-    url: canonicalSiteUrl(url),
+    // The address as actually fetched, NOT the canonical form. Canonicalising
+    // is for the *id* -- it decides whether two addresses are one site. It is
+    // the wrong thing to fetch, because it strips a trailing slash, and a URL
+    // without one names a file rather than a directory: every relative link
+    // on the page then resolves one level up. That is not theoretical; it
+    // turned a 26-page site into a 1-page one.
+    url,
     title: title || canonicalSiteUrl(url),
     kind: "site",
     pages: pages ?? entry.pages ?? null,

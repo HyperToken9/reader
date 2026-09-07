@@ -27,6 +27,16 @@
 // A documentation site has an end; a website in general does not. Every one
 // of these exists so that pointing this at the wrong URL wastes a minute
 // rather than a morning and a gigabyte.
+/*
+ * Bumped whenever this module changes what a page turns INTO -- what is kept,
+ * how links carry their fragment, what a video becomes. A snapshot records
+ * the version that built it, and a snapshot built by an older one is not
+ * reused on a 304: the server saying "unchanged" is a statement about the
+ * site, not about our extractor, and without this a fix to the markup would
+ * never reach a site already on the shelf.
+ */
+const SNAPSHOT_VERSION = 2;
+
 const MAX_PAGES = 200;
 const MAX_SNAPSHOT_BYTES = 80 * 1024 * 1024;
 const MAX_ASSET_BYTES = 4 * 1024 * 1024;
@@ -172,6 +182,33 @@ function pageKey(u) {
   return c.toString();
 }
 
+/*
+ * The address a page says it lives at, which beats the address we asked for.
+ *
+ * A request that redirects arrives with the final URL in the response -- but
+ * Electron's session.fetch does not always populate it, so the request URL is
+ * all electron/net.js can hand back, and resolving "algorithms/ddpg.html"
+ * against the pre-redirect address puts it in the wrong directory. The
+ * document itself knows: <base href> is definitive and <link rel=canonical>
+ * is what every docs generator emits.
+ */
+function declaredUrl(doc, asked) {
+  for (const sel of ["base[href]", 'link[rel="canonical"][href]']) {
+    const href = doc.querySelector(sel)?.getAttribute("href");
+    // Guarded, because `new URL(undefined, base)` does not throw -- it
+    // resolves the *string* "undefined" against the base and hands back a
+    // perfectly well-formed wrong answer.
+    if (!href) continue;
+    try {
+      const u = new URL(href, asked);
+      // Only trust it for the same page -- a canonical pointing at a
+      // different document is a claim about content, not about location.
+      if (u.origin === new URL(asked).origin) return u.toString();
+    } catch { /* not a usable URL */ }
+  }
+  return asked;
+}
+
 function absolute(base, href) {
   if (!href) return null;
   try {
@@ -300,6 +337,68 @@ function extractMain(doc) {
   return clone;
 }
 
+/*
+ * Where a video actually lives, and a still to show for it.
+ *
+ * An embedded player cannot run inside a script-less, offline snapshot, and
+ * a 200 MB clip has no business being inside one. But "[embedded iframe --
+ * youtube.com]" is not a reading experience -- what someone wants is to see
+ * that there is a video here, what it looks like, and to get to it in one
+ * click. So an embed is resolved back to the page a human would watch it on,
+ * and YouTube hands out a thumbnail for free.
+ */
+function videoTarget(rawUrl) {
+  let u;
+  try { u = new URL(rawUrl); } catch { return null; }
+  const host = u.hostname.replace(/^www\./, "");
+
+  const yt = /(?:^|\.)youtube(?:-nocookie)?\.com$/.test(host)
+    ? (u.pathname.startsWith("/embed/") ? u.pathname.slice(7) : u.searchParams.get("v"))
+    : host === "youtu.be" ? u.pathname.slice(1) : null;
+  if (yt && /^[\w-]{6,15}$/.test(yt)) {
+    const start = u.searchParams.get("start") ?? u.searchParams.get("t");
+    return {
+      watch: `https://www.youtube.com/watch?v=${yt}${start ? `&t=${start}` : ""}`,
+      thumb: `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`,
+      where: "YouTube",
+    };
+  }
+
+  const vimeo = host === "player.vimeo.com" ? u.pathname.match(/^\/video\/(\d+)/)?.[1] : null;
+  if (vimeo) return { watch: `https://vimeo.com/${vimeo}`, thumb: null, where: "Vimeo" };
+
+  return { watch: u.toString(), thumb: null, where: host };
+}
+
+/**
+ * The card left where a video was: a still if we can get one, a play badge,
+ * and one click to watch it where it actually lives.
+ */
+function videoCard(doc, { watch, where, thumbData, title }) {
+  const fig = doc.createElement("figure");
+  fig.className = "blitzMedia";
+  fig.setAttribute("data-blitz-quiet", "");
+  fig.setAttribute("data-external", watch);
+  fig.setAttribute("title", watch);
+
+  const frame = doc.createElement("div");
+  frame.className = "blitzMediaFrame";
+  if (thumbData) {
+    const img = doc.createElement("img");
+    img.setAttribute("src", thumbData);
+    img.setAttribute("alt", "");
+    frame.append(img);
+  }
+  const play = doc.createElement("span");
+  play.className = "blitzMediaPlay";
+  frame.append(play);
+
+  const cap = doc.createElement("figcaption");
+  cap.textContent = title ? `${title} — watch on ${where}` : `Watch on ${where}`;
+  fig.append(frame, cap);
+  return fig;
+}
+
 /** A visible stand-in for something that could not come across. Never nothing. */
 function marker(doc, label, detail) {
   const el = doc.createElement("p");
@@ -352,26 +451,45 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
   // What we already hold for this site, by page address. Every request below
   // carries the validators that came with it, so an unchanged page costs a
   // 304 and no body -- which is what makes "check it every time" affordable.
-  const held = new Map((previous?.chapters ?? []).map((c) => [c.href, c]));
+  /*
+   * A saved copy is only a baseline if it is both current and *healthy*.
+   *
+   * Healthy matters as much as current, because the cheap paths build on it:
+   * an unchanged contents page means the page list is reused verbatim, and a
+   * page list full of addresses that 404 would then be reused forever, each
+   * open reconfirming the same broken snapshot. So a copy that holds far
+   * fewer pages than it set out to fetch is thrown away and rebuilt from a
+   * fresh contents page instead.
+   */
+  const healthy = (snap) => !snap?.pageList?.length
+    || (snap.chapters?.length ?? 0) >= snap.pageList.length * 0.6;
+  const reusable = previous?.version === SNAPSHOT_VERSION && healthy(previous) ? previous : null;
+  if (previous && !reusable) {
+    console.info(previous.version === SNAPSHOT_VERSION
+      ? "[site] the saved copy is missing most of its pages — rebuilding it from scratch"
+      : "[site] the saved copy was built by an older reader — rebuilding it");
+  }
+  const held = new Map((reusable?.chapters ?? []).map((c) => [c.href, c]));
 
   onProgress({ phase: "index", done: 0, total: 0 });
-  const first = await getHtml(typed, previous?.index ?? undefined);
+  const first = await getHtml(typed, reusable?.index ?? undefined);
   if (!first.ok) throw new Error(`Could not open ${typed} — ${first.reason}`);
 
   let entryUrl = first.url;
   let list;
-  if (first.notModified && previous?.pageList?.length) {
+  if (first.notModified && reusable?.pageList?.length) {
     // The contents page has not changed, so neither has the page list.
-    entryUrl = previous.url;
-    list = previous.pageList;
+    entryUrl = reusable.url;
+    list = reusable.pageList;
   } else if (first.notModified) {
     // Told "unchanged" with nothing held to reuse: ask again unconditionally.
     const again = await getHtml(typed);
     if (!again.ok || !again.doc) throw new Error(`Could not open ${typed} — ${again.reason ?? "no page"}`);
     Object.assign(first, again);
-    entryUrl = again.url;
+    entryUrl = declaredUrl(again.doc, again.url);
     list = discoverPages(again.doc, entryUrl);
   } else {
+    entryUrl = declaredUrl(first.doc, entryUrl);
     list = discoverPages(first.doc, entryUrl);
   }
   if (!list.length) throw new Error("Found no pages to read at that address");
@@ -417,7 +535,7 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
   // Reusable wholesale when the contents page came back 304: a theme's
   // stylesheet and its webfonts are the same bytes, and they are most of the
   // traffic. `null` means "not settled yet, go and collect it".
-  let reusedCss = first.notModified && previous?.css ? previous.css : null;
+  let reusedCss = first.notModified && reusable?.css ? reusable.css : null;
   const cssSeen = new Set();
   const cssParts = [];
   async function collectCss(doc, pageUrl) {
@@ -465,7 +583,13 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
       return { url: want.url, title: known.title ?? want.title, root: box.firstElementChild ?? box,
                etag: known.etag, lastModified: known.lastModified, reused: true };
     }
-    if (!page.doc) { tally.failed++; return null; }
+    if (!page.doc) {
+      tally.failed++;
+      // A page that came back with nothing to parse and no error to report:
+      // "unchanged" with nothing held to reuse. It must not vanish silently.
+      console.warn("[site] no content for", want.url, JSON.stringify({ notModified: !!page.notModified, status: page.status, known: !!known }));
+      return null;
+    }
     tally.fetched++;
     const root = extractMain(page.doc);
     if (!root || (root.textContent ?? "").trim().length < 40) return null;
@@ -500,6 +624,8 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
         if (to) a.setAttribute("data-page", String(to));
         else a.removeAttribute("data-page");
       }
+      // data-frag rides along untouched: it names a place *inside* a page,
+      // which renumbering cannot move.
       continue;
     }
 
@@ -565,24 +691,40 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
         m.setAttribute("data-blitz-quiet", "");
         continue;
       }
+      // Too big to carry, so it becomes a card: its own poster frame where
+      // it has one, and one click out to where the file actually is.
       const poster = m.getAttribute("poster");
       const pu = poster ? absolute(p.url, poster) : null;
       const pd = pu ? await inline(pu.toString()) : null;
-      const stand = marker(odoc, m.tagName.toLowerCase(), refs[0] ? "too large to save" : null);
-      if (pd) {
-        const still = odoc.createElement("img");
-        still.setAttribute("src", pd);
-        m.replaceWith(still, stand);
+      const src = refs[0] ? absolute(p.url, refs[0]) : null;
+      if (src) {
+        m.replaceWith(videoCard(odoc, {
+          watch: src.toString(),
+          where: src.hostname.replace(/^www\./, ""),
+          thumbData: pd,
+          title: m.getAttribute("title") || null,
+        }));
       } else {
-        m.replaceWith(stand);
+        m.replaceWith(marker(odoc, m.tagName.toLowerCase(), null));
       }
     }
 
-    // An embedded frame (a YouTube player, a live demo) cannot come across at
-    // all -- but it is on the page, so it leaves its address behind.
+    // An embedded frame cannot run in a snapshot -- no scripts, no network.
+    // A video one becomes a card you can watch from; anything else keeps its
+    // address as a visible stand-in.
     for (const f of p.root.querySelectorAll("iframe, object, embed")) {
       const ref = f.getAttribute("src") ?? f.getAttribute("data");
       const u = ref ? absolute(p.url, ref) : null;
+      const target = u ? videoTarget(u.toString()) : null;
+      if (target) {
+        f.replaceWith(videoCard(odoc, {
+          watch: target.watch,
+          where: target.where,
+          thumbData: target.thumb ? await inline(target.thumb) : null,
+          title: f.getAttribute("title") || null,
+        }));
+        continue;
+      }
       const stand = marker(odoc, "embedded " + f.tagName.toLowerCase(), u ? u.hostname : null);
       if (u) stand.setAttribute("data-external", u.toString());
       f.replaceWith(stand);
@@ -590,23 +732,34 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
 
     for (const a of p.root.querySelectorAll("a[href]")) {
       const u = absolute(p.url, a.getAttribute("href"));
-      const href = a.getAttribute("href");
       a.removeAttribute("href"); // nothing navigates inside the reader's iframe
-      if (!u) {
-        // A bare "#anchor" within this page: harmless, and worth keeping as
-        // text rather than as a dead control.
-        if (href?.startsWith("#")) a.setAttribute("data-anchor", href.slice(1));
-        continue;
-      }
+      if (!u) continue;
+
       const key = pageKey(u);
       const to = index.get(key);
-      // A link into the book jumps; a link out of it opens in the browser.
-      // Both are handled by main.js, which sees the click forwarded out of
-      // the iframe (wireEpubInput). The address is kept alongside the page
-      // number so a reused page can have its number recomputed next time
-      // without being fetched again.
-      if (to) { a.setAttribute("data-href", key); a.setAttribute("data-page", String(to)); }
-      else a.setAttribute("data-external", u.toString());
+      /*
+       * A link into the book jumps; a link out of it opens in the browser.
+       * Both are handled by main.js, which sees the click forwarded out of
+       * the iframe (wireEpubInput). The address is kept alongside the page
+       * number so a reused page can have its number recomputed next time
+       * without being fetched again.
+       *
+       * The FRAGMENT is kept too, and that is the fix for cross-references
+       * landing in the wrong place. A docs site's own links are mostly
+       * "this page, that heading" or "that page, that heading" -- dropping
+       * the hash turned every one of them into "the top of a page", which
+       * for an in-page link meant it appeared to do nothing at all. Note
+       * that a bare "#anchor" resolves to *this* page here, which is
+       * correct and needs no special case: it is a jump of zero pages and a
+       * scroll to a heading.
+       */
+      if (to) {
+        a.setAttribute("data-href", key);
+        a.setAttribute("data-page", String(to));
+        if (u.hash.length > 1) a.setAttribute("data-frag", decodeURIComponent(u.hash.slice(1)));
+      } else {
+        a.setAttribute("data-external", u.toString());
+      }
     }
   }
 
@@ -628,13 +781,14 @@ export async function snapshotSite(rawUrl, onProgress = () => {}, previous = nul
 
   onProgress({ phase: "done", done: fetched.length, total: fetched.length });
   return {
+    version: SNAPSHOT_VERSION,
     url: entryUrl,
-    title: first.doc ? siteTitle(first.doc, entryUrl) : (previous?.title ?? new URL(entryUrl).hostname),
+    title: first.doc ? siteTitle(first.doc, entryUrl) : (reusable?.title ?? new URL(entryUrl).hostname),
     fetchedAt: Date.now(),
     // The contents page's own validators, and the page list it produced, so
     // the next open can skip rediscovery when it has not changed.
-    index: { etag: first.etag ?? previous?.index?.etag ?? null,
-             lastModified: first.lastModified ?? previous?.index?.lastModified ?? null },
+    index: { etag: first.etag ?? reusable?.index?.etag ?? null,
+             lastModified: first.lastModified ?? reusable?.index?.lastModified ?? null },
     pageList: list,
     css: reusedCss ?? cssParts.join("\n"),
     chapters,
