@@ -8,6 +8,18 @@
  */
 
 /*
+ * The `hidden` attribute wins, always.
+ *
+ * The browser hides [hidden] with a plain attribute selector, which any id
+ * or class rule setting `display` outranks regardless of source order -- so
+ * every element in here that is toggled by `.hidden = true` AND has a
+ * display of its own was one forgotten rule away from never hiding. Two of
+ * them already needed a bespoke fix; this is that fix, once, for all of
+ * them. Anything that wants to be visible while [hidden] does not exist.
+ */
+[hidden] { display: none !important; }
+
+/*
  * Fonts are vendored (renderer/fonts/, latin subsets, ~150 KB total) rather
  * than pulled from Google Fonts. The CDN version cost ~4.6s of startup: a
  * remote stylesheet in <head> is render-blocking, so nothing painted and no
@@ -262,7 +274,30 @@ body[data-view="reader"] #home { display: none; }
 /* ---------------- the shelf ---------------- */
 
 #shelf { width: 100%; border-top: 1px solid var(--border); padding-top: 40px; }
-.shelfLabel { margin-bottom: 20px; }
+
+.shelfHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.shelfLabel { margin: 0; }
+
+#shelfSearch {
+  width: 220px;
+  font: 11.5px var(--font-ui);
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+}
+#shelfSearch::placeholder { color: var(--dim); }
+#shelfSearch:focus { outline: none; border-color: var(--accent); }
+#shelfSearch::-webkit-search-cancel-button { cursor: pointer; }
+
+#shelfEmpty { margin: 8px 0 0; }
 
 .shelfGrid {
   display: grid;
@@ -418,20 +453,62 @@ body:has(#app.bare) #hide { display: inline-flex; }
   min-height: 0;
 }
 
+/* Leaving is its own band, on its own ground, above a rule -- so it reads as
+   the way out of this document rather than as the first row of its contents. */
 .railTop {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 0 12px 10px;
+  padding: 0 8px 10px 10px;
 }
-.railTop #docinfo {
-  flex: 1;
-  min-width: 0;
-  font-size: 11px;
-  line-height: 1.35;
-  max-height: 2.7em;
+
+.exitBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 11px var(--font-ui);
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.exitBtn:hover { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.exitBtn svg { flex: none; display: block; }
+
+/* The book, named. This is what you are in, so it is the largest thing in
+   the rail -- the page count it replaced now lives in the counter over the
+   page, where a number belongs. */
+.railTitle {
+  padding: 0 12px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.railTitle h1 {
+  margin: 0;
+  font: 400 17px/1.3 var(--font-serif);
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
+#openSite {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  font: 10.5px var(--font-ui);
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+}
+#openSite:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
 .railTop .iconBtn { margin: -4px 0; }
 #collapseLeft .whenShut { display: none; }
 #app.noleft #collapseLeft .whenShut { display: block; }
@@ -446,7 +523,6 @@ body:has(#app.bare) #hide { display: inline-flex; }
 }
 #app.noleft #leftPanel > *:not(.railTop) { display: none; }
 #app.noleft .railTop { padding: 0; justify-content: center; }
-#app.noleft .railTop #docinfo,
 #app.noleft .railTop #toLibrary { display: none; }
 
 .tabRow {
@@ -561,13 +637,72 @@ button.wide {
   outline: none;
 }
 
-.railFoot {
-  display: flex;
-  gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
+/* ---------------- where you are, over the page ----------------
+ *
+ * Bottom right, out of the text's way, and read-only. It is the one piece of
+ * chrome the page carries, so it stays quiet until the pointer is near it.
+ */
+#pageNow {
+  /* Fixed, not absolute: #viewer is the scroller, so an absolutely placed
+     child would scroll away with the pages. Its `right` is set from the
+     viewer's own box in JS, so it stays put when either panel is toggled. */
+  position: fixed;
+  bottom: 20px;
+  z-index: 4;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--muted);
+  font: 500 11px var(--font-ui);
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  opacity: .55;
+  transition: opacity .18s ease;
 }
-.railFoot button { flex: 1; }
+#viewer:hover ~ #pageNow, #app:hover #pageNow { opacity: 1; }
+#pageNow.reading { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); opacity: 1; }
+
+/* ---------------- the page's own menu ----------------
+ *
+ * Reading aloud starts here now, on purpose: the page is a document first,
+ * so a click selects text and follows links, and playback is something you
+ * ask for rather than something a stray hover begins.
+ */
+.menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 186px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .16), 0 1px 3px rgba(0, 0, 0, .1);
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font: 12px var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.menu button:hover:not(:disabled) { background: var(--ink); color: var(--panel); }
+.menu button:disabled { color: var(--dim); cursor: default; }
+.menu button .key {
+  margin-left: auto;
+  font: 10px var(--font-mono, var(--font-ui));
+  opacity: .55;
+}
+.menu hr { margin: 4px 6px; border: none; border-top: 1px solid var(--border); }
 
 /* ---------------- right panel: settings ---------------- */
 
@@ -824,32 +959,7 @@ button:disabled { opacity: .45; cursor: default; }
   pointer-events: none;
 }
 
-/* ---------------- hover-to-play badge ---------------- */
-
-#hoverBadge {
-  position: fixed;
-  z-index: 55;
-  pointer-events: none;
-  transform: translate(-50%, -130%);
-  background: #14161a;
-  color: #ffd966;
-  border: 1px solid #3a4150;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
-  white-space: nowrap;
-}
-#hoverBadge[hidden] { display: none; }
-
 /* ---------------- variant switcher ---------------- */
-
-/* Both switchers set display:flex below, which otherwise beats the
-   attribute selector the browser uses to hide [hidden] elements -- an ID
-   selector always outranks a plain attribute one regardless of source
-   order. Needs its own rule, not just the hidden attribute in the HTML. */
-#switcher[hidden], #cursorSwitcher[hidden] { display: none; }
 
 #switcher {
   position: fixed;

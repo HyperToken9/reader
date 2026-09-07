@@ -31,7 +31,7 @@ export function initPanels({ onGoTo, onOpenNote, getContext, onSaveNotes }) {
   selectTab("contents");
 }
 
-function selectTab(name) {
+export function selectTab(name) {
   for (const btn of $("leftTabs").children) btn.classList.toggle("active", btn.dataset.tab === name);
   $("tabContents").hidden = name !== "contents";
   $("tabNotes").hidden = name !== "notes";
@@ -159,6 +159,9 @@ function renderNotes() {
     list.append(li);
   }
 }
+
+/** The page's right-click menu makes notes too, not just the rail's button. */
+export function addNoteHere() { addNote(); }
 
 function addNote() {
   if (!notesEnabled) return;

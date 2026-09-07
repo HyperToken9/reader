@@ -35,8 +35,13 @@
         </div>
 
         <section id="shelf" hidden>
-          <div class="monoLabel shelfLabel">library</div>
+          <div class="shelfHead">
+            <div class="monoLabel shelfLabel">library</div>
+            <input id="shelfSearch" type="search" spellcheck="false" autocomplete="off"
+              placeholder="Search the library…" aria-label="Search the library" />
+          </div>
           <div id="shelfGrid" class="shelfGrid"></div>
+          <p class="muted tiny" id="shelfEmpty" hidden></p>
         </section>
       </div>
     </div>
@@ -47,13 +52,25 @@
            the transport that reads it. Everything about the app itself lives
            in the settings panel on the right. -->
       <aside id="leftPanel">
+        <!-- Three bands, most-important first, and visually separated so the
+             way out does not read as another item in the contents list:
+             leaving, then what you are reading, then the tabs. -->
         <header class="railTop">
-          <button id="toLibrary" class="iconBtn" title="Back to the library" aria-label="Back to the library"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.2" y="2.8" width="3.4" height="10.4" rx=".5"/><rect x="6.6" y="2.8" width="3.4" height="10.4" rx=".5"/><path d="M11.4 3.9 14.1 4.6 12.2 13.4 9.5 12.7Z"/></svg></button>
-          <div id="docinfo" class="muted">no document</div>
+          <button id="toLibrary" class="exitBtn" title="Back to the library (Esc)">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>
+            <span>Library</span>
+          </button>
           <button id="collapseLeft" class="iconBtn" title="Hide this panel" aria-label="Hide this panel">
             <span class="whenOpen"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4 5.5 8l4 4"/></svg></span><span class="whenShut"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4 10.5 8l-4 4"/></svg></span>
           </button>
         </header>
+
+        <div class="railTitle">
+          <h1 id="docTitle">no document</h1>
+          <a id="openSite" href="#" hidden>Open in browser
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3H3v10h10V10M9.5 2.5H13.5V6.5M13 3 7.5 8.5"/></svg>
+          </a>
+        </div>
 
         <div class="tabRow" id="leftTabs">
           <button data-tab="contents" class="active">Contents</button>
@@ -71,16 +88,17 @@
           <p class="muted tiny" id="notesHint"></p>
         </div>
 
-        <footer class="railFoot">
-          <button id="play">▶ Play</button>
-          <button id="stop">■ Stop</button>
-        </footer>
       </aside>
 
       <main id="viewer">
         <div id="pages"></div>
         <div id="drop">Drop a textbook PDF or EPUB here</div>
       </main>
+
+      <!-- Where you are. Read-only: the transport lives in the page's own
+           right-click menu and on the keyboard. Outside #viewer because
+           #viewer is the scroller. -->
+      <div id="pageNow" hidden><span id="pageNowText">—</span></div>
 
       <aside id="side">
         <header class="panelHead">
@@ -202,7 +220,9 @@
       </aside>
     </div>
 
-    <div id="hoverBadge" hidden>▶ Play from here</div>
+    <!-- The page behaves like a document: click selects, links follow. What
+         used to happen on hover happens here instead, on demand. -->
+    <div id="pageMenu" class="menu" hidden role="menu"></div>
 
     <!-- Judging-mode switchers: A/B comparison during development, superseded
          for everyday use by the Appearance pills above, which call the same

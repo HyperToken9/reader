@@ -114,11 +114,36 @@ function card(b) {
   return wrap;
 }
 
+/*
+ * The shelf, and what is showing of it.
+ *
+ * Held here rather than re-read per keystroke: filtering is a view over the
+ * same list, so typing should not go back to the main process for it.
+ */
+let shelf = [];
+let query = "";
+
+/* Matched on the title and, for a site, its address -- "mkdocs" should find
+ * a site called MkDocs and one that merely lives at mkdocs.org. Every term
+ * has to appear somewhere, so words can be typed in any order. */
+function matches(b) {
+  if (!query) return true;
+  const hay = `${b.title ?? ""} ${b.url ?? ""} ${b.kind ?? ""}`.toLowerCase();
+  return query.split(/\s+/).every((term) => hay.includes(term));
+}
+
+function paintShelf() {
+  const shown = shelf.filter(matches);
+  $("shelfGrid").replaceChildren(...shown.map(card));
+  $("shelf").hidden = shelf.length === 0;
+  const empty = $("shelfEmpty");
+  empty.hidden = !!shown.length || !shelf.length;
+  empty.textContent = shown.length ? "" : `Nothing on the shelf matches “${query}”.`;
+}
+
 export async function refreshShelf() {
-  const books = await window.blitz.library.list().catch(() => []);
-  const grid = $("shelfGrid");
-  grid.replaceChildren(...books.map(card));
-  $("shelf").hidden = books.length === 0;
+  shelf = await window.blitz.library.list().catch(() => []);
+  paintShelf();
 }
 
 /*
@@ -165,6 +190,10 @@ export function initHome({ onOpen, onPick, onAddSite }) {
   $("greeting").textContent = greeting();
   $("homePick").onclick = () => handlers.pick();
   initSiteInput();
+  const search = $("shelfSearch");
+  search.oninput = () => { query = search.value.trim().toLowerCase(); paintShelf(); };
+  // Escape clears rather than closing anything -- there is nothing to close.
+  search.onkeydown = (e) => { if (e.key === "Escape") { search.value = ""; query = ""; paintShelf(); } };
   refreshShelf();
 }
 

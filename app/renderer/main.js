@@ -32,7 +32,7 @@ import { analyzeLayout } from "./layout.js";
 import { parseEpub } from "./epub.js";
 import { snapshotSite, lastTally } from "./site.js";
 import { initHome, setView } from "./home.js";
-import { initPanels, setToc, markToc, setNotes } from "./panels.js";
+import { initPanels, setToc, markToc, setNotes, selectTab, addNoteHere } from "./panels.js";
 import loraUrl from "./fonts/lora.woff2?url";
 import loraItalicUrl from "./fonts/lora-italic.woff2?url";
 import workSansUrl from "./fonts/work-sans.woff2?url";
@@ -44,11 +44,11 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 const $ = (id) => document.getElementById(id);
 const el = {
-  file: $("file"), docinfo: $("docinfo"),
+  file: $("file"), title: $("docTitle"), openSite: $("openSite"),
+  pageNow: $("pageNow"), pageNowText: $("pageNowText"), pageMenu: $("pageMenu"),
   voice: $("voice"), rate: $("rate"), rateOut: $("rateOut"),
   nativeSpeed: $("nativeSpeed"),
   zoom: $("zoom"), zoomOut: $("zoomOut"),
-  play: $("play"), stop: $("stop"),
   autoscroll: $("autoscroll"), showall: $("showall"), showRegions: $("showRegions"),
   layoutHint: $("layoutHint"),
   enableLayout: $("enableLayout"),
@@ -58,7 +58,7 @@ const el = {
   engineStatus: $("engineStatus"),
   prevVariant: $("prevVariant"), nextVariant: $("nextVariant"), variantLabel: $("variantLabel"),
   prevCursor: $("prevCursor"), nextCursor: $("nextCursorBtn"), cursorLabel: $("cursorLabel"),
-  busyDot: $("busyDot"), hoverBadge: $("hoverBadge"),
+  busyDot: $("busyDot"),
   variantPills: $("variantPills"), cursorPills: $("cursorPills"), themePills: $("themePills"),
   typefacePills: $("typefacePills"), typographyHint: $("typographyHint"),
   toLibrary: $("toLibrary"),
@@ -100,7 +100,6 @@ let generation = 0;   // bumped on every cancel; stale audio events are ignored
 let cursor = null;    // {pn, si} — sentence to play after the current one
 let speaking = null;  // {pn, si} — sentence currently sounding
 let loadingSentence = null; // {pn, si} — set the instant speakOne is asked for it, cleared once audio starts
-let hovered = null;   // {pn, si} — sentence under the mouse, for the hover-to-play badge
 const timings = [];   // wall-clock synth+play time per sentence, to judge lag
 
 const audioEl = new Audio();
@@ -280,6 +279,10 @@ function sniffKind(name, data) {
  */
 let currentBook = null;
 
+/* The filename a PDF was opened from, so its header has something to fall
+   back on when the file's own metadata has no usable title. */
+let pendingName = "";
+
 /*
  * A PDF's outline, flattened to the same {title, pn, depth} shape an EPUB's
  * nav document produces, so the Contents tab renders one kind of thing.
@@ -310,6 +313,36 @@ async function pdfToc(pdf) {
     } catch { /* an unresolvable destination is not worth losing the entry over */ }
   }));
   return flat.map(({ title, pn, depth }) => ({ title, pn: pn ?? null, depth }));
+}
+
+/*
+ * The rail names the book; the counter over the page says where in it you
+ * are. The page count used to sit in the rail, which spent the most valuable
+ * corner of the window on a number and left the title nowhere.
+ */
+function setDocHeader(title, siteUrl) {
+  el.title.textContent = title || "Untitled";
+  el.title.title = title || "";
+  el.openSite.hidden = !siteUrl;
+  if (siteUrl) {
+    el.openSite.onclick = (e) => { e.preventDefault(); window.open(siteUrl, "_blank"); };
+    el.openSite.title = siteUrl;
+  }
+  updatePageNow();
+}
+
+/** "9 / 26", bottom right, and marked while something is being read. */
+function updatePageNow() {
+  if (!doc) { el.pageNow.hidden = true; return; }
+  const mid = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
+  const at = speaking?.pn ?? mid?.pn ?? 1;
+  el.pageNow.hidden = false;
+  // Pinned to the viewer's right edge rather than the window's, so hiding
+  // either panel does not leave it stranded over one of them.
+  const box = el.viewer.getBoundingClientRect();
+  el.pageNow.style.right = `${Math.max(12, Math.round(innerWidth - box.right + 18))}px`;
+  el.pageNow.classList.toggle("reading", !!playing);
+  el.pageNowText.textContent = `${at} / ${doc.numPages}`;
 }
 
 /** Fill the Contents tab for whichever format is open. */
@@ -346,6 +379,7 @@ async function goToPage(pn, si = null) {
   if (si != null) cursor = { pn, si };
   markToc(pn);
   renderSentenceList(pn);
+  updatePageNow();
 }
 
 /*
@@ -502,9 +536,10 @@ async function openFile(file) {
   // the File object is the only thing that can answer this.
   const path = window.blitz?.pathForFile?.(file) ?? "";
   setView("reader");
-  if (kind === "epub") await openEpub(data); else await openPdf(data);
+  if (kind === "epub") await openEpub(data); else await openPdf(data, { name: file.name });
   applyToc();
   const entry = await shelve(path, file.name);
+  if (entry?.position) await resumeAt(entry.position);
   setNotes(entry?.notes ?? [], { enabled: !!entry, reason: NOTES_NEED_A_SHELF });
 }
 
@@ -589,7 +624,7 @@ async function openSiteAt({ url, entryId = null, onProgress = () => {} }) {
   }
 
   setView("reader");
-  await openSite(snapshot);
+  await openSite(snapshot, { startAt: entry?.position?.pn ?? 1 });
   applyToc();
   currentBook = entry
     ? { id: entry.id, pages: snapshot.chapters.length, notes: entry.notes ?? [] }
@@ -668,7 +703,9 @@ async function openBook(book, onProgress = () => {}) {
     return;
   }
   setView("reader");
-  if (book.kind === "epub") await openEpub(res.data); else await openPdf(res.data);
+  const startAt = res.entry.position?.pn ?? 1;
+  if (book.kind === "epub") await openEpub(res.data, { startAt });
+  else await openPdf(res.data, { startAt, name: book.title });
   applyToc();
   currentBook = { id: book.id, pages: doc.numPages, notes: res.entry.notes ?? [] };
   setNotes(currentBook.notes, { enabled: true });
@@ -685,7 +722,15 @@ async function openBook(book, onProgress = () => {}) {
 async function resumeAt(pos) {
   if (!pos?.pn || !doc) return;
   const pn = Math.min(Math.max(1, pos.pn), doc.numPages);
-  await goToPage(pn, pos.si ?? null);
+  // The opener already rendered this page and scrolled to it (openAt), so
+  // this only has to arm the cursor and say where we landed -- it must not
+  // travel again, which is what made reopening a book flash page 1 first.
+  const here = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2)?.pn;
+  if (here !== pn) await goToPage(pn, pos.si ?? null);
+  else if (pos.si != null) cursor = { pn, si: pos.si };
+  markToc(pn);
+  renderSentenceList(pn);
+  updatePageNow();
   status(`picked up at ${unitWord()} ${pn}`);
 }
 
@@ -744,6 +789,9 @@ async function closeDoc() {
   el.sentences.replaceChildren();
   doc = null;
   docKind = null;
+  el.pageNow.hidden = true;
+  el.openSite.hidden = true;
+  el.title.textContent = "no document";
   setToc([], "Open a book to see its contents.");
   setNotes([], { enabled: false, reason: "Open a book to take notes on it." });
   syncLayoutControls();
@@ -828,7 +876,8 @@ async function placeholderSize(pdf) {
   return [...seen.values()].sort((a, b) => b.count - a.count)[0];
 }
 
-async function openPdf(data) {
+async function openPdf(data, { startAt = 1, name = "" } = {}) {
+  pendingName = name;
   await closeDoc();
   docKind = "pdf";
   syncLayoutControls();
@@ -836,7 +885,7 @@ async function openPdf(data) {
 
   doc = await pdfjsLib.getDocument({ data }).promise;
   el.drop.classList.add("hide");
-  el.docinfo.textContent = `${doc.numPages} pages`;
+  setDocHeader(await docTitle(pendingName), null);
 
   // Shell every page up front at the right aspect ratio, so the scrollbar is
   // honest; rasterise lazily as they come into view.
@@ -860,7 +909,7 @@ async function openPdf(data) {
   markGeomDirty();
   fitToWidth();
 
-  await renderPage(1);
+  await openAt(startAt);
   report();
 }
 
@@ -875,7 +924,7 @@ const EPUB_PLACEHOLDER_HEIGHT = 900;
  * documentation site's pages. Both formats reduce to the same thing here, so
  * this is where they meet and everything past it is format-blind.
  */
-async function openChapters({ kind, title, chapters, toc, css = "", info }) {
+async function openChapters({ kind, title, chapters, toc, css = "", siteUrl = null, startAt = 1 }) {
   await closeDoc();
   docKind = kind;
   syncLayoutControls();
@@ -887,7 +936,7 @@ async function openChapters({ kind, title, chapters, toc, css = "", info }) {
   // need to know the difference, gated on docKind instead.
   doc = { numPages: chapters.length, chapters, title, toc, css };
   el.drop.classList.add("hide");
-  el.docinfo.textContent = info;
+  setDocHeader(title, siteUrl);
 
   for (let pn = 1; pn <= doc.numPages; pn++) {
     const div = makeShell(pn, "epubchapter",
@@ -903,15 +952,37 @@ async function openChapters({ kind, title, chapters, toc, css = "", info }) {
   markGeomDirty();
   fitToWidth();
 
-  await renderPage(1);
+  await openAt(startAt);
   report();
 }
 
-async function openEpub(data) {
+/*
+ * Render the page the reader is going back to FIRST, and put the scroll
+ * there before anything is painted.
+ *
+ * This used to render page 1, hand the window over, and only then jump --
+ * so reopening a book you were 130 pages into showed you page 1, rendered
+ * it, and yanked it away. Rendering the destination first means the first
+ * thing drawn is the thing you asked for.
+ */
+async function openAt(pn) {
+  const start = Math.min(Math.max(1, pn || 1), doc.numPages);
+  await renderPage(start);
+  if (start === 1) return;
+  markGeomDirty();
+  const g = geomFor(start);
+  if (g) {
+    el.viewer.scrollTop = g.top;
+    lastScrollTop = el.viewer.scrollTop;
+  }
+  markToc(start);
+  updatePageNow();
+}
+
+async function openEpub(data, { startAt = 1 } = {}) {
   const parsed = await parseEpub(data);
   await openChapters({
-    kind: "epub", title: parsed.title, chapters: parsed.chapters, toc: parsed.toc,
-    info: `${parsed.title} -- ${parsed.numChapters} chapter${parsed.numChapters === 1 ? "" : "s"}`,
+    kind: "epub", title: parsed.title, chapters: parsed.chapters, toc: parsed.toc, startAt,
   });
 }
 
@@ -921,12 +992,10 @@ async function openEpub(data) {
  * whole snapshot rather than per page, because it is the same file on all of
  * them, so it lives on the document and epubShellHtml injects it.
  */
-async function openSite(snapshot) {
-  const n = snapshot.chapters.length;
+async function openSite(snapshot, { startAt = 1 } = {}) {
   await openChapters({
     kind: "site", title: snapshot.title, chapters: snapshot.chapters, toc: snapshot.toc,
-    css: snapshot.css ?? "",
-    info: `${snapshot.title} -- ${n} page${n === 1 ? "" : "s"}`,
+    css: snapshot.css ?? "", siteUrl: snapshot.url, startAt,
   });
 }
 
@@ -1393,10 +1462,15 @@ function fitWideContent(idoc) {
 }
 
 /*
- * A chapter's iframe now takes pointer events itself, so its text can be
- * selected. That costs the free ride clicks used to get: DOM events inside
- * an iframe never bubble into the parent document, so the reader's own
- * click and hover handlers have to be given them explicitly.
+ * A chapter's iframe takes pointer events itself, so its text can be
+ * selected and its links followed. That costs the free ride events used to
+ * get: DOM events inside an iframe never bubble into the parent document, so
+ * anything the reader wants to know about has to be handed out explicitly.
+ *
+ * That is now two things only -- a click on one of the page's own links, and
+ * a right-click asking for the menu. Ordinary clicks, drags and hovers are
+ * left entirely alone inside the frame, which is what makes the page behave
+ * like a document rather than like a play button.
  *
  * Coordinates come back in the iframe's own viewport, which is unscaled --
  * the zoom is a transform on the element, so its internal coordinate system
@@ -1412,26 +1486,31 @@ function wireEpubInput(p) {
     const b = p.iframe.getBoundingClientRect();
     return { x: b.left + e.clientX * scale, y: b.top + e.clientY * scale };
   };
-  cd.addEventListener("click", (e) => {
+  const linkAt = (e) => {
     // A snapshotted site's own cross-references still work: site.js turned
     // every <a> into a marker rather than a link, because nothing can
     // navigate inside a srcdoc iframe. A link into the book jumps; a link
     // out of it opens in the real browser (main.js's setWindowOpenHandler).
     const a = e.target?.closest?.("a[data-page], a[data-external]");
-    if (a) {
-      const to = a.getAttribute("data-page");
-      if (to) goToPage(Number(to));
-      else window.open(a.getAttribute("data-external"), "_blank");
-      return;
-    }
-    const { x, y } = toClient(e);
-    pageClickAt(p, x, y);
+    if (!a) return null;
+    const to = a.getAttribute("data-page");
+    return to ? { page: Number(to) } : { external: a.getAttribute("data-external") };
+  };
+
+  cd.addEventListener("click", (e) => {
+    const link = linkAt(e);
+    if (!link) return; // a plain click belongs to the document, not to us
+    e.preventDefault();
+    if (link.page) goToPage(link.page); else window.open(link.external, "_blank");
   });
-  cd.addEventListener("mousemove", (e) => {
+  cd.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
     const { x, y } = toClient(e);
-    pageHoverAt(p, x, y);
+    openMenu(menuTargetAt(p, x, y, linkAt(e)), x, y);
   });
-  cd.addEventListener("mouseleave", clearHover);
+  // The menu is in the parent document, so a press inside the frame has to
+  // dismiss it explicitly -- the parent never sees this one.
+  cd.addEventListener("mousedown", closeMenu);
 }
 
 /**
@@ -2517,14 +2596,11 @@ function repaint() {
       clearOverlay(p);
     }
 
-    // Additive, regardless of which branch above ran: regions, loading and
-    // hover are independent of whether anything is currently speaking.
+    // Additive, regardless of which branch above ran: regions and loading
+    // are independent of whether anything is currently speaking.
     if (el.showRegions.checked) paintRegions(p); else if (p.labels.firstChild) p.labels.replaceChildren();
     if (loadingSentence?.pn === p.pn && !isSame(speaking, loadingSentence)) {
       paintLoading(p, p.sentences[loadingSentence.si]);
-    }
-    if (hovered?.pn === p.pn && !isSame(speaking, hovered)) {
-      paintHover(p, p.sentences[hovered.si]);
     }
   }
 }
@@ -2543,18 +2619,6 @@ function paintLoading(p, sentence) {
     });
     r.setAttribute("class", "loading-outline");
     p.svg.append(r);
-  }
-}
-
-/** Quiet outline: this is what a click here would play. */
-function paintHover(p, sentence) {
-  if (!sentence) return;
-  for (const b of sentenceRects(p, sentence).map(pad)) {
-    p.svg.append(rect(b.x, b.y, b.w, b.h, "rgba(124, 196, 255, 0.10)", {
-      stroke: "rgba(124, 196, 255, 0.55)",
-      "stroke-width": 1,
-      "vector-effect": "non-scaling-stroke",
-    }));
   }
 }
 
@@ -2804,7 +2868,7 @@ function endOfDocument() {
   speaking = null;
   loadingSentence = null;
   stopWordLoop();
-  el.play.textContent = "▶ Play";
+  updatePageNow();
   repaint();
   report();
 }
@@ -2819,7 +2883,7 @@ async function play(from) {
     start = { pn: p.pn, si: 0 };
   }
   playing = true;
-  el.play.textContent = "⏸ Pause";
+  updatePageNow();
   speakOne(start);
   report();
 }
@@ -2832,7 +2896,7 @@ function pause() {
   stopWordLoop();
   // resume from the sentence that was interrupted, not the one queued behind it
   if (speaking) cursor = speaking;
-  el.play.textContent = "▶ Play";
+  updatePageNow();
   report();
 }
 
@@ -2845,9 +2909,9 @@ function stop() {
   cursor = null;
   speaking = null;
   loadingSentence = null;
-  el.play.textContent = "▶ Play";
   el.spoken.textContent = "—";
   flushPosition();
+  updatePageNow();
   repaint();
   report();
 }
@@ -2920,6 +2984,7 @@ function onScrollSettled() {
   scrollVelocity = 0;
   sweepEvictions();
   const hit = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
+  updatePageNow();
   if (hit) {
     renderSentenceList(hit.pn);
     markToc(hit.pn);
@@ -2993,50 +3058,94 @@ function epubHitTest(p, clientX, clientY) {
  * Click a sentence on the page itself to speak from there -- unless that
  * click is the end of a selection drag, which is someone quoting a passage
  * for a note, not asking to be read to.
+ *
+ * A left click does NOT start playback, and hovering does nothing at all.
+ * The page is a document first: click to place a cursor, drag to select,
+ * click a link to follow it. Reading aloud is something you ask for --
+ * right-click, or press P -- rather than something a stray pointer begins.
+ * That was the whole complaint about hover-to-play, and it was fair: you
+ * cannot use a document you cannot rest the mouse on.
  */
-function pageClickAt(p, clientX, clientY) {
-  if (!p?.rendered || liveSelection()) return;
-  const hit = hitTest(p, clientX, clientY);
-  if (hit !== null) { stop(); play({ pn: p.pn, si: hit }); }
+
+/* ------------------------------------------------- the page's own menu */
+
+/** Whatever the pointer is over, in the terms the menu needs. */
+function menuTargetAt(p, clientX, clientY, anchor = null) {
+  return {
+    p,
+    si: p?.rendered ? hitTest(p, clientX, clientY) : null,
+    selection: liveSelection(),
+    link: anchor,
+  };
 }
 
-el.pages.addEventListener("click", (ev) => {
+function closeMenu() { el.pageMenu.hidden = true; el.pageMenu.replaceChildren(); }
+
+function menuItem(label, key, enabled, onPick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = label;
+  if (key) {
+    const k = document.createElement("span");
+    k.className = "key";
+    k.textContent = key;
+    b.append(k);
+  }
+  b.disabled = !enabled;
+  if (enabled) b.onclick = () => { closeMenu(); onPick(); };
+  return b;
+}
+
+function openMenu(target, clientX, clientY) {
+  const items = [];
+  const { p, si, selection, link } = target;
+
+  const speakingHere = speaking && p && speaking.pn === p.pn && speaking.si === si;
+  items.push(menuItem(
+    speakingHere ? "Reading this" : "Play from here", "P", si != null && !speakingHere,
+    () => { stop(); play({ pn: p.pn, si }); },
+  ));
+  if (playing) items.push(menuItem("Stop reading", "Esc", true, () => stop()));
+
+  items.push(document.createElement("hr"));
+  items.push(menuItem("Copy", "⌘C", !!selection, () => {
+    navigator.clipboard?.writeText(selection.text).catch(() => {});
+  }));
+  items.push(menuItem(selection ? "Note on this passage" : "Note on this page", null, !!doc, () => {
+    selectTab("notes");
+    addNoteHere();
+  }));
+
+  if (link?.external) {
+    items.push(document.createElement("hr"));
+    items.push(menuItem("Open link in browser", null, true, () => window.open(link.external, "_blank")));
+  } else if (link?.page) {
+    items.push(document.createElement("hr"));
+    items.push(menuItem(`Go to ${unitWord()} ${link.page}`, null, true, () => goToPage(link.page)));
+  }
+
+  el.pageMenu.replaceChildren(...items);
+  el.pageMenu.hidden = false;
+  // Placed after it is measurable, and flipped rather than pushed off-screen.
+  const box = el.pageMenu.getBoundingClientRect();
+  const x = Math.min(clientX, innerWidth - box.width - 8);
+  const y = clientY + box.height > innerHeight - 8 ? clientY - box.height : clientY;
+  el.pageMenu.style.left = `${Math.max(8, x)}px`;
+  el.pageMenu.style.top = `${Math.max(8, y)}px`;
+}
+
+el.pages.addEventListener("contextmenu", (ev) => {
   const div = ev.target.closest(".page");
   if (!div) return;
-  pageClickAt(pages.get(Number(div.dataset.page)), ev.clientX, ev.clientY);
+  ev.preventDefault();
+  const p = pages.get(Number(div.dataset.page));
+  openMenu(menuTargetAt(p, ev.clientX, ev.clientY), ev.clientX, ev.clientY);
 });
 
-// Hover-to-preview (16): make it visible before the click that this is
-// clickable and what it will play, not just clickable-and-hope. No
-// debouncing -- hitTest runs on every mousemove -- fine for a PDF page's
-// dozen-odd rects; an epub chapter's hundreds route through epubHitTest
-// instead, which asks the browser for the offset under the point rather
-// than testing every sentence's rects.
-function clearHover() {
-  if (hovered) { hovered = null; repaint(); }
-  el.hoverBadge.hidden = true;
-}
-
-function pageHoverAt(p, clientX, clientY) {
-  const hit = p?.rendered ? hitTest(p, clientX, clientY) : null;
-  if (hit === null) return clearHover();
-
-  const changed = !hovered || hovered.pn !== p.pn || hovered.si !== hit;
-  hovered = { pn: p.pn, si: hit };
-  if (changed) repaint();
-
-  el.hoverBadge.hidden = false;
-  el.hoverBadge.style.left = `${clientX}px`;
-  el.hoverBadge.style.top = `${clientY}px`;
-  const already = speaking && speaking.pn === p.pn && speaking.si === hit;
-  el.hoverBadge.textContent = already ? "♪ Playing" : "▶ Play from here";
-}
-
-el.pages.addEventListener("mousemove", (ev) => {
-  const div = ev.target.closest(".page");
-  pageHoverAt(div ? pages.get(Number(div.dataset.page)) : null, ev.clientX, ev.clientY);
-});
-el.pages.addEventListener("mouseleave", clearHover);
+// Dismissal: anywhere else, any scroll, Escape. Mousedown rather than click,
+// so the menu is gone before whatever was underneath reacts.
+addEventListener("mousedown", (ev) => { if (!el.pageMenu.contains(ev.target)) closeMenu(); }, true);
+el.viewer.addEventListener("scroll", closeMenu, { passive: true });
 
 // ---------------------------------------------------------------- voices
 
@@ -3278,9 +3387,6 @@ home.addEventListener("drop", (e) => {
   if (f) openFile(f);
 });
 
-el.play.onclick = () => play();
-el.stop.onclick = () => stop();
-
 el.rate.oninput = () => {
   el.rateOut.textContent = Number(el.rate.value).toFixed(2);
   // Live control: playbackRate + preservesPitch is instant and needs no
@@ -3347,6 +3453,36 @@ el.enableLayout.onchange = () => {
 syncLayoutControls(); // no doc open yet -- starts disabled
 syncTypographyControls();
 
+/*
+ * The transport, in full. There is deliberately no play button anywhere --
+ * the human's call, and the right one: a reading app should look like the
+ * thing being read. So reading starts from the page's own menu or from here,
+ * and this is the only place the keys are defined.
+ *
+ * Not Space: Space scrolls a document, and behaving like a document is the
+ * whole point of this round.
+ */
+addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // Never while someone is writing a note.
+  const t = e.target;
+  if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+
+  if (e.key === "Escape") {
+    if (!el.pageMenu.hidden) { closeMenu(); return; }
+    if (playing) { stop(); return; }
+    return;
+  }
+  if (e.key === "p" || e.key === "P") {
+    if (!doc) return;
+    e.preventDefault();
+    if (playing) pause();
+    else play(cursor ?? undefined);
+  }
+});
+
+new ResizeObserver(() => updatePageNow()).observe(el.viewer);
+
 addEventListener("beforeunload", () => audioEl.pause());
 
 report();
@@ -3363,6 +3499,7 @@ window.__spike = {
   liveSelection, noteContext, addSite, goToNote, locateNote,
   chapterHref: (pn) => doc?.chapters?.[pn - 1]?.href ?? null,
   get siteTally() { return lastTally; },
+  geomFor, pageAtOffset,
   openSiteForTest: openSite,
   get cursorStyle() { return cursorStyle; },
   get activeWordIdxs() { return activeWordIdxs; },
