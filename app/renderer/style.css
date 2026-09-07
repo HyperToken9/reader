@@ -279,12 +279,12 @@ body[data-view="reader"] #home { display: none; }
   color: var(--muted);
 }
 
-/* The gear opens/closes the settings panel -- top-right, out of the way of
-   the page itself until summoned, per the comp. */
+/* The gear opens/closes the settings panel. It rides just outside that
+   panel's edge, so it never sits on top of the controls it opens. */
 #hide {
   position: fixed;
   top: 18px;
-  right: 24px;
+  right: 344px;
   z-index: 60;
   opacity: .55;
   padding: 5px 9px;
@@ -293,15 +293,184 @@ body[data-view="reader"] #home { display: none; }
 }
 #hide:hover { opacity: 1; }
 #app.bare #side { display: none; }
+body:has(#app.bare) #hide { right: 24px; }
 #app.bare + #switcher, body:has(#app.bare) #switcher { left: 50%; }
 
-/* ---------------- sidebar ---------------- */
+/* ---------------- left rail: contents + notes ----------------
+ *
+ * The book's own furniture, against the page. Tabbed rather than stacked:
+ * a textbook's table of contents wants the whole rail, and so does a
+ * chapter's worth of notes.
+ */
+
+#leftPanel {
+  width: 288px;
+  flex: 0 0 288px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.railTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+.railTop #docinfo {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  max-height: 2.7em;
+  overflow: hidden;
+}
+.railTop button {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Collapsed, the rail keeps a thin strip -- otherwise there is nothing left
+   to click to bring it back. */
+#app.noleft #leftPanel {
+  width: 30px;
+  flex: 0 0 30px;
+  padding: 12px 0;
+}
+#app.noleft #leftPanel > *:not(.railTop) { display: none; }
+#app.noleft .railTop { padding: 0; justify-content: center; }
+#app.noleft .railTop #docinfo,
+#app.noleft .railTop #toLibrary { display: none; }
+#app.noleft #collapseLeft::before { content: "⟩"; }
+#app.noleft #collapseLeft { font-size: 0; }
+#app.noleft #collapseLeft::before { font-size: 12px; }
+
+.tabRow {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tabRow button {
+  flex: 1;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+  font: 500 10.5px var(--font-ui);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.tabRow button:hover { color: var(--ink); }
+.tabRow button.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+.tabPanel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px 14px;
+}
+
+#toc, #notesList { list-style: none; margin: 0; padding: 0; }
+
+.tocItem button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font: 12px/1.4 var(--font-ui);
+  padding: 5px 6px;
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.tocItem button:hover { background: color-mix(in oklab, var(--ink) 7%, transparent); }
+.tocItem button:disabled { color: var(--dim); cursor: default; }
+.tocItem.depth1 button { padding-left: 18px; font-size: 11.5px; color: var(--muted); }
+.tocItem.depth2 button { padding-left: 30px; font-size: 11.5px; color: var(--muted); }
+.tocItem.depth3 button { padding-left: 42px; font-size: 11px; color: var(--muted); }
+.tocItem.current button {
+  border-left-color: var(--accent);
+  color: var(--ink);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+
+button.wide { width: 100%; margin-bottom: 10px; }
+
+.note {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: var(--bg);
+}
+.noteHead { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.noteWhere {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: 500 10px var(--font-ui);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.noteDrop {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.noteDrop:hover { color: var(--ink); }
+.noteQuote {
+  margin: 6px 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  font: italic 11.5px/1.45 var(--font-serif);
+  color: var(--muted);
+  max-height: 5.8em;
+  overflow: hidden;
+}
+.noteText {
+  width: 100%;
+  border: none;
+  background: none;
+  resize: vertical;
+  color: var(--ink);
+  font: 12px/1.5 var(--font-ui);
+  padding: 2px 0 0;
+  outline: none;
+}
+
+.railFoot {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+.railFoot button { flex: 1; }
+
+/* ---------------- right panel: settings ---------------- */
 
 #side {
   width: 330px;
   flex: 0 0 330px;
   background: var(--panel);
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   padding: 14px;
   overflow: auto;
   display: flex;
@@ -310,6 +479,7 @@ body[data-view="reader"] #home { display: none; }
 }
 
 #side h1 { font: italic 500 20px/1 var(--font-serif); margin: 0; color: var(--ink); }
+#app { min-height: 0; }
 #side h2 { font: 500 11px var(--font-ui); margin: 0 0 6px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 
 .rowLabel {

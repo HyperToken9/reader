@@ -31,20 +31,50 @@
 
     <button id="hide" title="Settings (h)">⚙</button>
     <div id="app">
+      <!-- Left rail: the BOOK. Its table of contents, your notes on it, and
+           the transport that reads it. Everything about the app itself lives
+           in the settings panel on the right. -->
+      <aside id="leftPanel">
+        <header class="railTop">
+          <button id="toLibrary" title="Back to the library">←</button>
+          <div id="docinfo" class="muted">no document</div>
+          <button id="collapseLeft" title="Hide this panel">⟨</button>
+        </header>
+
+        <div class="tabRow" id="leftTabs">
+          <button data-tab="contents" class="active">Contents</button>
+          <button data-tab="notes">Notes</button>
+        </div>
+
+        <div class="tabPanel" id="tabContents">
+          <ol id="toc"></ol>
+          <p class="muted tiny" id="tocHint" hidden></p>
+        </div>
+
+        <div class="tabPanel" id="tabNotes" hidden>
+          <button id="addNote" class="wide">+ Note here</button>
+          <ol id="notesList"></ol>
+          <p class="muted tiny" id="notesHint"></p>
+        </div>
+
+        <footer class="railFoot">
+          <button id="play">▶ Play</button>
+          <button id="stop">■ Stop</button>
+        </footer>
+      </aside>
+
+      <main id="viewer">
+        <div id="pages"></div>
+        <div id="drop">Drop a textbook PDF or EPUB here</div>
+      </main>
+
       <aside id="side">
-        <button id="toLibrary" title="Back to the library">← Library</button>
-        <h1>Blitz</h1>
+        <h1>Settings</h1>
         <p class="proto" id="engineStatus">starting the speech engine…</p>
 
         <section>
           <button id="pick">Choose a PDF or EPUB…</button>
           <input id="file" type="file" accept="application/pdf,.pdf,application/epub+zip,.epub" hidden />
-          <div id="docinfo" class="muted">no document</div>
-        </section>
-
-        <section class="row">
-          <button id="play">▶ Play</button>
-          <button id="stop">■ Stop</button>
         </section>
 
         <section>
@@ -142,11 +172,6 @@
           </section>
         </details>
       </aside>
-
-      <main id="viewer">
-        <div id="pages"></div>
-        <div id="drop">Drop a textbook PDF or EPUB here</div>
-      </main>
     </div>
 
     <div id="hoverBadge" hidden>▶ Play from here</div>

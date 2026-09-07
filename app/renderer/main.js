@@ -31,6 +31,7 @@ import "pdfjs-dist/web/pdf_viewer.css";
 import { analyzeLayout } from "./layout.js";
 import { parseEpub } from "./epub.js";
 import { initHome, setView } from "./home.js";
+import { initPanels, setToc, markToc, setNotes } from "./panels.js";
 import loraUrl from "./fonts/lora.woff2?url";
 import loraItalicUrl from "./fonts/lora-italic.woff2?url";
 import workSansUrl from "./fonts/work-sans.woff2?url";
@@ -263,6 +264,101 @@ function sniffKind(name, data) {
  */
 let currentBook = null;
 
+/*
+ * A PDF's outline, flattened to the same {title, pn, depth} shape an EPUB's
+ * nav document produces, so the Contents tab renders one kind of thing.
+ *
+ * An outline entry points at a destination, not a page, and resolving one
+ * costs a getPageIndex round-trip -- a medical textbook has hundreds of
+ * them, so they are resolved together rather than one after another. An
+ * entry whose destination will not resolve is still listed: it is part of
+ * the book's structure, it just cannot be clicked.
+ */
+async function pdfToc(pdf) {
+  const outline = await pdf.getOutline();
+  if (!outline?.length) return [];
+  const flat = [];
+  const walk = (items, depth) => {
+    for (const it of items) {
+      flat.push({ title: (it.title ?? "").trim() || "—", dest: it.dest, depth });
+      if (it.items?.length && depth < 3) walk(it.items, depth + 1);
+    }
+  };
+  walk(outline, 0);
+  await Promise.all(flat.map(async (e) => {
+    try {
+      const d = typeof e.dest === "string" ? await pdf.getDestination(e.dest) : e.dest;
+      const ref = Array.isArray(d) ? d[0] : null;
+      if (ref && typeof ref === "object") e.pn = (await pdf.getPageIndex(ref)) + 1;
+      else if (typeof ref === "number") e.pn = ref + 1;
+    } catch { /* an unresolvable destination is not worth losing the entry over */ }
+  }));
+  return flat.map(({ title, pn, depth }) => ({ title, pn: pn ?? null, depth }));
+}
+
+/** Fill the Contents tab for whichever format is open. */
+async function applyToc() {
+  if (docKind === "epub") {
+    setToc(doc.toc ?? [], "This book ships no table of contents.");
+    return;
+  }
+  let entries = [];
+  try {
+    entries = await pdfToc(doc);
+  } catch (e) {
+    console.warn("[toc] could not read this PDF's outline", e);
+  }
+  setToc(entries, "This PDF has no embedded table of contents -- plenty of scanned books don't.");
+}
+
+/**
+ * Put a page in view, optionally arming the play cursor at a sentence on it.
+ * The one way anything jumps: the TOC, a note, and resuming all come here.
+ */
+async function goToPage(pn, si = null) {
+  if (!doc) return;
+  pn = Math.min(Math.max(1, pn), doc.numPages);
+  await renderPage(pn);
+  markGeomDirty();
+  const g = geomFor(pn);
+  if (g) {
+    el.viewer.scrollTop = g.top;
+    lastScrollTop = el.viewer.scrollTop;
+  }
+  if (si != null) cursor = { pn, si };
+  markToc(pn);
+  renderSentenceList(pn);
+}
+
+/*
+ * What a new note is about: the sentence being spoken if the voice is
+ * running, otherwise the page you are looking at. A note taken mid-sentence
+ * quotes it, so the note still means something months later when the page
+ * number alone would not.
+ */
+function noteContext() {
+  if (!doc) return null;
+  const at = speaking ?? cursor ?? null;
+  const mid = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
+  const pn = at?.pn ?? mid?.pn ?? 1;
+  const si = at?.pn === pn ? at.si : null;
+  const quote = si == null ? "" : (pages.get(pn)?.sentences[si]?.text ?? "").slice(0, 240);
+  return { pn, si, quote, label: `${docKind === "epub" ? "chapter" : "page"} ${pn}` };
+}
+
+/** Notes belong to a shelved book, so they save through the library. */
+function saveNotes(notes) {
+  if (!currentBook) return;
+  currentBook.notes = notes;
+  window.blitz?.library?.notes({ id: currentBook.id, notes }).catch((e) => {
+    console.warn("[library] could not save notes", e);
+  });
+}
+
+const NOTES_NEED_A_SHELF =
+  "This document isn't on the shelf, so there is nowhere to keep notes with it. " +
+  "Open it from a file on disk rather than a drag out of another app.";
+
 async function openFile(file) {
   const data = await file.arrayBuffer();
   const kind = sniffKind(file.name, data);
@@ -272,7 +368,9 @@ async function openFile(file) {
   const path = window.blitz?.pathForFile?.(file) ?? "";
   setView("reader");
   if (kind === "epub") await openEpub(data); else await openPdf(data);
-  await shelve(path, file.name);
+  applyToc();
+  const entry = await shelve(path, file.name);
+  setNotes(entry?.notes ?? [], { enabled: !!entry, reason: NOTES_NEED_A_SHELF });
 }
 
 /** A book's own title where it has one, its filename where it doesn't. */
@@ -300,7 +398,7 @@ async function shelve(path, name) {
     const entry = await window.blitz.library.remember({
       path, title: await docTitle(name), kind: docKind, pages: doc.numPages,
     });
-    currentBook = { id: entry.id, pages: doc.numPages };
+    currentBook = { id: entry.id, pages: doc.numPages, notes: entry.notes ?? [] };
     return entry;
   } catch (e) {
     // A book that can't be shelved is still a book you can read.
@@ -323,7 +421,9 @@ async function openBook(book) {
   }
   setView("reader");
   if (book.kind === "epub") await openEpub(res.data); else await openPdf(res.data);
-  currentBook = { id: book.id, pages: doc.numPages };
+  applyToc();
+  currentBook = { id: book.id, pages: doc.numPages, notes: res.entry.notes ?? [] };
+  setNotes(currentBook.notes, { enabled: true });
   await resumeAt(res.entry.position);
 }
 
@@ -337,15 +437,7 @@ async function openBook(book) {
 async function resumeAt(pos) {
   if (!pos?.pn || !doc) return;
   const pn = Math.min(Math.max(1, pos.pn), doc.numPages);
-  await renderPage(pn);
-  markGeomDirty();
-  const g = geomFor(pn);
-  if (g) {
-    el.viewer.scrollTop = g.top;
-    lastScrollTop = el.viewer.scrollTop;
-  }
-  if (pos.si != null) cursor = { pn, si: pos.si };
-  renderSentenceList(pn);
+  await goToPage(pn, pos.si ?? null);
   status(`picked up at ${docKind === "epub" ? "chapter" : "page"} ${pn}`);
 }
 
@@ -403,6 +495,8 @@ async function closeDoc() {
   el.sentences.replaceChildren();
   doc = null;
   docKind = null;
+  setToc([], "Open a book to see its contents.");
+  setNotes([], { enabled: false, reason: "Open a book to take notes on it." });
   syncLayoutControls();
   syncTypographyControls();
 }
@@ -515,6 +609,7 @@ async function openPdf(data) {
     observer.observe(div);
   }
   markGeomDirty();
+  fitToWidth();
 
   await renderPage(1);
   report();
@@ -537,7 +632,7 @@ async function openEpub(data) {
   // (nextCursor, firstPageWithSentences, report(), the render queue) already
   // reads doc.numPages and only PDF-specific call sites (getPage, destroy)
   // need to know the difference, gated on docKind instead.
-  doc = { numPages: parsed.numChapters, chapters: parsed.chapters, title: parsed.title };
+  doc = { numPages: parsed.numChapters, chapters: parsed.chapters, title: parsed.title, toc: parsed.toc };
   el.drop.classList.add("hide");
   el.docinfo.textContent = `${parsed.title} -- ${doc.numPages} chapter${doc.numPages === 1 ? "" : "s"}`;
 
@@ -553,6 +648,7 @@ async function openEpub(data) {
     observer.observe(div);
   }
   markGeomDirty();
+  fitToWidth();
 
   await renderPage(1);
   report();
@@ -1231,6 +1327,24 @@ async function rasteriseAtScale() {
   markGeomDirty();
   repaint();
   report();
+}
+
+/*
+ * Never open a book already scrolled sideways.
+ *
+ * The default 1.2x zoom was chosen when the window had one panel; with the
+ * contents rail on the left and settings on the right there is less room for
+ * the page, and an EPUB chapter (760px of layout) overflowed it -- a book
+ * that opens with a horizontal scrollbar reads as broken. This only ever
+ * zooms *out*, and only at open, so a zoom the reader chose is never
+ * second-guessed.
+ */
+function fitToWidth() {
+  const p = pages.get(1);
+  if (!p?.base) return;
+  const room = el.viewer.clientWidth - 32; // a little air either side of the page
+  const fits = room / p.base.width;
+  if (fits < scale) reZoom(Math.max(MIN_SCALE, fits));
 }
 
 let rasterTimer;
@@ -2234,6 +2348,7 @@ async function speakOne(c) {
   loadingSentence = null;
   speaking = c;
   notePosition(c.pn, c.si);
+  markToc(c.pn);
   currentSpans = data.spans;
   activeWordIdxs = [];
   el.spoken.textContent = s.text;
@@ -2395,6 +2510,7 @@ function onScrollSettled() {
   const hit = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
   if (hit) {
     renderSentenceList(hit.pn);
+    markToc(hit.pn);
     // While playing, the reading loop is the authority on position -- an
     // auto-scroll settling would otherwise overwrite the sentence with a
     // bare page number.
@@ -2686,6 +2802,9 @@ $("hide").onclick = () => document.getElementById("app").classList.toggle("bare"
 // ---------------------------------------------------------------- wiring
 
 el.toLibrary.onclick = () => goHome();
+initPanels({ onGoTo: goToPage, getContext: noteContext, onSaveNotes: saveNotes });
+setToc([], "Open a book to see its contents.");
+setNotes([], { enabled: false, reason: "Open a book to take notes on it." });
 initHome({ onOpen: openBook, onPick: () => el.file.click() });
 setView("home");
 // Reading position is throttled, so a quit mid-book would otherwise drop the

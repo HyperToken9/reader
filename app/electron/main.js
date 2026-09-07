@@ -71,6 +71,7 @@ ipcMain.handle("layout:ready", () => layout.isReady());
 ipcMain.handle("library:list", () => library.list());
 ipcMain.handle("library:remember", (_e, meta) => library.remember(meta));
 ipcMain.handle("library:position", (_e, pos) => library.savePosition(pos));
+ipcMain.handle("library:notes", (_e, payload) => library.saveNotes(payload));
 ipcMain.handle("library:forget", (_e, id) => library.forget(id));
 ipcMain.handle("library:open", (_e, id) => library.open(id));
 

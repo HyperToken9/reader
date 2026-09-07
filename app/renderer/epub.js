@@ -56,6 +56,76 @@ function rewriteCssUrls(cssText, cssDir, urlFor) {
   });
 }
 
+/*
+ * The book's own table of contents.
+ *
+ * EPUB 3 puts it in a nav document (a manifest item with properties="nav");
+ * EPUB 2 puts it in an NCX. Plenty of books in the wild ship both, and
+ * plenty of EPUB 3 files still carry only the NCX, so read whichever is
+ * there and prefer the nav. Entries are resolved to spine positions, which
+ * is the only coordinate the reader has: a TOC href pointing at a file that
+ * is not in the spine (or at a fragment inside one) lands on the chapter
+ * that contains it.
+ */
+function tocFromNav(zip, navPath, chapterIndex) {
+  const bytes = zip[navPath];
+  if (!bytes) return [];
+  // text/html, not XML: same reasoning as buildChapter -- a nav document
+  // that is not strictly well-formed should not cost the whole TOC.
+  const doc = new DOMParser().parseFromString(strFromU8(bytes), "text/html");
+  const nav = doc.querySelector('nav[epub\\:type~="toc"]') ?? doc.querySelector("nav");
+  const baseDir = dirname(navPath);
+  const out = [];
+  const walk = (list, depth) => {
+    for (const li of list.children) {
+      if (li.tagName?.toLowerCase() !== "li") continue;
+      const a = li.querySelector(":scope > a[href], :scope > span > a[href]");
+      const title = a?.textContent?.trim();
+      const pn = a ? chapterIndex(resolvePath(baseDir, a.getAttribute("href"))) : null;
+      if (title) out.push({ title, pn, depth });
+      const sub = li.querySelector(":scope > ol, :scope > ul");
+      if (sub) walk(sub, depth + 1);
+    }
+  };
+  const list = nav?.querySelector("ol, ul");
+  if (list) walk(list, 0);
+  return out;
+}
+
+function tocFromNcx(zip, ncxPath, chapterIndex) {
+  const bytes = zip[ncxPath];
+  if (!bytes) return [];
+  const doc = new DOMParser().parseFromString(strFromU8(bytes), "application/xml");
+  const baseDir = dirname(ncxPath);
+  const out = [];
+  const walk = (parent, depth) => {
+    for (const np of parent.children) {
+      if (np.tagName?.toLowerCase() !== "navpoint") continue;
+      const title = np.querySelector("navLabel > text")?.textContent?.trim();
+      const src = np.querySelector("content")?.getAttribute("src");
+      const pn = chapterIndex(resolvePath(baseDir, src));
+      if (title) out.push({ title, pn, depth });
+      walk(np, depth + 1);
+    }
+  };
+  const map = doc.querySelector("navMap");
+  if (map) walk(map, 0);
+  return out;
+}
+
+/*
+ * A book with no TOC of its own still gets one: a chapter's first heading is
+ * what a reader would call it, and a spine of "Chapter 1, Chapter 2" is more
+ * useful than an empty panel. Used only as a fallback.
+ */
+function tocFromHeadings(chapters) {
+  return chapters.map((c, i) => {
+    const doc = new DOMParser().parseFromString(c.bodyHtml, "text/html");
+    const h = doc.querySelector("h1, h2, h3, title")?.textContent?.trim();
+    return { title: h?.slice(0, 120) || `Chapter ${i + 1}`, pn: i + 1, depth: 0 };
+  });
+}
+
 export async function parseEpub(buffer) {
   const zip = unzipSync(new Uint8Array(buffer));
 
@@ -157,5 +227,26 @@ export async function parseEpub(buffer) {
     if (built) chapters.push({ id, href: item.href, ...built });
   }
 
-  return { title, numChapters: chapters.length, chapters };
+  // A TOC href can point at a fragment inside a chapter, or at a file that
+  // is not itself in the spine; either way what the reader needs is the
+  // spine position that contains it.
+  const spinePos = new Map(chapters.map((c, i) => [c.href, i + 1]));
+  const chapterIndex = (href) => (href ? spinePos.get(href) ?? null : null);
+
+  const navItem = [...opf.querySelectorAll("manifest > item")]
+    .find((n) => (n.getAttribute("properties") || "").split(/\s+/).includes("nav"));
+  const ncxId = opf.querySelector("spine")?.getAttribute("toc");
+  const ncxItem = (ncxId && manifest.get(ncxId))
+    ?? [...manifest.values()].find((m) => m.mediaType === "application/x-dtbncx+xml");
+
+  let toc = [];
+  try {
+    if (navItem) toc = tocFromNav(zip, resolvePath(opfDir, navItem.getAttribute("href")), chapterIndex);
+    if (!toc.length && ncxItem) toc = tocFromNcx(zip, ncxItem.href, chapterIndex);
+  } catch (e) {
+    console.warn("[epub] could not read the table of contents", e);
+  }
+  if (!toc.length) toc = tocFromHeadings(chapters);
+
+  return { title, numChapters: chapters.length, chapters, toc };
 }

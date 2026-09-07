@@ -115,6 +115,20 @@ export async function savePosition({ id, pn, si, pages }) {
   return entry.position;
 }
 
+/*
+ * Notes are stored with the book rather than in their own file: they are
+ * meaningless without the entry that says which book and where in it, and a
+ * library of a few dozen books' notes is kilobytes.
+ */
+export async function saveNotes({ id, notes }) {
+  const lib = await load();
+  const entry = lib.books.find((b) => b.id === id);
+  if (!entry) return null;
+  entry.notes = notes ?? [];
+  await save();
+  return entry.notes;
+}
+
 export async function forget(id) {
   const lib = await load();
   const i = lib.books.findIndex((b) => b.id === id);

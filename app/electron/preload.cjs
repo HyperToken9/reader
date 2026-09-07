@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld("blitz", {
     list: () => ipcRenderer.invoke("library:list"),
     remember: (meta) => ipcRenderer.invoke("library:remember", meta),
     position: (pos) => ipcRenderer.invoke("library:position", pos),
+    notes: (payload) => ipcRenderer.invoke("library:notes", payload),
     forget: (id) => ipcRenderer.invoke("library:forget", id),
     open: (id) => ipcRenderer.invoke("library:open", id),
   },
