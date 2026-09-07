@@ -13,14 +13,25 @@
         <header class="homeHead">
           <div class="monoLabel">blitz</div>
           <h1 id="greeting">Begin where you left off.</h1>
-          <p class="homeSub">Open a PDF or an EPUB and it is read aloud on the real page — the layout, the
-            figures and the equations exactly as they were printed.</p>
+          <p class="homeSub">Open a PDF, an EPUB or a documentation site and it is read aloud on the real
+            page — the layout, the figures and the equations exactly as they were published.</p>
         </header>
 
         <div class="importCard">
           <button id="homePick" class="selectFile">Select a file…</button>
           <input id="file" type="file" accept="application/pdf,.pdf,application/epub+zip,.epub" hidden />
           <div class="dropHint">or drop a PDF or EPUB anywhere on this page</div>
+
+          <!-- A documentation site is a book whose pages live on a web
+               server: an ordered contents list in a sidebar, real prose
+               behind each entry. Give it an address and it is fetched once,
+               kept on the shelf, and read like any other book. -->
+          <div class="urlRow">
+            <input id="siteUrl" type="url" spellcheck="false" autocomplete="off"
+              placeholder="…or a documentation site: https://spinningup.openai.com/en/latest/" />
+            <button id="siteAdd">Add</button>
+          </div>
+          <p class="siteNote" id="siteNote" hidden></p>
         </div>
 
         <section id="shelf" hidden>

@@ -24,6 +24,15 @@ import { basename, join, sep } from "node:path";
 import { tmpdir } from "node:os";
 
 const FILE = () => join(app.getPath("userData"), "library.json");
+/*
+ * A site is the one shelf entry that does NOT point at a file the reader
+ * already had: there is nothing on disk to point at until we go and get it.
+ * So a site's snapshot is written here, once, and the entry points at that --
+ * which keeps every other part of the shelf (list, open, position, notes,
+ * forget) working on the entry it already understands. It is also what makes
+ * a site readable on a train: the pages are on disk, not re-fetched.
+ */
+const SITE_DIR = () => join(app.getPath("userData"), "sites");
 
 let cache = null;    // {version, books: []}
 let writing = null;  // in-flight write, so concurrent saves serialise
@@ -51,6 +60,65 @@ async function save() {
     await fs.rename(tmp, FILE());
   }).catch((e) => console.error("[library] save failed", e.message));
   return writing;
+}
+
+/*
+ * A site's identity is its address, not its bytes. Content-hashing a snapshot
+ * would make every re-fetch a different book -- a doc site changes, that is
+ * the point of re-fetching it -- and lose the notes and the reading position
+ * attached to the old one. Normalised so the same site typed two ways is one
+ * entry: the fragment and a default port are not part of which site this is,
+ * and a trailing slash is the same page as none.
+ */
+export function canonicalSiteUrl(raw) {
+  const u = new URL(raw);
+  u.hash = "";
+  u.username = "";
+  u.password = "";
+  if ((u.protocol === "http:" && u.port === "80") || (u.protocol === "https:" && u.port === "443")) u.port = "";
+  u.hostname = u.hostname.toLowerCase();
+  if (u.pathname.endsWith("/index.html")) u.pathname = u.pathname.slice(0, -"index.html".length);
+  if (u.pathname.length > 1 && u.pathname.endsWith("/")) u.pathname = u.pathname.slice(0, -1);
+  return u.toString();
+}
+
+function siteId(url) {
+  return createHash("sha256").update(canonicalSiteUrl(url)).digest("hex").slice(0, 32);
+}
+
+/**
+ * Shelve a freshly snapshotted site, writing the snapshot beside the library
+ * and upserting on the address. Re-adding a site you already have is
+ * therefore a *refresh*: same entry, same id, new pages -- so the notes and
+ * the place you were keep pointing at the same book.
+ */
+export async function rememberSite({ url, title, pages, snapshot }) {
+  const lib = await load();
+  const id = siteId(url);
+  await fs.mkdir(SITE_DIR(), { recursive: true });
+  const file = join(SITE_DIR(), `${id}.json`);
+  // Same write-then-rename as the library file itself: a snapshot interrupted
+  // half-written is a book that will not open.
+  await fs.writeFile(`${file}.tmp`, snapshot, "utf8");
+  await fs.rename(`${file}.tmp`, file);
+
+  let entry = lib.books.find((b) => b.id === id);
+  if (!entry) {
+    entry = { id, position: null, addedAt: Date.now() };
+    lib.books.push(entry);
+  }
+  Object.assign(entry, {
+    path: file,
+    url: canonicalSiteUrl(url),
+    title: title || canonicalSiteUrl(url),
+    kind: "site",
+    pages: pages ?? entry.pages ?? null,
+    bytes: Buffer.byteLength(snapshot),
+    openedAt: Date.now(),
+    fetchedAt: Date.now(),
+  });
+  await save();
+  return entry;
 }
 
 /** sha256 of the file's bytes: identity that survives a move or a rename. */
@@ -137,7 +205,13 @@ export async function saveNotes({ id, notes }) {
 export async function forget(id) {
   const lib = await load();
   const i = lib.books.findIndex((b) => b.id === id);
-  if (i >= 0) { lib.books.splice(i, 1); await save(); }
+  if (i < 0) return true;
+  const [gone] = lib.books.splice(i, 1);
+  await save();
+  // A PDF or an EPUB is the reader's own file and is never ours to delete.
+  // A site's snapshot is a file this app wrote and nothing else refers to, so
+  // forgetting the site has to take it with it or userData grows forever.
+  if (gone.kind === "site" && gone.path) await fs.rm(gone.path, { force: true }).catch(() => {});
   return true;
 }
 

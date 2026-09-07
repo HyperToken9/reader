@@ -30,6 +30,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { analyzeLayout } from "./layout.js";
 import { parseEpub } from "./epub.js";
+import { snapshotSite } from "./site.js";
 import { initHome, setView } from "./home.js";
 import { initPanels, setToc, markToc, setNotes } from "./panels.js";
 import loraUrl from "./fonts/lora.woff2?url";
@@ -69,11 +70,26 @@ const el = {
 // ---------------------------------------------------------------- state
 
 let doc = null;
-// "pdf" or "epub". PageEntry (below) duck-types the same shape either way --
-// pn/div/rendered/sentences/base -- so the whole scroll, zoom, eviction and
-// playback pipeline below is shared unmodified; only shell-building,
-// renderPage, evictPage and zoom reflow branch on this.
+// "pdf", "epub" or "site". PageEntry (below) duck-types the same shape
+// whichever it is -- pn/div/rendered/sentences/base -- so the whole scroll,
+// zoom, eviction and playback pipeline below is shared unmodified; only
+// shell-building, renderPage, evictPage and zoom reflow branch on this.
 let docKind = null;
+
+/*
+ * An EPUB and a snapshotted documentation site are the same kind of document
+ * to everything below: an ordered list of reflowable HTML chapters, each one
+ * rendered in its own sandboxed iframe. They differ only in where they came
+ * from, which matters exactly twice -- opening them, and what to call a unit
+ * of one. Everywhere else, ask this rather than naming a format.
+ */
+function isChapters() { return docKind === "epub" || docKind === "site"; }
+
+/*
+ * What one of this document's pages is called. A site's pages are pages; only
+ * a book has chapters.
+ */
+function unitWord() { return docKind === "epub" ? "chapter" : "page"; }
 /** @type {Map<number, PageEntry>} */
 const pages = new Map();
 let scale = 1.2;
@@ -298,8 +314,10 @@ async function pdfToc(pdf) {
 
 /** Fill the Contents tab for whichever format is open. */
 async function applyToc() {
-  if (docKind === "epub") {
-    setToc(doc.toc ?? [], "This book ships no table of contents.");
+  if (isChapters()) {
+    setToc(doc.toc ?? [], docKind === "site"
+      ? "That site had no navigation to read a contents list out of."
+      : "This book ships no table of contents.");
     return;
   }
   let entries = [];
@@ -367,7 +385,7 @@ function liveSelection() {
  */
 function noteContext() {
   if (!doc) return null;
-  const where = (pn) => `${docKind === "epub" ? "chapter" : "page"} ${pn}`;
+  const where = (pn) => `${unitWord()} ${pn}`;
 
   const sel = liveSelection();
   if (sel) return { pn: sel.pn, si: null, quote: sel.text.slice(0, 400), label: where(sel.pn) };
@@ -407,10 +425,45 @@ async function openFile(file) {
   setNotes(entry?.notes ?? [], { enabled: !!entry, reason: NOTES_NEED_A_SHELF });
 }
 
+/*
+ * Add a documentation site to the library and open it.
+ *
+ * Fetching is the slow part -- tens of seconds for a forty-page site -- so
+ * progress goes back to the home page as it runs rather than freezing a
+ * button. The snapshot is shelved *before* it is opened: it is the expensive
+ * thing, and losing it to a render bug would mean fetching the whole site
+ * again.
+ */
+async function addSite(url, onProgress) {
+  const snapshot = await snapshotSite(url, onProgress);
+  let entry = null;
+  try {
+    entry = await window.blitz.library.rememberSite({
+      url: snapshot.url,
+      title: snapshot.title,
+      pages: snapshot.chapters.length,
+      snapshot: JSON.stringify(snapshot),
+    });
+  } catch (e) {
+    // Same rule as a book that cannot be shelved: it is still readable.
+    console.warn("[library] could not shelve this site", e);
+  }
+  setView("reader");
+  await openSite(snapshot);
+  applyToc();
+  currentBook = entry
+    ? { id: entry.id, pages: snapshot.chapters.length, notes: entry.notes ?? [] }
+    : null;
+  setNotes(currentBook?.notes ?? [], { enabled: !!currentBook, reason: NOTES_NEED_A_SHELF });
+  // A site you have read before keeps its place across a re-fetch: the entry
+  // is keyed on the address, so the position survives the new pages.
+  if (entry?.position) await resumeAt(entry.position);
+}
+
 /** A book's own title where it has one, its filename where it doesn't. */
 async function docTitle(fallbackName) {
   const stem = fallbackName.replace(/\.(pdf|epub)$/i, "");
-  if (docKind === "epub") return doc.title || stem;
+  if (isChapters()) return doc.title || stem;
   try {
     const t = (await doc.getMetadata())?.info?.Title?.trim();
     // Plenty of PDFs carry a producer's placeholder ("untitled", "Microsoft
@@ -450,12 +503,25 @@ async function openBook(book) {
     // move out from under an entry. Say so, and offer the picker: reopening
     // it from its new home re-binds the same entry, because the entry is
     // keyed on the bytes and not on the path.
-    status(res.reason === "missing" ? `"${book.title}" is no longer at ${book.path}` : "That book could not be opened");
-    if (res.reason === "missing") el.file.click();
+    status(res.reason === "missing"
+      ? (book.kind === "site"
+          ? `The saved copy of "${book.title}" is gone -- paste its address again to re-fetch it`
+          : `"${book.title}" is no longer at ${book.path}`)
+      : "That book could not be opened");
+    if (res.reason === "missing" && book.kind !== "site") el.file.click();
     return;
   }
   setView("reader");
-  if (book.kind === "epub") await openEpub(res.data); else await openPdf(res.data);
+  if (book.kind === "site") {
+    // A shelved site opens from its snapshot on disk, never from the network:
+    // it was fetched once, and a book you have read should not need a
+    // connection to open again. Re-pasting its address is how you refresh it.
+    await openSite(JSON.parse(new TextDecoder().decode(res.data)));
+  } else if (book.kind === "epub") {
+    await openEpub(res.data);
+  } else {
+    await openPdf(res.data);
+  }
   applyToc();
   currentBook = { id: book.id, pages: doc.numPages, notes: res.entry.notes ?? [] };
   setNotes(currentBook.notes, { enabled: true });
@@ -473,7 +539,7 @@ async function resumeAt(pos) {
   if (!pos?.pn || !doc) return;
   const pn = Math.min(Math.max(1, pos.pn), doc.numPages);
   await goToPage(pn, pos.si ?? null);
-  status(`picked up at ${docKind === "epub" ? "chapter" : "page"} ${pn}`);
+  status(`picked up at ${unitWord()} ${pn}`);
 }
 
 /*
@@ -551,8 +617,8 @@ function syncLayoutControls() {
   el.enableLayout.disabled = !isPdf;
   el.showRegions.disabled = !isPdf;
   el.layoutHint.textContent =
-    docKind === "epub"
-      ? "Not applicable to an EPUB: its chapters are read in document order already, which for reflowable HTML is the correct reading order -- there's no layout model step to run."
+    isChapters()
+      ? "Not applicable to reflowable HTML: its chapters are read in document order already, which for reflowable HTML is the correct reading order -- there's no layout model step to run."
       : docKind === "pdf"
         ? "Runs PP-DocLayoutV2 outside the window (~1.4s a page), so scrolling stays smooth. Groups each page into titles, paragraphs and figures so a click picks the paragraph you meant. Off means pages keep their default reading order."
         : "Open a PDF to enable this.";
@@ -564,14 +630,14 @@ function syncLayoutControls() {
  * only mean something for an EPUB chapter's own CSS.
  */
 function syncTypographyControls() {
-  const isEpub = docKind === "epub";
+  const isEpub = isChapters();
   el.typefacePills.querySelectorAll("button").forEach((b) => { b.disabled = !isEpub; });
   el.fontSize.disabled = !isEpub;
   el.lineWidth.disabled = !isEpub;
   el.lineHeight.disabled = !isEpub;
   el.typographyHint.textContent = isEpub
-    ? "Only affects this EPUB's own reflow -- a book's own styling still applies underneath \"Original.\""
-    : "Only applies to an EPUB -- a PDF page is a fixed render, with no reflowable text to apply a typeface or line width to.";
+    ? "Only affects this document's own reflow -- its own styling still applies underneath \"Original.\""
+    : "Only applies to an EPUB or a site -- a PDF page is a fixed render, with no reflowable text to apply a typeface or line width to.";
 }
 
 /** Build one page/chapter shell, shared innerHTML for whichever fields both formats use. */
@@ -656,20 +722,24 @@ async function openPdf(data) {
 // an EPUB chapter has no upfront aspect ratio to ask for.
 const EPUB_PLACEHOLDER_HEIGHT = 900;
 
-async function openEpub(data) {
+/*
+ * Open an ordered list of reflowable HTML chapters -- an EPUB's spine, or a
+ * documentation site's pages. Both formats reduce to the same thing here, so
+ * this is where they meet and everything past it is format-blind.
+ */
+async function openChapters({ kind, title, chapters, toc, css = "", info }) {
   await closeDoc();
-  docKind = "epub";
+  docKind = kind;
   syncLayoutControls();
   syncTypographyControls();
 
-  const parsed = await parseEpub(data);
   // numPages, not numChapters: every generic page-shaped codepath below
   // (nextCursor, firstPageWithSentences, report(), the render queue) already
   // reads doc.numPages and only PDF-specific call sites (getPage, destroy)
   // need to know the difference, gated on docKind instead.
-  doc = { numPages: parsed.numChapters, chapters: parsed.chapters, title: parsed.title, toc: parsed.toc };
+  doc = { numPages: chapters.length, chapters, title, toc, css };
   el.drop.classList.add("hide");
-  el.docinfo.textContent = `${parsed.title} -- ${doc.numPages} chapter${doc.numPages === 1 ? "" : "s"}`;
+  el.docinfo.textContent = info;
 
   for (let pn = 1; pn <= doc.numPages; pn++) {
     const div = makeShell(pn, "epubchapter",
@@ -687,6 +757,29 @@ async function openEpub(data) {
 
   await renderPage(1);
   report();
+}
+
+async function openEpub(data) {
+  const parsed = await parseEpub(data);
+  await openChapters({
+    kind: "epub", title: parsed.title, chapters: parsed.chapters, toc: parsed.toc,
+    info: `${parsed.title} -- ${parsed.numChapters} chapter${parsed.numChapters === 1 ? "" : "s"}`,
+  });
+}
+
+/*
+ * A snapshotted documentation site (see renderer/site.js). Its pages are
+ * chapters, and its stylesheet is the site's own -- gathered once for the
+ * whole snapshot rather than per page, because it is the same file on all of
+ * them, so it lives on the document and epubShellHtml injects it.
+ */
+async function openSite(snapshot) {
+  const n = snapshot.chapters.length;
+  await openChapters({
+    kind: "site", title: snapshot.title, chapters: snapshot.chapters, toc: snapshot.toc,
+    css: snapshot.css ?? "",
+    info: `${snapshot.title} -- ${n} page${n === 1 ? "" : "s"}`,
+  });
 }
 
 /*
@@ -977,7 +1070,7 @@ async function renderPage(pn) {
   const p = pages.get(pn);
   if (!p || p.rendered) return p;
   if (p.rendering) return p.rendering.then(() => p);
-  return docKind === "epub" ? renderChapter(pn) : renderPdfPage(pn);
+  return isChapters() ? renderChapter(pn) : renderPdfPage(pn);
 }
 
 async function renderPdfPage(pn) {
@@ -1125,6 +1218,17 @@ function wireEpubInput(p) {
     return { x: b.left + e.clientX * scale, y: b.top + e.clientY * scale };
   };
   cd.addEventListener("click", (e) => {
+    // A snapshotted site's own cross-references still work: site.js turned
+    // every <a> into a marker rather than a link, because nothing can
+    // navigate inside a srcdoc iframe. A link into the book jumps; a link
+    // out of it opens in the real browser (main.js's setWindowOpenHandler).
+    const a = e.target?.closest?.("a[data-page], a[data-external]");
+    if (a) {
+      const to = a.getAttribute("data-page");
+      if (to) goToPage(Number(to));
+      else window.open(a.getAttribute("data-external"), "_blank");
+      return;
+    }
     const { x, y } = toClient(e);
     pageClickAt(p, x, y);
   });
@@ -1235,6 +1339,12 @@ function epubShellHtml(chapter) {
          ignore a click that ends a selection drag. */
       ::selection { background: rgba(180, 90, 50, .22); }
     </style>` +
+    // A site's own stylesheet, if this is a site. It belongs to the whole
+    // snapshot rather than to any one page, so it lives on the document and
+    // is injected here, in exactly the slot a book's own headHtml occupies:
+    // after the reader's shell, so the site's styling wins wherever the
+    // shell did not have to force the point with !important.
+    (doc?.css ? `<style>${doc.css.replaceAll("</style", "<\\/style")}</style>` : "") +
     chapter.headHtml +
     `</head><body>${chapter.bodyHtml}</body></html>`;
 }
@@ -1420,7 +1530,7 @@ function fitToWidth() {
 
 let rasterTimer;
 function reZoom(next, anchorClientY = null) {
-  if (docKind === "epub") return applyEpubScale(next, anchorClientY);
+  if (isChapters()) return applyEpubScale(next, anchorClientY);
   applyScale(next, anchorClientY);
   clearTimeout(rasterTimer);
   rasterTimer = setTimeout(rasteriseAtScale, 150);
@@ -1476,7 +1586,7 @@ function applyEpubScale(next, anchorClientY = null) {
  * within whichever page is under the cursor) is the right anchor here.
  */
 function applyEpubTypography() {
-  if (!doc || docKind !== "epub") return;
+  if (!doc || !isChapters()) return;
   for (const p of pages.values()) {
     if (!p.rendered || !p.iframe?.contentDocument) continue;
     const root = p.iframe.contentDocument.documentElement;
@@ -2830,7 +2940,7 @@ function setEpubFont(name) {
   // makes a non-"original" choice actually win over the book's own CSS) has
   // to be baked into a fresh shell -- there's no live-updatable custom
   // property for a full font stack toggle the way --zoom/--reader-* work.
-  if (docKind === "epub") {
+  if (isChapters()) {
     for (const [pn, p] of pages) {
       if (p.rendered) { evictPage(p); renderPage(pn); }
     }
@@ -2903,7 +3013,7 @@ el.toLibrary.onclick = () => goHome();
 initPanels({ onGoTo: goToPage, getContext: noteContext, onSaveNotes: saveNotes });
 setToc([], "Open a book to see its contents.");
 setNotes([], { enabled: false, reason: "Open a book to take notes on it." });
-initHome({ onOpen: openBook, onPick: () => el.file.click() });
+initHome({ onOpen: openBook, onPick: () => el.file.click(), onAddSite: addSite });
 setView("home");
 // Reading position is throttled, so a quit mid-book would otherwise drop the
 // last few seconds of it.
@@ -3019,7 +3129,7 @@ window.__spike = {
   setCursorStyle, play, stop,
   // Test hooks: the note path is driven by a live text selection, which a
   // harness has to be able to see the way the app does.
-  liveSelection, noteContext,
+  liveSelection, noteContext, addSite,
   get cursorStyle() { return cursorStyle; },
   get activeWordIdxs() { return activeWordIdxs; },
 };

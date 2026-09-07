@@ -16,7 +16,7 @@
 
 const $ = (id) => document.getElementById(id);
 
-let handlers = { open: () => {}, pick: () => {} };
+let handlers = { open: () => {}, pick: () => {}, addSite: async () => {} };
 
 function greeting() {
   const h = new Date().getHours();
@@ -38,13 +38,15 @@ function hueOf(id) {
   return Math.abs(h) % 360;
 }
 
+const KIND_LABEL = { epub: "EPUB", site: "SITE", pdf: "PDF" };
+
 function metaLine(b) {
-  if (b.missing) return "file moved or deleted";
+  if (b.missing) return b.kind === "site" ? "saved copy is gone" : "file moved or deleted";
   const unit = b.kind === "epub" ? "chapter" : "page";
   const at = b.position?.pn;
   if (at && b.pages) return `${unit} ${at} of ${b.pages}`;
   if (b.pages) return `${b.pages} ${unit}${b.pages === 1 ? "" : "s"}`;
-  return b.kind === "epub" ? "EPUB" : "PDF";
+  return KIND_LABEL[b.kind] ?? "PDF";
 }
 
 function percent(b) {
@@ -59,7 +61,7 @@ function card(b) {
   wrap.innerHTML = `
     <button class="cardOpen" style="--hue:${hueOf(b.id)}">
       <span class="cover">
-        <span class="coverKind">${b.kind === "epub" ? "EPUB" : "PDF"}</span>
+        <span class="coverKind">${KIND_LABEL[b.kind] ?? "PDF"}</span>
         <span class="coverMeta">${percent(b)}</span>
       </span>
       <span class="cardTitle"></span>
@@ -87,10 +89,57 @@ export async function refreshShelf() {
   $("shelf").hidden = books.length === 0;
 }
 
-export function initHome({ onOpen, onPick }) {
-  handlers = { open: onOpen, pick: onPick };
+/*
+ * Adding a documentation site is the one way in that takes real time -- tens
+ * of seconds of network for a forty-page site -- so it reports as it goes
+ * and the field stays put while it does. Everything else here is instant.
+ */
+function initSiteInput() {
+  const field = $("siteUrl");
+  const button = $("siteAdd");
+  const note = $("siteNote");
+  let busy = false;
+
+  const say = (text, bad = false) => {
+    note.textContent = text;
+    note.classList.toggle("bad", bad);
+    note.hidden = !text;
+  };
+
+  async function go() {
+    const url = field.value.trim();
+    if (!url || busy) return;
+    busy = true;
+    field.disabled = button.disabled = true;
+    say("reading the contents…");
+    try {
+      await handlers.addSite(url, ({ phase, done, total, title }) => {
+        if (phase === "index") say("reading the contents…");
+        else if (phase === "pages") say(`fetching ${done + 1} of ${total}${title ? ` — ${title}` : ""}`);
+        else if (phase === "assets") say(`saving ${done + 1} of ${total}`);
+      });
+      field.value = "";
+      say("");
+    } catch (e) {
+      // A site that will not load is worth an explanation in the place the
+      // address was typed, not a status line inside a reader that never
+      // opened.
+      say(String(e?.message ?? e), true);
+    } finally {
+      busy = false;
+      field.disabled = button.disabled = false;
+    }
+  }
+
+  button.onclick = go;
+  field.onkeydown = (e) => { if (e.key === "Enter") go(); };
+}
+
+export function initHome({ onOpen, onPick, onAddSite }) {
+  handlers = { open: onOpen, pick: onPick, addSite: onAddSite };
   $("greeting").textContent = greeting();
   $("homePick").onclick = () => handlers.pick();
+  initSiteInput();
   refreshShelf();
 }
 

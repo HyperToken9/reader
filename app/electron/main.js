@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, sep } from "node:path";
 
 import * as layout from "./layout.js";
+import * as net from "./net.js";
 import * as library from "./library.js";
 import * as tts from "./tts.js";
 
@@ -74,6 +75,12 @@ ipcMain.handle("library:position", (_e, pos) => library.savePosition(pos));
 ipcMain.handle("library:notes", (_e, payload) => library.saveNotes(payload));
 ipcMain.handle("library:forget", (_e, id) => library.forget(id));
 ipcMain.handle("library:open", (_e, id) => library.open(id));
+ipcMain.handle("library:rememberSite", (_e, meta) => library.rememberSite(meta));
+
+// Fetching a documentation site has to happen out here: the renderer is a
+// file:// page and every cross-origin request it makes is blocked. Bytes come
+// back, nothing else -- see electron/net.js.
+ipcMain.handle("net:fetch", (_e, url) => net.fetchResource(url));
 
 app.whenReady().then(() => {
   createWindow();

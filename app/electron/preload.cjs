@@ -27,6 +27,14 @@ contextBridge.exposeInMainWorld("blitz", {
    */
   pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch { return ""; } },
 
+  /*
+   * Fetch one http(s) resource, in the main process. A documentation site is
+   * a book whose pages live on a web server, and this renderer is a file://
+   * page that cannot reach one. Returns bytes; parsing them is the renderer's
+   * job, in the same DOMParser + sandboxed-iframe path an EPUB chapter takes.
+   */
+  fetch: (url) => ipcRenderer.invoke("net:fetch", url),
+
   /** The shelf. See electron/library.js. */
   library: {
     list: () => ipcRenderer.invoke("library:list"),
@@ -35,5 +43,6 @@ contextBridge.exposeInMainWorld("blitz", {
     notes: (payload) => ipcRenderer.invoke("library:notes", payload),
     forget: (id) => ipcRenderer.invoke("library:forget", id),
     open: (id) => ipcRenderer.invoke("library:open", id),
+    rememberSite: (meta) => ipcRenderer.invoke("library:rememberSite", meta),
   },
 });

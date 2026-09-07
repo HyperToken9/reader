@@ -10,10 +10,16 @@
  * zoom path.
  */
 import { spawn } from "node:child_process";
+import { resolve } from "node:path";
 import { WebSocket } from "ws";
 
 const BIN = process.argv[2] ?? ".";
-const PDF = process.argv[3];
+// Absolute, always: DOM.setFileInputFiles rejects a relative path, and it
+// does so by *erroring the command* -- which this harness reads as a reply
+// with no result, so the run then waits forever for a document that was
+// never handed over. Resolving here costs nothing and turns an hour of
+// "the app is hanging" into a path that just works.
+const PDF = process.argv[3] ? resolve(process.argv[3]) : undefined;
 const PORT = Number(process.env.BLITZ_CDP_PORT || 9399);
 if (!PDF) { console.log("usage: node scripts/scroll-check.mjs <binary|.> <some.pdf>"); process.exit(2); }
 

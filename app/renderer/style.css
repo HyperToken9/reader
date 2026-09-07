@@ -225,6 +225,40 @@ body[data-view="reader"] #home { display: none; }
 
 .dropHint { font: 10.5px var(--font-ui); color: var(--dim); text-align: center; }
 
+/* A documentation site goes in by address rather than by file, so it gets a
+   field rather than a button -- one row, sharing the import card, so the two
+   ways in read as two ways in and not as two features. */
+.urlRow { display: flex; gap: 8px; }
+.urlRow input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 11.5px var(--font-ui);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.urlRow input::placeholder { color: var(--dim); }
+.urlRow input:focus { outline: none; border-color: var(--accent); }
+.urlRow button {
+  flex: none;
+  font: 11.5px var(--font-ui);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.urlRow button:hover:not(:disabled) { background: var(--ink); color: var(--panel); }
+.urlRow input:disabled, .urlRow button:disabled { opacity: .5; cursor: default; }
+
+.siteNote { margin: 0; font: 10.5px/1.6 var(--font-ui); color: var(--muted); text-align: center; }
+.siteNote.bad { color: #a4462e; }
+
 /* ---------------- the shelf ---------------- */
 
 #shelf { width: 100%; border-top: 1px solid var(--border); padding-top: 40px; }

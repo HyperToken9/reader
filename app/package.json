@@ -2,7 +2,7 @@
   "name": "blitz",
   "version": "0.1.0",
   "private": true,
-  "description": "Read textbooks aloud on the real page -- PDF or EPUB -- with the spoken words highlighted in place.",
+  "description": "Read textbooks aloud on the real page -- PDF, EPUB or a documentation site -- with the spoken words highlighted in place.",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
