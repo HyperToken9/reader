@@ -1,9 +1,9 @@
 /*
  * The only bridge between the renderer and Node. Context isolation stays on
- * and nodeIntegration off, so the page sees exactly these five calls and
- * nothing else -- no require, no fs, no child_process.
+ * and nodeIntegration off, so the page sees exactly these calls and nothing
+ * else -- no require, no fs, no child_process.
  */
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("blitz", {
   /** {text, voice, speed} -> {sr, audio_b64, words, spans} */
@@ -16,4 +16,23 @@ contextBridge.exposeInMainWorld("blitz", {
   analyzeLayout: (pngArrayBuffer) => ipcRenderer.invoke("layout:analyze", pngArrayBuffer),
   /** -> boolean */
   layoutReady: () => ipcRenderer.invoke("layout:ready"),
+
+  /*
+   * The absolute path behind a picked or dropped File. A renderer only ever
+   * sees a File object, which under context isolation carries no path --
+   * `File.path` was removed in Electron 32 -- and webUtils is preload-only.
+   * So this one call is what makes a library possible at all: without a path
+   * there is nothing to reopen a book from on the next launch. Returns ""
+   * for a File that has no path behind it (a drag out of a web page).
+   */
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch { return ""; } },
+
+  /** The shelf. See electron/library.js. */
+  library: {
+    list: () => ipcRenderer.invoke("library:list"),
+    remember: (meta) => ipcRenderer.invoke("library:remember", meta),
+    position: (pos) => ipcRenderer.invoke("library:position", pos),
+    forget: (id) => ipcRenderer.invoke("library:forget", id),
+    open: (id) => ipcRenderer.invoke("library:open", id),
+  },
 });

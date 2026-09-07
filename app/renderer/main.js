@@ -30,6 +30,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { analyzeLayout } from "./layout.js";
 import { parseEpub } from "./epub.js";
+import { initHome, setView } from "./home.js";
 import loraUrl from "./fonts/lora.woff2?url";
 import loraItalicUrl from "./fonts/lora-italic.woff2?url";
 import workSansUrl from "./fonts/work-sans.woff2?url";
@@ -58,6 +59,7 @@ const el = {
   busyDot: $("busyDot"), hoverBadge: $("hoverBadge"),
   variantPills: $("variantPills"), cursorPills: $("cursorPills"), themePills: $("themePills"),
   typefacePills: $("typefacePills"), typographyHint: $("typographyHint"),
+  toLibrary: $("toLibrary"),
   fontSize: $("fontSize"), fontSizeOut: $("fontSizeOut"),
   lineWidth: $("lineWidth"), lineWidthOut: $("lineWidthOut"),
   lineHeight: $("lineHeight"), lineHeightOut: $("lineHeightOut"),
@@ -254,12 +256,131 @@ function sniffKind(name, data) {
   return null;
 }
 
+/*
+ * The book currently on the shelf, if this one is on it: {id, pages}. A file
+ * with no path behind it (dragged out of a web page) still reads perfectly
+ * well, it just cannot be shelved or resumed, so this stays null for it.
+ */
+let currentBook = null;
+
 async function openFile(file) {
   const data = await file.arrayBuffer();
   const kind = sniffKind(file.name, data);
-  if (kind === "epub") return openEpub(data);
-  if (kind === "pdf") return openPdf(data);
-  status(`Can't tell what kind of file "${file.name}" is -- expected a .pdf or .epub`);
+  if (!kind) return status(`Can't tell what kind of file "${file.name}" is -- expected a .pdf or .epub`);
+  // Ask for the path BEFORE opening: openPdf detaches the ArrayBuffer, and
+  // the File object is the only thing that can answer this.
+  const path = window.blitz?.pathForFile?.(file) ?? "";
+  setView("reader");
+  if (kind === "epub") await openEpub(data); else await openPdf(data);
+  await shelve(path, file.name);
+}
+
+/** A book's own title where it has one, its filename where it doesn't. */
+async function docTitle(fallbackName) {
+  const stem = fallbackName.replace(/\.(pdf|epub)$/i, "");
+  if (docKind === "epub") return doc.title || stem;
+  try {
+    const t = (await doc.getMetadata())?.info?.Title?.trim();
+    // Plenty of PDFs carry a producer's placeholder ("untitled", "Microsoft
+    // Word - ch3.doc") as their title; a filename beats that.
+    // Scanned-book metadata routinely carries the site it was downloaded
+    // from as part of the title; that is not part of the book.
+    if (t && t.length > 2 && !/^untitled/i.test(t) && !/\.(docx?|indd|qxd)\b/i.test(t)) {
+      return t.replace(/\s*[-–|(]\s*(www\.)?[\w-]+\.(com|net|org|sk|io)\)?\s*$/i, "").trim() || stem;
+    }
+  } catch { /* no metadata is fine */ }
+  return stem;
+}
+
+/** Record the open document on the shelf, and pick up any position it has. */
+async function shelve(path, name) {
+  currentBook = null;
+  if (!path || !doc || !window.blitz?.library) return null;
+  try {
+    const entry = await window.blitz.library.remember({
+      path, title: await docTitle(name), kind: docKind, pages: doc.numPages,
+    });
+    currentBook = { id: entry.id, pages: doc.numPages };
+    return entry;
+  } catch (e) {
+    // A book that can't be shelved is still a book you can read.
+    console.warn("[library] could not shelve this document", e);
+    return null;
+  }
+}
+
+/** Open a book off the shelf, landing where it was left. */
+async function openBook(book) {
+  const res = await window.blitz.library.open(book.id).catch(() => ({ ok: false, reason: "error" }));
+  if (!res.ok) {
+    // The library points at files rather than copying them, so a book can
+    // move out from under an entry. Say so, and offer the picker: reopening
+    // it from its new home re-binds the same entry, because the entry is
+    // keyed on the bytes and not on the path.
+    status(res.reason === "missing" ? `"${book.title}" is no longer at ${book.path}` : "That book could not be opened");
+    if (res.reason === "missing") el.file.click();
+    return;
+  }
+  setView("reader");
+  if (book.kind === "epub") await openEpub(res.data); else await openPdf(res.data);
+  currentBook = { id: book.id, pages: doc.numPages };
+  await resumeAt(res.entry.position);
+}
+
+/*
+ * Resume lands on the PAGE that was left, not on the sentence -- the human's
+ * call (21): a page is a place you recognise, and being dropped mid-sentence
+ * into audio you did not ask for is not. The sentence is not thrown away
+ * though: it becomes the play cursor, so pressing play continues the
+ * sentence you stopped on rather than restarting the page.
+ */
+async function resumeAt(pos) {
+  if (!pos?.pn || !doc) return;
+  const pn = Math.min(Math.max(1, pos.pn), doc.numPages);
+  await renderPage(pn);
+  markGeomDirty();
+  const g = geomFor(pn);
+  if (g) {
+    el.viewer.scrollTop = g.top;
+    lastScrollTop = el.viewer.scrollTop;
+  }
+  if (pos.si != null) cursor = { pn, si: pos.si };
+  renderSentenceList(pn);
+  status(`picked up at ${docKind === "epub" ? "chapter" : "page"} ${pn}`);
+}
+
+/*
+ * Position is written as you read, not only when you ask for it: the reading
+ * loop reports every sentence it speaks, and a settled scroll reports the
+ * page you stopped on, so putting the app down at any point leaves something
+ * to come back to. Writes are throttled -- a sentence is a couple of seconds
+ * of audio, and the library file does not need rewriting that often.
+ */
+const POSITION_SAVE_MS = 3000;
+let pendingPosition = null;
+let positionTimer = null;
+
+function notePosition(pn, si = null) {
+  if (!currentBook || !pn) return;
+  pendingPosition = { id: currentBook.id, pn, si, pages: currentBook.pages };
+  if (positionTimer) return;
+  positionTimer = setTimeout(() => { positionTimer = null; flushPosition(); }, POSITION_SAVE_MS);
+}
+
+function flushPosition() {
+  if (!pendingPosition) return;
+  const p = pendingPosition;
+  pendingPosition = null;
+  window.blitz?.library?.position(p).catch(() => {});
+}
+
+/** Leave the book and go back to the shelf. */
+async function goHome() {
+  flushPosition();
+  await closeDoc();
+  currentBook = null;
+  el.drop.classList.remove("hide");
+  setView("home");
 }
 
 /** Teardown shared by both openers: stop playback, release the old document's pages. */
@@ -827,9 +948,18 @@ async function renderChapter(pn) {
     const resized = !p.base || p.base.height !== h;
     // Natural, unscaled size -- the same contract as a PDF page's p.base,
     // which holds its scale-1 viewport. sizeEpubChapter multiplies by zoom.
+    const wasHeight = p.base?.height ?? null;
     p.base = { width: EPUB_PAGE_WIDTH, height: h };
     sizeEpubChapter(p);
-    if (resized) markGeomDirty();
+    if (resized) {
+      // Same as a PDF shell learning its real size: a chapter that grows
+      // above the viewport would otherwise shove whatever you are reading.
+      const g = geomFor(pn);
+      markGeomDirty();
+      if (wasHeight !== null && g && g.bottom <= el.viewer.scrollTop) {
+        scrollByWithoutFling((h - wasHeight) * scale);
+      }
+    }
 
     buildEpubSentences(p);
     p.rendered = true;
@@ -2103,6 +2233,7 @@ async function speakOne(c) {
 
   loadingSentence = null;
   speaking = c;
+  notePosition(c.pn, c.si);
   currentSpans = data.spans;
   activeWordIdxs = [];
   el.spoken.textContent = s.text;
@@ -2189,6 +2320,7 @@ function stop() {
   loadingSentence = null;
   el.play.textContent = "▶ Play";
   el.spoken.textContent = "—";
+  flushPosition();
   repaint();
   report();
 }
@@ -2261,7 +2393,13 @@ function onScrollSettled() {
   scrollVelocity = 0;
   sweepEvictions();
   const hit = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
-  if (hit) renderSentenceList(hit.pn);
+  if (hit) {
+    renderSentenceList(hit.pn);
+    // While playing, the reading loop is the authority on position -- an
+    // auto-scroll settling would otherwise overwrite the sentence with a
+    // bare page number.
+    if (!playing) notePosition(hit.pn);
+  }
   pump();
 }
 
@@ -2547,6 +2685,14 @@ $("hide").onclick = () => document.getElementById("app").classList.toggle("bare"
 
 // ---------------------------------------------------------------- wiring
 
+el.toLibrary.onclick = () => goHome();
+initHome({ onOpen: openBook, onPick: () => el.file.click() });
+setView("home");
+// Reading position is throttled, so a quit mid-book would otherwise drop the
+// last few seconds of it.
+window.addEventListener("pagehide", flushPosition);
+window.addEventListener("blur", flushPosition);
+
 el.pick.onclick = () => el.file.click();
 el.file.onchange = () => {
   const f = el.file.files?.[0];
@@ -2561,6 +2707,16 @@ el.viewer.addEventListener("dragleave", () => el.viewer.classList.remove("draggi
 el.viewer.addEventListener("drop", (e) => {
   e.preventDefault();
   el.viewer.classList.remove("dragging");
+  const f = e.dataTransfer?.files?.[0];
+  if (f) openFile(f);
+});
+
+// The home page is a drop target as well -- "drop a PDF anywhere on this
+// page" is what it says, and the viewer is not mounted while it is showing.
+const home = document.getElementById("home");
+home.addEventListener("dragover", (e) => e.preventDefault());
+home.addEventListener("drop", (e) => {
+  e.preventDefault();
   const f = e.dataTransfer?.files?.[0];
   if (f) openFile(f);
 });

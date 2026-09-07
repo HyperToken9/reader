@@ -100,6 +100,185 @@ body {
 
 #app { display: flex; height: 100%; }
 
+/* ---------------- routing ----------------
+ *
+ * Two real views, not an overlay: the home page and the reader. Exactly one
+ * is mounted, keyed off <body data-view>, and switching to home closes the
+ * document rather than parking it behind a screen (see renderer/home.js).
+ */
+body[data-view="home"] #app,
+body[data-view="home"] #hide,
+body[data-view="reader"] #home { display: none; }
+
+#home {
+  height: 100%;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.homeInner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 96px 24px 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 56px;
+}
+
+.homeHead { text-align: center; max-width: 560px; }
+
+.monoLabel {
+  font: 500 10px var(--font-ui);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#greeting {
+  font: italic 400 38px/1.25 var(--font-serif);
+  color: var(--ink);
+  margin: 16px 0 20px;
+}
+
+.homeSub { font: 12.5px/1.9 var(--font-ui); color: var(--muted); margin: 0; }
+
+.importCard { width: 440px; max-width: 90vw; display: flex; flex-direction: column; gap: 14px; }
+
+.selectFile {
+  font: 11.5px var(--font-ui);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset, 0 3px 0 var(--border), 0 6px 12px rgba(0, 0, 0, .08);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.selectFile:hover { transform: translateY(-2px); }
+.selectFile:active { transform: translateY(3px); box-shadow: inset 0 2px 4px rgba(0, 0, 0, .3); }
+
+.dropHint { font: 10.5px var(--font-ui); color: var(--dim); text-align: center; }
+
+/* ---------------- the shelf ---------------- */
+
+#shelf { width: 100%; border-top: 1px solid var(--border); padding-top: 40px; }
+.shelfLabel { margin-bottom: 20px; }
+
+.shelfGrid {
+  display: grid;
+  /* Fixed tracks, not auto-fit + 1fr: a shelf of one book would stretch that
+     single card to the full 760px column, and a 3/4 cover makes it a
+     billboard. A shelf should look the same whether it holds one book or a
+     dozen. */
+  grid-template-columns: repeat(auto-fill, 176px);
+  justify-content: start;
+  gap: 22px;
+}
+
+.shelfCard { position: relative; }
+
+.cardOpen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s ease;
+}
+.cardOpen:hover { transform: translateY(-4px); }
+.cardOpen:active { transform: translateY(1px); }
+
+/* Typographic cover: a hue drawn from the book's own content hash, so a
+   shelf stays recognisable without a thumbnail pipeline. */
+.cover {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  aspect-ratio: 3 / 4;
+  border-radius: 3px;
+  padding: 12px;
+  overflow: hidden;
+  background-color: oklch(96% 0.012 var(--hue));
+  background-image: radial-gradient(oklch(58% 0.12 var(--hue) / .5) 1.3px, transparent 1.6px);
+  background-size: 9px 9px;
+  color: oklch(38% 0.1 var(--hue));
+  border: 1px solid oklch(80% 0.05 var(--hue));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset,
+              0 4px 0 oklch(80% 0.05 var(--hue) / .7),
+              0 10px 18px rgba(0, 0, 0, .10);
+}
+
+/* Both cover labels sit on the dot pattern, which eats small type; a solid
+   chip behind them is what keeps them legible. */
+.coverKind, .coverMeta {
+  align-self: flex-start;
+  background: oklch(97% 0.01 var(--hue) / .92);
+  border-radius: 2px;
+  padding: 2px 5px;
+  letter-spacing: .1em;
+}
+.coverKind {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font: 500 9px var(--font-ui);
+}
+.coverMeta { font: 500 10px var(--font-ui); }
+
+.cardTitle {
+  font: italic 13.5px/1.35 var(--font-serif);
+  color: var(--ink);
+  padding: 0 2px;
+  /* A textbook's own metadata title can run to a full sentence; three lines
+     is enough to recognise one, and keeps the shelf on a grid. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cardMeta { font: 10.5px var(--font-ui); color: var(--muted); padding: 0 2px; }
+
+.shelfCard.gone .cover { filter: grayscale(1); opacity: .5; }
+.shelfCard.gone .cardMeta { color: var(--accent); }
+
+.cardForget {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.shelfCard:hover .cardForget { opacity: 1; }
+.cardForget:hover { color: var(--ink); }
+
+#toLibrary {
+  align-self: flex-start;
+  font-size: 11px;
+  letter-spacing: .04em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
 /* The gear opens/closes the settings panel -- top-right, out of the way of
    the page itself until summoned, per the comp. */
 #hide {

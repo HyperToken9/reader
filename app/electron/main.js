@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, sep } from "node:path";
 
 import * as layout from "./layout.js";
+import * as library from "./library.js";
 import * as tts from "./tts.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -64,6 +65,14 @@ ipcMain.handle("tts:voices", () => tts.voices());
 ipcMain.handle("tts:status", () => tts.status());
 ipcMain.handle("layout:analyze", (_e, png) => layout.analyze(Buffer.from(png)));
 ipcMain.handle("layout:ready", () => layout.isReady());
+
+// The library lives in the main process because it has to outlive the
+// renderer's storage; see electron/library.js for why.
+ipcMain.handle("library:list", () => library.list());
+ipcMain.handle("library:remember", (_e, meta) => library.remember(meta));
+ipcMain.handle("library:position", (_e, pos) => library.savePosition(pos));
+ipcMain.handle("library:forget", (_e, id) => library.forget(id));
+ipcMain.handle("library:open", (_e, id) => library.open(id));
 
 app.whenReady().then(() => {
   createWindow();
