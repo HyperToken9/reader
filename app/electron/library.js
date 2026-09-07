@@ -20,7 +20,8 @@ import { app } from "electron";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, join, sep } from "node:path";
+import { tmpdir } from "node:os";
 
 const FILE = () => join(app.getPath("userData"), "library.json");
 
@@ -80,6 +81,10 @@ export async function list() {
  * path, one entry.
  */
 export async function remember({ path, title, kind, pages }) {
+  // A document opened out of the OS temp directory is a scratch file -- the
+  // smoke test's fixture, a mail attachment opened in place -- not something
+  // to put on a shelf and offer to reopen next week.
+  if (path.startsWith(tmpdir() + sep)) return null;
   const lib = await load();
   const [id, stat] = await Promise.all([hashFile(path), fs.stat(path)]);
   let entry = lib.books.find((b) => b.id === id);

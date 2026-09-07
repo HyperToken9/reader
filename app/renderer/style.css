@@ -100,6 +100,68 @@ body {
 
 #app { display: flex; height: 100%; }
 
+/* ---------------- scrollbars ----------------
+ *
+ * The default Chromium bar is a 15px light-grey slab with arrow buttons at
+ * both ends; next to a book page it looks like a different application. This
+ * is the same bar, made quiet: no track, no buttons, a thumb inset from the
+ * edge by a transparent border so it reads as a floating pill and thickens
+ * on hover. Still a real scrollbar -- draggable, the full height of the
+ * scroller -- because a reader needs to know how far through a 900-page book
+ * they are.
+ */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--ink) 20%, transparent);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--ink) 38%, transparent); background-clip: content-box; }
+::-webkit-scrollbar-thumb:active { background: color-mix(in oklab, var(--ink) 50%, transparent); background-clip: content-box; }
+::-webkit-scrollbar-button { display: none; }
+
+/* ---------------- icon buttons ----------------
+ *
+ * Every bare-icon control in the app is one of these: same 28px circle, same
+ * quiet-until-hovered treatment, an SVG rather than a text glyph (an arrow
+ * or a gear character renders at whatever size and weight the font feels
+ * like, which is what made these three look bolted on).
+ */
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .12s ease, background .12s ease;
+}
+.iconBtn:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+}
+.iconBtn:active { transform: translateY(1px); }
+/* flex: none, or the SVG is treated as a shrinkable flex item and a
+   multi-shape icon gets squashed sideways inside the circle. */
+.iconBtn svg { display: block; flex: none; }
+
+/* The one that floats over the page rather than sitting in a panel needs an
+   edge of its own to read as a control. */
+.iconBtn.floating {
+  background: var(--panel);
+  border-color: var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .10);
+}
+
 /* ---------------- routing ----------------
  *
  * Two real views, not an overlay: the home page and the reader. Exactly one
@@ -279,21 +341,29 @@ body[data-view="reader"] #home { display: none; }
   color: var(--muted);
 }
 
-/* The gear opens/closes the settings panel. It rides just outside that
-   panel's edge, so it never sits on top of the controls it opens. */
+/*
+ * The settings panel has one control, in two places: this button opens it,
+ * the close button inside its header shuts it, and only ever one of the two
+ * is on screen. The gear used to sit over the page even while the panel it
+ * opens was already open, which is why it read as an afterthought.
+ */
 #hide {
   position: fixed;
   top: 18px;
-  right: 344px;
+  right: 20px;
   z-index: 60;
-  opacity: .55;
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 15px;
+  display: none;
 }
-#hide:hover { opacity: 1; }
+body:has(#app.bare) #hide { display: inline-flex; }
 #app.bare #side { display: none; }
-body:has(#app.bare) #hide { right: 24px; }
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -2px -4px 2px 0;
+}
 #app.bare + #switcher, body:has(#app.bare) #switcher { left: 50%; }
 
 /* ---------------- left rail: contents + notes ----------------
@@ -328,13 +398,10 @@ body:has(#app.bare) #hide { right: 24px; }
   max-height: 2.7em;
   overflow: hidden;
 }
-.railTop button {
-  flex: 0 0 auto;
-  padding: 4px 8px;
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 12px;
-}
+.railTop .iconBtn { margin: -4px 0; }
+#collapseLeft .whenShut { display: none; }
+#app.noleft #collapseLeft .whenShut { display: block; }
+#app.noleft #collapseLeft .whenOpen { display: none; }
 
 /* Collapsed, the rail keeps a thin strip -- otherwise there is nothing left
    to click to bring it back. */
@@ -347,9 +414,6 @@ body:has(#app.bare) #hide { right: 24px; }
 #app.noleft .railTop { padding: 0; justify-content: center; }
 #app.noleft .railTop #docinfo,
 #app.noleft .railTop #toLibrary { display: none; }
-#app.noleft #collapseLeft::before { content: "⟩"; }
-#app.noleft #collapseLeft { font-size: 0; }
-#app.noleft #collapseLeft::before { font-size: 12px; }
 
 .tabRow {
   display: flex;
@@ -406,7 +470,14 @@ body:has(#app.bare) #hide { right: 24px; }
   background: color-mix(in oklab, var(--accent) 10%, transparent);
 }
 
-button.wide { width: 100%; margin-bottom: 10px; }
+button.wide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 10px;
+}
 
 .note {
   border: 1px solid var(--border);
@@ -554,30 +625,56 @@ button:disabled { opacity: .45; cursor: default; }
   overflow: auto;
 }
 
-/* ---------------- diagnostics (collapsed by default) ---------------- */
-
-#diagnostics {
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
-}
-#diagnostics summary {
+/* ---------------- settings sections ----------------
+ *
+ * One at a time, remembered across launches (main.js). <details> rather than
+ * a bespoke accordion: it is a disclosure widget, keyboard-operable and
+ * screen-reader-labelled for free.
+ */
+.sect { border-top: 1px solid var(--border); }
+.sect summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font: 500 11px var(--font-ui);
   text-transform: uppercase;
   letter-spacing: .1em;
   color: var(--muted);
   cursor: pointer;
   user-select: none;
+  padding: 11px 2px;
+  list-style: none;
 }
-#diagnostics[open] summary { margin-bottom: 10px; }
-#diagnostics section { margin-top: 12px; }
+.sect summary::-webkit-details-marker { display: none; }
+/* A chevron that turns, drawn in CSS so it inherits the text colour and
+   needs no icon of its own. */
+.sect summary::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.2px solid currentColor;
+  border-bottom: 1.2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .15s ease;
+}
+.sect[open] summary { color: var(--ink); }
+.sect[open] summary::before { transform: rotate(45deg); }
+.sect summary:hover { color: var(--ink); }
+
+.sectBody {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 2px 16px;
+}
+#diagnostics .sectBody h2 { margin-top: 6px; }
 
 #sentences {
   margin: 0;
   padding-left: 22px;
+  max-height: 320px;
   overflow: auto;
   font-size: 11px;
-  flex: 1;
-  min-height: 0;
 }
 #sentences li { padding: 2px 0; cursor: pointer; color: var(--muted); }
 #sentences li:hover { color: var(--ink); }
@@ -615,11 +712,11 @@ button:disabled { opacity: .45; cursor: default; }
 
 /*
  * An epub chapter has no upfront aspect ratio -- its height is whatever the
- * iframe's own reflowed content measures out to (main.js sets it inline,
- * px, after each render or reflow). pointer-events:none on the iframe itself
- * is what lets clicks and hover fall through to this div: an iframe's
- * content is a separate document, so DOM events inside it never bubble into
- * the parent document's listeners the way a PDF page's textLayer spans do.
+ * iframe's own reflowed content measures out to (main.js sets it inline, px,
+ * after each render or reflow). The iframe takes pointer events, so its text
+ * can be selected and quoted in a note; because an iframe's events never
+ * bubble into this document, main.js's wireEpubInput hands the click and
+ * hover back out to the reader's own handlers.
  */
 /*
  * Width and height are written inline by sizeEpubChapter (natural size x
@@ -634,7 +731,6 @@ button:disabled { opacity: .45; cursor: default; }
 .epubchapter iframe {
   display: block;
   border: 0;
-  pointer-events: none;
   transform-origin: 0 0;
 }
 

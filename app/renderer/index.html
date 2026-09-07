@@ -19,6 +19,7 @@
 
         <div class="importCard">
           <button id="homePick" class="selectFile">Select a file…</button>
+          <input id="file" type="file" accept="application/pdf,.pdf,application/epub+zip,.epub" hidden />
           <div class="dropHint">or drop a PDF or EPUB anywhere on this page</div>
         </div>
 
@@ -29,16 +30,18 @@
       </div>
     </div>
 
-    <button id="hide" title="Settings (h)">⚙</button>
+    <button id="hide" class="iconBtn floating" title="Settings (h)" aria-label="Open settings"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"><line x1="2" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="2" y1="8.5" x2="15" y2="8.5" stroke="currentColor" stroke-width="1.2"/><line x1="2" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="5" r="1.7" fill="var(--panel)" stroke="currentColor" stroke-width="1.1"/><circle cx="11.5" cy="8.5" r="1.7" fill="var(--panel)" stroke="currentColor" stroke-width="1.1"/><circle cx="4.5" cy="12" r="1.7" fill="var(--panel)" stroke="currentColor" stroke-width="1.1"/></svg></button>
     <div id="app">
       <!-- Left rail: the BOOK. Its table of contents, your notes on it, and
            the transport that reads it. Everything about the app itself lives
            in the settings panel on the right. -->
       <aside id="leftPanel">
         <header class="railTop">
-          <button id="toLibrary" title="Back to the library">←</button>
+          <button id="toLibrary" class="iconBtn" title="Back to the library" aria-label="Back to the library"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.2" y="2.8" width="3.4" height="10.4" rx=".5"/><rect x="6.6" y="2.8" width="3.4" height="10.4" rx=".5"/><path d="M11.4 3.9 14.1 4.6 12.2 13.4 9.5 12.7Z"/></svg></button>
           <div id="docinfo" class="muted">no document</div>
-          <button id="collapseLeft" title="Hide this panel">⟨</button>
+          <button id="collapseLeft" class="iconBtn" title="Hide this panel" aria-label="Hide this panel">
+            <span class="whenOpen"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4 5.5 8l4 4"/></svg></span><span class="whenShut"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4 10.5 8l-4 4"/></svg></span>
+          </button>
         </header>
 
         <div class="tabRow" id="leftTabs">
@@ -52,7 +55,7 @@
         </div>
 
         <div class="tabPanel" id="tabNotes" hidden>
-          <button id="addNote" class="wide">+ Note here</button>
+          <button id="addNote" class="wide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg> Add note</button>
           <ol id="notesList"></ol>
           <p class="muted tiny" id="notesHint"></p>
         </div>
@@ -69,107 +72,121 @@
       </main>
 
       <aside id="side">
-        <h1>Settings</h1>
+        <header class="panelHead">
+          <span class="monoLabel">configure</span>
+          <button id="closeSettings" class="iconBtn" title="Close settings (h)" aria-label="Close settings"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"/></svg></button>
+        </header>
         <p class="proto" id="engineStatus">starting the speech engine…</p>
 
-        <section>
-          <button id="pick">Choose a PDF or EPUB…</button>
-          <input id="file" type="file" accept="application/pdf,.pdf,application/epub+zip,.epub" hidden />
-        </section>
-
-        <section>
-          <h2>Appearance</h2>
-          <div class="rowLabel">Highlight style</div>
-          <div class="pillRow" id="variantPills">
-            <button data-variant="A">Tint</button>
-            <button data-variant="B">Underline</button>
-            <button data-variant="C">Spotlight</button>
+        <!-- One section open at a time (main.js enforces it and remembers
+             which). Six short lists beat one long one: the panel held every
+             control at once and read as a wall. -->
+        <details class="sect" data-sect="page" open>
+          <summary>Page</summary>
+          <div class="sectBody">
+            <div class="rowLabel">Theme</div>
+            <div class="pillRow" id="themePills">
+              <button data-theme-choice="light">Paper</button>
+              <button data-theme-choice="sepia">Sepia</button>
+              <button data-theme-choice="dark">Night</button>
+            </div>
+            <div class="rowLabel">Typeface</div>
+            <div class="pillRow" id="typefacePills">
+              <button data-typeface="original">Original</button>
+              <button data-typeface="serif">Serif</button>
+              <button data-typeface="sans">Sans</button>
+              <button data-typeface="mono">Mono</button>
+            </div>
+            <label>Text size <output id="fontSizeOut">18px</output>
+              <input id="fontSize" type="range" min="14" max="28" step="1" value="18" />
+            </label>
+            <label>Line width <output id="lineWidthOut">720px</output>
+              <input id="lineWidth" type="range" min="480" max="760" step="10" value="720" />
+            </label>
+            <label>Line spacing <output id="lineHeightOut">1.6</output>
+              <input id="lineHeight" type="range" min="1.3" max="2.0" step="0.1" value="1.6" />
+            </label>
+            <p class="muted tiny" id="typographyHint">Only applies to an EPUB -- a PDF page is a fixed render, with no
+              reflowable text to apply a typeface or line width to.</p>
           </div>
-          <div class="rowLabel">Word cursor</div>
-          <div class="pillRow" id="cursorPills">
-            <button data-cursor="dim">Nested dim</button>
-            <button data-cursor="underline">Underline</button>
-            <button data-cursor="tint">Tint</button>
-            <button data-cursor="off">Off</button>
-          </div>
-          <div class="rowLabel">Theme</div>
-          <div class="pillRow" id="themePills">
-            <button data-theme-choice="light">Paper</button>
-            <button data-theme-choice="sepia">Sepia</button>
-            <button data-theme-choice="dark">Night</button>
-          </div>
-          <div class="rowLabel">Typeface</div>
-          <div class="pillRow" id="typefacePills">
-            <button data-typeface="original">Original</button>
-            <button data-typeface="serif">Serif</button>
-            <button data-typeface="sans">Sans</button>
-            <button data-typeface="mono">Mono</button>
-          </div>
-          <label>Text size <output id="fontSizeOut">18px</output>
-            <input id="fontSize" type="range" min="14" max="28" step="1" value="18" />
-          </label>
-          <label>Line width <output id="lineWidthOut">720px</output>
-            <input id="lineWidth" type="range" min="480" max="760" step="10" value="720" />
-          </label>
-          <label>Line spacing <output id="lineHeightOut">1.6</output>
-            <input id="lineHeight" type="range" min="1.3" max="2.0" step="0.1" value="1.6" />
-          </label>
-          <p class="muted tiny" id="typographyHint">Only applies to an EPUB -- a PDF page is a fixed render, with no
-            reflowable text to apply a typeface or line width to.</p>
-        </section>
+        </details>
 
-        <section>
-          <h2>Reading</h2>
-          <label>Voice
-            <select id="voice"></select>
-          </label>
-          <label>Native speed (Kokoro; re-synthesizes)
-            <select id="nativeSpeed">
-              <option value="0.8">0.8×</option>
-              <option value="1.0" selected>1.0×</option>
-              <option value="1.25">1.25×</option>
-              <option value="1.5">1.5×</option>
-            </select>
-          </label>
-          <label>Playback rate (live) <output id="rateOut">1.00</output>
-            <input id="rate" type="range" min="0.5" max="2" step="0.05" value="1" />
-          </label>
-          <label>Zoom <output id="zoomOut">1.20</output>
-            <input id="zoom" type="range" min="0.5" max="4" step="0.05" value="1.2" />
-          </label>
-          <label class="check"><input id="autoscroll" type="checkbox" checked /> Auto-scroll</label>
-        </section>
+        <details class="sect" data-sect="highlight">
+          <summary>Highlight</summary>
+          <div class="sectBody">
+            <div class="rowLabel">Sentence</div>
+            <div class="pillRow" id="variantPills">
+              <button data-variant="A">Tint</button>
+              <button data-variant="B">Underline</button>
+              <button data-variant="C">Spotlight</button>
+            </div>
+            <div class="rowLabel">Word cursor</div>
+            <div class="pillRow" id="cursorPills">
+              <button data-cursor="dim">Nested dim</button>
+              <button data-cursor="underline">Underline</button>
+              <button data-cursor="tint">Tint</button>
+              <button data-cursor="off">Off</button>
+            </div>
+          </div>
+        </details>
 
-        <section>
-          <h2>Layout</h2>
-          <label class="check">
-            <input id="enableLayout" type="checkbox" />
-            Reading order via layout model (experimental)
-          </label>
-          <p class="muted tiny" id="layoutHint">Runs PP-DocLayoutV2 outside the window (~1.4s a page), so scrolling
-            stays smooth. Groups each page into titles, paragraphs and figures so a click picks the
-            paragraph you meant. Off means pages keep their default reading order.</p>
-        </section>
+        <details class="sect" data-sect="voice">
+          <summary>Voice</summary>
+          <div class="sectBody">
+            <label>Voice
+              <select id="voice"></select>
+            </label>
+            <label>Native speed (Kokoro; re-synthesizes)
+              <select id="nativeSpeed">
+                <option value="0.8">0.8×</option>
+                <option value="1.0" selected>1.0×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+              </select>
+            </label>
+            <label>Playback rate (live) <output id="rateOut">1.00</output>
+              <input id="rate" type="range" min="0.5" max="2" step="0.05" value="1" />
+            </label>
+          </div>
+        </details>
 
-        <details id="diagnostics">
+        <details class="sect" data-sect="view">
+          <summary>View</summary>
+          <div class="sectBody">
+            <label>Zoom <output id="zoomOut">1.20</output>
+              <input id="zoom" type="range" min="0.5" max="4" step="0.05" value="1.2" />
+            </label>
+            <label class="check"><input id="autoscroll" type="checkbox" checked /> Follow the voice down the page</label>
+          </div>
+        </details>
+
+        <details class="sect" data-sect="order">
+          <summary>Reading order</summary>
+          <div class="sectBody">
+            <label class="check">
+              <input id="enableLayout" type="checkbox" />
+              Reading order via layout model (experimental)
+            </label>
+            <p class="muted tiny" id="layoutHint">Runs PP-DocLayoutV2 outside the window (~1.4s a page), so scrolling
+              stays smooth. Groups each page into titles, paragraphs and figures so a click picks the
+              paragraph you meant. Off means pages keep their default reading order.</p>
+          </div>
+        </details>
+
+        <details class="sect" id="diagnostics" data-sect="diagnostics">
           <summary>Diagnostics</summary>
-
-          <section>
+          <div class="sectBody">
             <label class="check"><input id="showall" type="checkbox" /> Show every sentence band</label>
             <label class="check"><input id="showRegions" type="checkbox" /> Show layout regions</label>
-          </section>
 
-          <section>
             <h2>State <span id="busyDot" class="busyDot" hidden title="Synthesizing in the background">●</span></h2>
             <div id="state" class="state">idle</div>
             <div id="spoken" class="spoken">—</div>
-          </section>
 
-          <section class="grow">
             <h2>Segmentation <span id="segcount" class="muted"></span></h2>
             <p class="muted tiny">Every sentence <code>Intl.Segmenter</code> found on the page in view. Click one to speak from there.</p>
             <ol id="sentences"></ol>
-          </section>
+          </div>
         </details>
       </aside>
     </div>

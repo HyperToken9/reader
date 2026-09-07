@@ -119,7 +119,7 @@ export function setNotes(list, { enabled, reason }) {
   notesEnabled = enabled;
   $("addNote").disabled = !enabled;
   $("notesHint").textContent = enabled
-    ? (notes.length ? "" : "Nothing noted yet. A note remembers the page you took it on.")
+    ? (notes.length ? "" : "Select any text on the page and add a note to quote it -- or add one for the page you are on.")
     : reason;
   renderNotes();
 }

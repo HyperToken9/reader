@@ -43,7 +43,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 const $ = (id) => document.getElementById(id);
 const el = {
-  pick: $("pick"), file: $("file"), docinfo: $("docinfo"),
+  file: $("file"), docinfo: $("docinfo"),
   voice: $("voice"), rate: $("rate"), rateOut: $("rateOut"),
   nativeSpeed: $("nativeSpeed"),
   zoom: $("zoom"), zoomOut: $("zoomOut"),
@@ -331,19 +331,53 @@ async function goToPage(pn, si = null) {
 }
 
 /*
- * What a new note is about: the sentence being spoken if the voice is
- * running, otherwise the page you are looking at. A note taken mid-sentence
- * quotes it, so the note still means something months later when the page
- * number alone would not.
+ * Whatever text is selected right now, and which page it is on.
+ *
+ * A PDF's text layer is part of this document, so its selection is the
+ * window's. An EPUB chapter is a separate document inside an iframe, so each
+ * rendered chapter has to be asked for its own -- only one of them can hold
+ * a selection at a time.
+ */
+function liveSelection() {
+  const own = window.getSelection();
+  if (own && !own.isCollapsed) {
+    const text = own.toString().trim();
+    const node = own.anchorNode;
+    const div = (node?.nodeType === 1 ? node : node?.parentElement)?.closest?.(".page");
+    if (text && div) return { pn: Number(div.dataset.page), text };
+  }
+  for (const p of pages.values()) {
+    if (!p.iframe || !p.rendered) continue;
+    const sel = p.iframe.contentDocument?.getSelection?.();
+    if (!sel || sel.isCollapsed) continue;
+    const text = sel.toString().trim();
+    if (text) return { pn: p.pn, text };
+  }
+  return null;
+}
+
+/*
+ * What a new note is about, in order of how specific it is: text you
+ * selected, then the sentence the reader is on, then just the page.
+ *
+ * Selection first, and deliberately: notes are not a feature of the voice.
+ * Reading with your eyes and marking a passage has to work exactly as well
+ * as noting the sentence being read aloud, so anything you can highlight you
+ * can note -- in a PDF's text layer or inside an EPUB chapter alike.
  */
 function noteContext() {
   if (!doc) return null;
+  const where = (pn) => `${docKind === "epub" ? "chapter" : "page"} ${pn}`;
+
+  const sel = liveSelection();
+  if (sel) return { pn: sel.pn, si: null, quote: sel.text.slice(0, 400), label: where(sel.pn) };
+
   const at = speaking ?? cursor ?? null;
   const mid = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
   const pn = at?.pn ?? mid?.pn ?? 1;
   const si = at?.pn === pn ? at.si : null;
-  const quote = si == null ? "" : (pages.get(pn)?.sentences[si]?.text ?? "").slice(0, 240);
-  return { pn, si, quote, label: `${docKind === "epub" ? "chapter" : "page"} ${pn}` };
+  const quote = si == null ? "" : (pages.get(pn)?.sentences[si]?.text ?? "").slice(0, 400);
+  return { pn, si, quote, label: where(pn) };
 }
 
 /** Notes belong to a shelved book, so they save through the library. */
@@ -398,6 +432,7 @@ async function shelve(path, name) {
     const entry = await window.blitz.library.remember({
       path, title: await docTitle(name), kind: docKind, pages: doc.numPages,
     });
+    if (!entry) return null; // a scratch file: readable, just not shelved
     currentBook = { id: entry.id, pages: doc.numPages, notes: entry.notes ?? [] };
     return entry;
   } catch (e) {
@@ -1057,6 +1092,7 @@ async function renderChapter(pn) {
       }
     }
 
+    wireEpubInput(p);
     buildEpubSentences(p);
     p.rendered = true;
     noteRendered(pn);
@@ -1066,6 +1102,37 @@ async function renderChapter(pn) {
 
   await p.rendering;
   return p;
+}
+
+/*
+ * A chapter's iframe now takes pointer events itself, so its text can be
+ * selected. That costs the free ride clicks used to get: DOM events inside
+ * an iframe never bubble into the parent document, so the reader's own
+ * click and hover handlers have to be given them explicitly.
+ *
+ * Coordinates come back in the iframe's own viewport, which is unscaled --
+ * the zoom is a transform on the element, so its internal coordinate system
+ * never learns about it. Multiplying by the scale and offsetting by the
+ * iframe's on-screen box puts them back in client space, which is what
+ * every handler downstream already speaks.
+ */
+function wireEpubInput(p) {
+  const cd = p.iframe.contentDocument;
+  if (!cd || cd.__blitzWired) return;
+  cd.__blitzWired = true;
+  const toClient = (e) => {
+    const b = p.iframe.getBoundingClientRect();
+    return { x: b.left + e.clientX * scale, y: b.top + e.clientY * scale };
+  };
+  cd.addEventListener("click", (e) => {
+    const { x, y } = toClient(e);
+    pageClickAt(p, x, y);
+  });
+  cd.addEventListener("mousemove", (e) => {
+    const { x, y } = toClient(e);
+    pageHoverAt(p, x, y);
+  });
+  cd.addEventListener("mouseleave", clearHover);
 }
 
 /**
@@ -1162,7 +1229,11 @@ function epubShellHtml(chapter) {
         width: auto !important;
         height: auto !important;
       }
-      * { -webkit-user-select: none; user-select: none; }
+      /* Text here IS selectable: a note has to be able to quote any
+         passage, not just one the voice happens to be on. Clicks are
+         forwarded back out to the reader's handlers (wireEpubInput), which
+         ignore a click that ends a selection drag. */
+      ::selection { background: rgba(180, 90, 50, .22); }
     </style>` +
     chapter.headHtml +
     `</head><body>${chapter.bodyHtml}</body></html>`;
@@ -2577,14 +2648,21 @@ function epubHitTest(p, clientX, clientY) {
   return idx >= arr[lo]._start && idx < arr[lo]._end ? lo : null;
 }
 
-// click a sentence on the page itself to speak from there
+/*
+ * Click a sentence on the page itself to speak from there -- unless that
+ * click is the end of a selection drag, which is someone quoting a passage
+ * for a note, not asking to be read to.
+ */
+function pageClickAt(p, clientX, clientY) {
+  if (!p?.rendered || liveSelection()) return;
+  const hit = hitTest(p, clientX, clientY);
+  if (hit !== null) { stop(); play({ pn: p.pn, si: hit }); }
+}
+
 el.pages.addEventListener("click", (ev) => {
   const div = ev.target.closest(".page");
   if (!div) return;
-  const p = pages.get(Number(div.dataset.page));
-  if (!p?.rendered) return;
-  const hit = hitTest(p, ev.clientX, ev.clientY);
-  if (hit !== null) { stop(); play({ pn: p.pn, si: hit }); }
+  pageClickAt(pages.get(Number(div.dataset.page)), ev.clientX, ev.clientY);
 });
 
 // Hover-to-preview (16): make it visible before the click that this is
@@ -2593,30 +2671,31 @@ el.pages.addEventListener("click", (ev) => {
 // dozen-odd rects; an epub chapter's hundreds route through epubHitTest
 // instead, which asks the browser for the offset under the point rather
 // than testing every sentence's rects.
-el.pages.addEventListener("mousemove", (ev) => {
-  const div = ev.target.closest(".page");
-  const p = div ? pages.get(Number(div.dataset.page)) : null;
-  const hit = p?.rendered ? hitTest(p, ev.clientX, ev.clientY) : null;
+function clearHover() {
+  if (hovered) { hovered = null; repaint(); }
+  el.hoverBadge.hidden = true;
+}
 
-  if (hit === null) {
-    if (hovered) { hovered = null; repaint(); }
-    el.hoverBadge.hidden = true;
-    return;
-  }
+function pageHoverAt(p, clientX, clientY) {
+  const hit = p?.rendered ? hitTest(p, clientX, clientY) : null;
+  if (hit === null) return clearHover();
+
   const changed = !hovered || hovered.pn !== p.pn || hovered.si !== hit;
   hovered = { pn: p.pn, si: hit };
   if (changed) repaint();
 
   el.hoverBadge.hidden = false;
-  el.hoverBadge.style.left = `${ev.clientX}px`;
-  el.hoverBadge.style.top = `${ev.clientY}px`;
+  el.hoverBadge.style.left = `${clientX}px`;
+  el.hoverBadge.style.top = `${clientY}px`;
   const already = speaking && speaking.pn === p.pn && speaking.si === hit;
   el.hoverBadge.textContent = already ? "♪ Playing" : "▶ Play from here";
+}
+
+el.pages.addEventListener("mousemove", (ev) => {
+  const div = ev.target.closest(".page");
+  pageHoverAt(div ? pages.get(Number(div.dataset.page)) : null, ev.clientX, ev.clientY);
 });
-el.pages.addEventListener("mouseleave", () => {
-  if (hovered) { hovered = null; repaint(); }
-  el.hoverBadge.hidden = true;
-});
+el.pages.addEventListener("mouseleave", clearHover);
 
 // ---------------------------------------------------------------- voices
 
@@ -2794,10 +2873,29 @@ addEventListener("keydown", (e) => {
   else if (e.key === "ArrowRight") setVariant(VARIANTS.indexOf(variant) + 1);
   else if (e.key === "c") setCursorStyle(CURSOR_STYLES.indexOf(cursorStyle) + 1);
   else if (e.key === " ") { e.preventDefault(); play(); }
-  else if (e.key === "h") $("hide").click();
+  else if (e.key === "h") toggleSettings();
 });
 
-$("hide").onclick = () => document.getElementById("app").classList.toggle("bare");
+const toggleSettings = () => document.getElementById("app").classList.toggle("bare");
+$("hide").onclick = toggleSettings;
+$("closeSettings").onclick = toggleSettings;
+
+/*
+ * One settings section open at a time, and the app comes back to whichever
+ * one you left open. The panel used to show every control at once, which is
+ * a wall rather than a set of choices.
+ */
+const SECTION_KEY = "blitz.settingsSection";
+const sections = [...document.querySelectorAll("#side details.sect")];
+const openSection = loadPref(SECTION_KEY, "page");
+for (const d of sections) {
+  d.open = d.dataset.sect === openSection;
+  d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    for (const other of sections) if (other !== d) other.open = false;
+    savePref(SECTION_KEY, d.dataset.sect);
+  });
+}
 
 // ---------------------------------------------------------------- wiring
 
@@ -2812,7 +2910,6 @@ setView("home");
 window.addEventListener("pagehide", flushPosition);
 window.addEventListener("blur", flushPosition);
 
-el.pick.onclick = () => el.file.click();
 el.file.onchange = () => {
   const f = el.file.files?.[0];
   if (f) openFile(f);
@@ -2920,6 +3017,9 @@ window.__spike = {
   get scale() { return scale; },
   preview(pn, si) { speaking = { pn, si }; repaint(); return pages.get(pn)?.sentences[si] ?? null; },
   setCursorStyle, play, stop,
+  // Test hooks: the note path is driven by a live text selection, which a
+  // harness has to be able to see the way the app does.
+  liveSelection, noteContext,
   get cursorStyle() { return cursorStyle; },
   get activeWordIdxs() { return activeWordIdxs; },
 };
