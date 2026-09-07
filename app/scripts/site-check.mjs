@@ -140,7 +140,8 @@ const inside = await ev(`(async()=>{
 
   let frag = null;
   if (fragCase) {
-    const p = S.pages.get(fragCase.pn), d = p.iframe.contentDocument;
+    const p = await S.renderPage(fragCase.pn); // it may have been evicted since
+    const d = p.iframe.contentDocument;
     const a = [...d.querySelectorAll('a[data-frag]')].find(x=>x.getAttribute('data-frag')===fragCase.frag);
     const b = a.getBoundingClientRect();
     a.dispatchEvent(new MouseEvent('click',{clientX:Math.round(b.left+b.width/2),clientY:Math.round(b.top+b.height/2),bubbles:true,cancelable:true}));
@@ -169,6 +170,55 @@ const inside = await ev(`(async()=>{
   return { frag, video };
 })()`);
 console.log("inside:", JSON.stringify(inside));
+
+// ---- go away, come back: the page must still be there -------------------
+// A dropped chapter navigates its frame to about:blank, and that load used
+// to satisfy the *next* render's wait -- so the chapter was measured blank,
+// marked done, and never re-rendered. Both orderings are exercised: the
+// scroll-away-and-return one the reader hits, and the evict-then-render-in-
+// one-tick one a typeface change does to every open chapter at once.
+const revisit = await ev(`(async () => {
+  const S = window.__spike;
+  const body = (pn) => {
+    const p = S.pages.get(pn);
+    const d = p?.iframe?.contentDocument;
+    return { rendered: !!p?.rendered, h: Math.round(p?.base?.height ?? 0),
+             text: (d?.body?.textContent ?? "").trim().length };
+  };
+  const far = Math.min(10, S.pages.size);
+  await S.renderPage(1);
+  const before = body(1);
+
+  S.goToPage(far);
+  await new Promise(r => setTimeout(r, 400));
+  S.evictPage(S.pages.get(1));         // what a scroll away does
+  S.goToPage(1);
+  await new Promise(r => setTimeout(r, 1200));
+  const afterReturn = body(1);
+
+  // Same tick, no breathing room -- the typeface-change path.
+  const raced = [];
+  for (const pn of [1, 2]) {
+    const p = S.pages.get(pn);
+    await S.renderPage(pn);
+    S.evictPage(p);
+    await S.renderPage(pn);
+    raced.push(body(pn));
+  }
+  // Strand it: drop the chapter you are looking at without touching the
+  // scroll. Nothing will ever tell the app about this page again -- it never
+  // stopped intersecting, so the observer has no edge left to fire. Only a
+  // backstop that looks at what is there can bring it back.
+  S.goToPage(1);
+  await new Promise(r => setTimeout(r, 800));
+  S.evictPage(S.pages.get(1));
+  const stranded = body(1);
+  await new Promise(r => setTimeout(r, 3500));
+  const healed = body(1);
+
+  return { before, afterReturn, raced, stranded, healed };
+})()`);
+console.log("revisit:", JSON.stringify(revisit));
 
 // ---- a note, then prove it does not depend on its page number ------------
 const note = await ev(`(async () => {
@@ -243,6 +293,15 @@ const checks = [
   ["a video becomes a card you can watch",
    !inside.video || (inside.video.h > 80 && /watch on/i.test(inside.video.caption) && /^https?:/.test(inside.video.opened ?? ""))],
   ["no stranded players left behind", !inside.video || inside.video.stranded === 0],
+  ["a page comes back after you leave it",
+   revisit.afterReturn.rendered && revisit.afterReturn.text > revisit.before.text * 0.9,
+   JSON.stringify(revisit.afterReturn)],
+  ["a page dropped under the reader comes back on its own",
+   revisit.stranded.rendered === false && revisit.healed.rendered && revisit.healed.text > 200,
+   JSON.stringify({ stranded: revisit.stranded, healed: revisit.healed })],
+  ["re-rendering in the same tick is not blank",
+   revisit.raced.every(r => r.rendered && r.text > 200 && r.h > 100),
+   JSON.stringify(revisit.raced)],
   ["note quotes the selection", (note.ctx?.quote ?? "").length > 30, ""],
   ["note labelled by page name, not number", !!note.ctx?.title && note.ctx.label === note.ctx.title, JSON.stringify(note.ctx?.label)],
   ["note finds its page despite a wrong number", relocated.found === note.truePn, `got ${relocated.found}, wanted ${note.truePn}`],

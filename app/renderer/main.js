@@ -259,6 +259,7 @@ class PageEntry {
     this.regions = null;      // set once layout analysis resolves (06)
     this.layoutLoading = false;
     this.renderTask = null;   // in-flight PDF.js RenderTask, so it can be cancelled
+    this.renderFails = 0;     // consecutive failed attempts, so a bad page stops being retried
   }
 }
 
@@ -805,6 +806,8 @@ async function closeDoc() {
   }
   for (const p of pages.values()) evictPage(p); // release canvases/iframes before dropping the map
   renderOrder.length = 0;
+  renderQueue.clear();
+  visible.clear();
   pages.clear();
   chapterTextCache.clear();
   el.pages.replaceChildren();
@@ -1095,10 +1098,23 @@ function sizePage(div, base) {
   div.style.setProperty("--ph", String(base.height));
 }
 
+/*
+ * What is on screen right now, kept by the observer rather than measured.
+ * Every other route into rendering is edge-triggered -- an intersection
+ * change, a scroll event -- and an edge that is missed leaves a blank page
+ * with nothing left to nudge it, because the page never stopped
+ * intersecting and so never intersects again. This set is what the backstop
+ * below reads, and asking it costs nothing, which is what lets the backstop
+ * run on a heartbeat on an 800-page book.
+ */
+const visible = new Set();
+
 const observer = new IntersectionObserver(
   (entries) => {
     for (const e of entries) {
-      if (e.isIntersecting) queueRender(Number(e.target.dataset.page));
+      const pn = Number(e.target.dataset.page);
+      if (e.isIntersecting) { visible.add(pn); queueRender(pn); }
+      else visible.delete(pn);
     }
   },
   { root: null, rootMargin: "400px 0px" },
@@ -1135,7 +1151,14 @@ function scrollingFast() {
   return scrollVelocity > FAST_SCROLL;
 }
 
-/** Distance in px from the viewport, or Infinity if the page is gone from the index. */
+/*
+ * Distance in px from the viewport, or Infinity if the page is gone from the
+ * index. Read off the cached geometry rather than a rect: this runs for every
+ * queued page on every turn of the pump, and a rect there is a forced layout
+ * in the middle of a fling. The index can be stale, so it is only ever
+ * trusted to say a page is FAR -- never to overrule `visible`, which the
+ * observer keeps honest.
+ */
 function offViewport(pn) {
   const g = geomFor(pn);
   if (!g) return Infinity;
@@ -1145,6 +1168,29 @@ function offViewport(pn) {
   if (g.top > bottom) return g.top - bottom;
   return 0;
 }
+
+/*
+ * The backstop: whatever is on screen and not drawn gets asked for again.
+ *
+ * Every path into rendering is edge-triggered -- an intersection change, a
+ * scroll event -- so any one of them missing its moment leaves a blank page
+ * with nothing left to nudge it. This runs when the scroll settles and when
+ * the queue drains, and is level-triggered: it looks at what is actually
+ * there rather than at what happened.
+ */
+function ensureVisibleRendered() {
+  if (!doc) return;
+  for (const pn of visible) {
+    const p = pages.get(pn);
+    if (!p || p.rendered || p.rendering || renderQueue.has(pn)) continue;
+    if ((p.renderFails ?? 0) >= MAX_RENDER_TRIES) continue; // it is not going to work
+    queueRender(pn);
+  }
+}
+
+// A page you are looking at is never left blank for longer than this, no
+// matter which edge went missing.
+setInterval(ensureVisibleRendered, 1500);
 
 function queueRender(pn) {
   const p = pages.get(pn);
@@ -1167,13 +1213,20 @@ async function pump() {
       for (const pn of renderQueue) {
         const p = pages.get(pn);
         if (!p || p.rendered) { renderQueue.delete(pn); continue; }
-        const d = offViewport(pn);
+        // A page the observer says is on screen is never dropped, however
+        // far the (stale-able) geometry index believes it to be. Dropping a
+        // visible page is unrecoverable: nothing re-queues it, because it
+        // never stopped intersecting and so never intersects again.
+        const d = visible.has(pn) ? 0 : offViewport(pn);
         if (d > DROP_MARGIN) { renderQueue.delete(pn); continue; } // scrolled past
         if (d < nearest) { nearest = d; next = pn; }
       }
       if (next === null) continue;
       renderQueue.delete(next);
-      await renderPage(next);
+      // One page failing is one page, not the end of the queue: an
+      // exception escaping here used to abandon everything still waiting.
+      try { await renderPage(next); }
+      catch (err) { console.warn(`[page ${next}] render failed`, err); }
       // Yield a frame between pages so a scroll that starts mid-queue is felt
       // immediately rather than after the whole backlog.
       await new Promise((r) => requestAnimationFrame(r));
@@ -1181,6 +1234,7 @@ async function pump() {
   } finally {
     pumping = false;
   }
+  ensureVisibleRendered();
 }
 
 /**
@@ -1223,6 +1277,8 @@ async function paintCanvas(p, viewport) {
  * harness stopped. That is the reported "crashes instantaneously" -- the tab
  * is killed for native memory, not for anything JS-visible.
  */
+let frameSeq = 0; // stamped into each chapter's iframe so a stale load is recognisable
+
 const MAX_RASTERISED = 14;
 const renderOrder = []; // page numbers, most recently rendered last
 
@@ -1308,7 +1364,10 @@ function evictPage(p) {
 async function renderPage(pn) {
   const p = pages.get(pn);
   if (!p || p.rendered) return p;
-  if (p.rendering) return p.rendering.then(() => p);
+  // Resolve either way: a caller wanting the page rendered is not the place
+  // to surface a render failure, and an unhandled rejection here would take
+  // down whatever was awaiting it (openAt, the pump, a jump).
+  if (p.rendering) return p.rendering.then(() => p, () => p);
   return isChapters() ? renderChapter(pn) : renderPdfPage(pn);
 }
 
@@ -1359,14 +1418,14 @@ async function renderPdfPage(pn) {
     report();
   })();
 
-  await p.rendering;
+  await settleRender(p, pn);
   // Opt-in, default off (16 §latest feedback): this used to fire from every
   // page the IntersectionObserver merely scrolled into view, which meant
   // *scrolling* a document — not reading it — queued several seconds of
   // WASM inference per page, on the browser's main thread, for pages the
   // reader may never listen to. That's the scroll jank that was reported.
   // Reading order is still worth having; it just has to be asked for.
-  if (el.enableLayout.checked) refineLayout(p); // background, not awaited
+  if (p.rendered && el.enableLayout.checked) refineLayout(p); // background, not awaited
   return p;
 }
 
@@ -1378,11 +1437,77 @@ async function renderPdfPage(pn) {
  * walks with a TreeWalker to find real text nodes and build real Ranges
  * against, the same way [[02]]'s PDF text layer does.
  */
+/*
+ * Put a chapter in its iframe and do not come back until THAT chapter is the
+ * document sitting in it.
+ *
+ * The naive version -- listen for one "load", set srcdoc -- measures the
+ * wrong document, and the way it fails is the worst kind: silently, and
+ * permanently. Evicting a chapter drops its srcdoc, which navigates the
+ * frame to about:blank; that navigation is still in flight when the reader
+ * scrolls back and the chapter is asked for again, so its load event fires
+ * first and resolves the wait. The chapter is then measured against a blank
+ * document (height 1), marked rendered, and never looked at again -- a page
+ * that is blank and refuses to load however many times you return to it.
+ * The same race is guaranteed, not merely likely, on a typeface change,
+ * which evicts and re-renders every open chapter in one tick.
+ *
+ * So each load carries a token, and only a load that brings back *our*
+ * token counts. Anything else -- about:blank, a superseded chapter -- is
+ * ignored and the wait continues. If nothing arrives, the page is left
+ * unrendered rather than marked done: blank-and-retryable beats
+ * blank-forever.
+ */
+const FRAME_LOAD_MS = 5000;
+const FONTS_MS = 3000;
+const IMAGES_MS = 6000;
+
+/** Wait for a promise, but never longer than ms -- and never throw. */
+function deadline(promise, ms) {
+  if (!promise) return Promise.resolve();
+  return Promise.race([
+    Promise.resolve(promise).catch(() => {}),
+    new Promise((r) => setTimeout(r, ms)),
+  ]);
+}
+
+async function loadChapterFrame(p, html, token) {
+  const arrived = () => {
+    try { return p.iframe.contentDocument?.documentElement?.dataset?.blitzDoc === token; }
+    catch { return false; } // cross-origin about:blank; not ours either way
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) {
+      // Clear it first: assigning the identical srcdoc back is not
+      // guaranteed to start a fresh navigation.
+      p.iframe.removeAttribute("srcdoc");
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    await new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        p.iframe.removeEventListener("load", onLoad);
+        resolve();
+      };
+      const onLoad = () => { if (arrived()) finish(); };
+      const timer = setTimeout(finish, FRAME_LOAD_MS);
+      p.iframe.addEventListener("load", onLoad);
+      p.iframe.srcdoc = html;
+    });
+    if (arrived()) return true;
+  }
+  return false;
+}
+
 async function renderChapter(pn) {
   const p = pages.get(pn);
   p.rendering = (async () => {
     const chapter = doc.chapters[pn - 1];
-    const html = epubShellHtml(chapter);
+    const token = `${pn}:${++frameSeq}`;
+    const html = epubShellHtml(chapter, token);
 
     // Lay the chapter out at its natural width before measuring: the iframe
     // must not still be carrying a previous zoom's transform or size, or the
@@ -1391,21 +1516,27 @@ async function renderChapter(pn) {
     p.iframe.style.width = `${EPUB_PAGE_WIDTH}px`;
     p.iframe.style.height = "";
 
-    await new Promise((resolve) => {
-      p.iframe.addEventListener("load", resolve, { once: true });
-      p.iframe.srcdoc = html;
-    });
-    try { await p.iframe.contentDocument.fonts?.ready; } catch { /* not fatal if unsupported */ }
+    if (!await loadChapterFrame(p, html, token)) {
+      console.warn(`[page ${pn}] chapter frame never loaded; leaving it to retry`);
+      return;
+    }
+    // Everything waited for here is given a deadline. The render pump is a
+    // single lane, so anything that never settles does not stall one page --
+    // it stalls every page after it, for good. A lazily-loaded image is
+    // exactly that hazard: the frame is still at its default height when
+    // this runs, so an image further down is outside the frame's own
+    // viewport and never loads, and neither "load" nor "error" ever comes.
+    await deadline(p.iframe.contentDocument.fonts?.ready, FONTS_MS);
     // An <img> with no size yet reports zero height, so a cover or figure
     // page measured before its image decodes comes out far too short --
     // that's what an internal iframe scrollbar on an otherwise-plain page
     // was: the div was sized to a too-small pre-image measurement, and the
     // image then finished loading into a box too short to hold it.
-    await Promise.all(
-      [...p.iframe.contentDocument.images].map((img) => img.complete
-        ? null
-        : new Promise((r) => { img.addEventListener("load", r, { once: true }); img.addEventListener("error", r, { once: true }); })),
-    ).catch(() => {});
+    const imgs = [...p.iframe.contentDocument.images];
+    for (const img of imgs) img.loading = "eager"; // see above: lazy never arrives in here
+    await deadline(Promise.all(imgs.map((img) => img.complete
+      ? null
+      : new Promise((r) => { img.addEventListener("load", r, { once: true }); img.addEventListener("error", r, { once: true }); }))), IMAGES_MS);
 
     // Step two of "nothing is clipped" (see fitWideContent): whatever could
     // not be made to scroll inside itself widens the page instead. Capped,
@@ -1445,8 +1576,33 @@ async function renderChapter(pn) {
     report();
   })();
 
-  await p.rendering;
+  await settleRender(p, pn);
   return p;
+}
+
+/*
+ * p.rendering is what queueRender and renderPage test to decide a page is
+ * already being dealt with, and nothing ever cleared it on the way out. A
+ * render that threw -- or that gave up waiting for its frame -- therefore
+ * left a page unrendered AND permanently unaskable: the one shape of blank
+ * page that no amount of scrolling back can fix. A failure now clears the
+ * flag and asks again shortly.
+ */
+const MAX_RENDER_TRIES = 3;
+
+async function settleRender(p, pn) {
+  try {
+    await p.rendering;
+  } catch (err) {
+    console.warn(`[page ${pn}] render failed`, err);
+  }
+  if (p.rendered) { p.renderFails = 0; return; }
+  p.rendering = null;
+  p.renderFails = (p.renderFails ?? 0) + 1;
+  // Bounded: a page that cannot be drawn must not become a hot loop between
+  // the retry and the backstop that notices it is still blank.
+  if (p.renderFails < MAX_RENDER_TRIES) setTimeout(() => queueRender(pn), 400);
+  else console.warn(`[page ${pn}] gave up after ${p.renderFails} attempts`);
 }
 
 /*
@@ -1587,7 +1743,7 @@ const EPUB_FONT_FACE_CSS = `
   @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; src: url("${plexMonoUrl}") format("woff2"); }
 `;
 
-function epubShellHtml(chapter) {
+function epubShellHtml(chapter, token = "") {
   const fontRule = EPUB_FONT_STACKS[epubFont]
     ? `font-family: ${EPUB_FONT_STACKS[epubFont]} !important;`
     : "";
@@ -1601,7 +1757,7 @@ function epubShellHtml(chapter) {
   // magnification is a transform applied to the whole rendered chapter from
   // outside (sizeEpubChapter). Font size is the separate control that does
   // reflow, which is the distinction real reading systems draw too.
-  return `<!doctype html><html style="--reader-text-scale:${epubTextScale()}; --reader-max-width:${epubLineWidth}px; --reader-line-height:${epubLineHeight}"><head><meta charset="utf-8">` +
+  return `<!doctype html><html data-blitz-doc="${token}" style="--reader-text-scale:${epubTextScale()}; --reader-max-width:${epubLineWidth}px; --reader-line-height:${epubLineHeight}"><head><meta charset="utf-8">` +
     `<style>
       ${EPUB_FONT_FACE_CSS}
       html, body { margin: 0; background: #fff; color: #14161a; overflow: hidden; }
@@ -3068,6 +3224,7 @@ el.viewer.addEventListener("scroll", () => {
 function onScrollSettled() {
   scrollVelocity = 0;
   sweepEvictions();
+  ensureVisibleRendered();
   const hit = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
   updatePageNow();
   if (hit) {
@@ -3585,7 +3742,7 @@ window.__spike = {
   chapterHref: (pn) => doc?.chapters?.[pn - 1]?.href ?? null,
   goToPage, anchorOffset,
   get siteTally() { return lastTally; },
-  geomFor, pageAtOffset,
+  geomFor, pageAtOffset, evictPage,
   openSiteForTest: openSite,
   get cursorStyle() { return cursorStyle; },
   get activeWordIdxs() { return activeWordIdxs; },
