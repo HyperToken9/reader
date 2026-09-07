@@ -80,7 +80,7 @@ ipcMain.handle("library:rememberSite", (_e, meta) => library.rememberSite(meta))
 // Fetching a documentation site has to happen out here: the renderer is a
 // file:// page and every cross-origin request it makes is blocked. Bytes come
 // back, nothing else -- see electron/net.js.
-ipcMain.handle("net:fetch", (_e, url) => net.fetchResource(url));
+ipcMain.handle("net:fetch", (_e, url, opts) => net.fetchResource(url, opts));
 
 app.whenReady().then(() => {
   createWindow();

@@ -14,14 +14,14 @@
 
 const $ = (id) => document.getElementById(id);
 
-let hooks = { goTo: () => {}, context: () => null, save: () => {} };
+let hooks = { goTo: () => {}, openNote: () => {}, context: () => null, save: () => {} };
 let notes = [];
 let notesEnabled = false;
 
 // ---------------------------------------------------------------- tabs
 
-export function initPanels({ onGoTo, getContext, onSaveNotes }) {
-  hooks = { goTo: onGoTo, context: getContext, save: onSaveNotes };
+export function initPanels({ onGoTo, onOpenNote, getContext, onSaveNotes }) {
+  hooks = { goTo: onGoTo, openNote: onOpenNote, context: getContext, save: onSaveNotes };
 
   for (const btn of $("leftTabs").children) {
     btn.onclick = () => selectTab(btn.dataset.tab);
@@ -119,7 +119,7 @@ export function setNotes(list, { enabled, reason }) {
   notesEnabled = enabled;
   $("addNote").disabled = !enabled;
   $("notesHint").textContent = enabled
-    ? (notes.length ? "" : "Select any text on the page and add a note to quote it -- or add one for the page you are on.")
+    ? (notes.length ? "" : "Select any text on the page and add a note to quote it -- or add one for the page you are on. A note follows its quote, so it survives the page moving.")
     : reason;
   renderNotes();
 }
@@ -136,8 +136,12 @@ function renderNotes() {
     const quote = li.querySelector(".noteQuote");
     quote.textContent = n.quote ?? "";
     quote.hidden = !n.quote;
-    li.querySelector(".noteWhere").textContent = n.label ?? `page ${n.pn}`;
-    li.querySelector(".noteWhere").onclick = () => hooks.goTo(n.pn, n.si);
+    // A note is opened by its quote, not by the page it was written on:
+    // main.js's goToNote finds that text wherever it lives in the document
+    // today. The label is the page's name for the same reason -- a number
+    // stops meaning anything the moment a site is re-fetched and repaginated.
+    li.querySelector(".noteWhere").textContent = n.label ?? n.title ?? `page ${n.pn}`;
+    li.querySelector(".noteWhere").onclick = () => hooks.openNote(n);
     li.querySelector(".noteDrop").onclick = () => {
       notes = notes.filter((x) => x.id !== n.id);
       renderNotes();

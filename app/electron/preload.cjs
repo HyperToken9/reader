@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld("blitz", {
    * page that cannot reach one. Returns bytes; parsing them is the renderer's
    * job, in the same DOMParser + sandboxed-iframe path an EPUB chapter takes.
    */
-  fetch: (url) => ipcRenderer.invoke("net:fetch", url),
+  fetch: (url, opts) => ipcRenderer.invoke("net:fetch", url, opts),
 
   /** The shelf. See electron/library.js. */
   library: {

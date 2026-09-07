@@ -16,6 +16,14 @@
 
 const $ = (id) => document.getElementById(id);
 
+/** The one status line on this page: what the fetch is doing, or why it failed. */
+function say(text, bad = false) {
+  const note = $("siteNote");
+  note.textContent = text;
+  note.classList.toggle("bad", bad);
+  note.hidden = !text;
+}
+
 let handlers = { open: () => {}, pick: () => {}, addSite: async () => {} };
 
 function greeting() {
@@ -54,6 +62,21 @@ function percent(b) {
   return `${Math.min(100, Math.round((b.position.pn / b.pages) * 100))}%`;
 }
 
+/*
+ * Progress for a card that is about to go and fetch something. A PDF opens
+ * instantly and needs none; a site is tens of seconds of network and the
+ * shelf would otherwise look frozen.
+ */
+function progress(b) {
+  if (b.kind !== "site") return () => {};
+  return ({ phase, done, total }) => {
+    if (phase === "index") say(`checking ${b.title} for changes…`);
+    else if (phase === "pages") say(`fetching ${done + 1} of ${total}`);
+    else if (phase === "assets") say(`saving ${done + 1} of ${total}`);
+    else if (phase === "done") say("");
+  };
+}
+
 function card(b) {
   const wrap = document.createElement("div");
   wrap.className = `shelfCard${b.missing ? " gone" : ""}`;
@@ -73,7 +96,16 @@ function card(b) {
   title.textContent = b.title;
   title.title = b.title; // the card clamps to three lines; hover for the rest
   wrap.querySelector(".cardMeta").textContent = metaLine(b);
-  wrap.querySelector(".cardOpen").onclick = () => handlers.open(b);
+  // Opening a site goes back to the network for it every time, which takes
+  // real seconds, so a card hands the same progress line the URL field uses.
+  wrap.querySelector(".cardOpen").onclick = async () => {
+    try {
+      say("");
+      await handlers.open(b, progress(b));
+    } catch (e) {
+      say(String(e?.message ?? e), true);
+    }
+  };
   wrap.querySelector(".cardForget").onclick = async (e) => {
     e.stopPropagation();
     await window.blitz.library.forget(b.id);
@@ -97,14 +129,7 @@ export async function refreshShelf() {
 function initSiteInput() {
   const field = $("siteUrl");
   const button = $("siteAdd");
-  const note = $("siteNote");
   let busy = false;
-
-  const say = (text, bad = false) => {
-    note.textContent = text;
-    note.classList.toggle("bad", bad);
-    note.hidden = !text;
-  };
 
   async function go() {
     const url = field.value.trim();

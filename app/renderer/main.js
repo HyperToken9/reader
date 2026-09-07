@@ -30,7 +30,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { analyzeLayout } from "./layout.js";
 import { parseEpub } from "./epub.js";
-import { snapshotSite } from "./site.js";
+import { snapshotSite, lastTally } from "./site.js";
 import { initHome, setView } from "./home.js";
 import { initPanels, setToc, markToc, setNotes } from "./panels.js";
 import loraUrl from "./fonts/lora.woff2?url";
@@ -383,19 +383,102 @@ function liveSelection() {
  * as noting the sentence being read aloud, so anything you can highlight you
  * can note -- in a PDF's text layer or inside an EPUB chapter alike.
  */
+/** The name this document gives one of its pages, where it has one. */
+function pageTitleOf(pn) {
+  const hit = doc?.toc?.find((e) => e.pn === pn);
+  return hit?.title ?? null;
+}
+
+/*
+ * A note records what it is ABOUT, not where it sat.
+ *
+ * The page number is written down, but only as a hint: a documentation site
+ * is re-fetched every time it is opened, and a page can be renumbered,
+ * moved or split between one reading and the next. What survives that is the
+ * text -- so a note carries its quote and the name of the page it came from,
+ * and goToNote (below) finds the quote in whatever the document says today,
+ * falling back to the name and only then to the number.
+ */
 function noteContext() {
   if (!doc) return null;
-  const where = (pn) => `${unitWord()} ${pn}`;
+  const label = (pn) => pageTitleOf(pn) ?? `${unitWord()} ${pn}`;
 
   const sel = liveSelection();
-  if (sel) return { pn: sel.pn, si: null, quote: sel.text.slice(0, 400), label: where(sel.pn) };
+  if (sel) {
+    return {
+      pn: sel.pn, si: null, quote: sel.text.slice(0, 400),
+      title: pageTitleOf(sel.pn), label: label(sel.pn),
+    };
+  }
 
   const at = speaking ?? cursor ?? null;
   const mid = pageAtOffset(el.viewer.scrollTop + el.viewer.clientHeight / 2);
   const pn = at?.pn ?? mid?.pn ?? 1;
   const si = at?.pn === pn ? at.si : null;
   const quote = si == null ? "" : (pages.get(pn)?.sentences[si]?.text ?? "").slice(0, 400);
-  return { pn, si, quote, label: where(pn) };
+  return { pn, si, quote, title: pageTitleOf(pn), label: label(pn) };
+}
+
+/** Loose enough that re-typeset or re-wrapped text still matches itself. */
+function normaliseQuote(text) {
+  return (text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+// Plain text per chapter, built once on demand. Searching this is what lets
+// a note find its quote without rendering (and paying for) every page.
+const chapterTextCache = new Map();
+
+function chapterText(pn) {
+  if (chapterTextCache.has(pn)) return chapterTextCache.get(pn);
+  const html = doc?.chapters?.[pn - 1]?.bodyHtml ?? "";
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  const text = normaliseQuote(box.textContent);
+  chapterTextCache.set(pn, text);
+  return text;
+}
+
+/**
+ * Where a note points now. Its quote is the real anchor: the page it was
+ * taken on is tried first because it is nearly always still right and costs
+ * one comparison, then the rest of the document, then the page's name, and
+ * only if all of that fails, the number it was written with.
+ */
+function locateNote(note) {
+  const needle = normaliseQuote(note.quote).slice(0, 120);
+  if (needle.length > 8 && doc?.chapters) {
+    const first = note.pn && note.pn <= doc.numPages ? [note.pn] : [];
+    const rest = [];
+    for (let pn = 1; pn <= doc.numPages; pn++) if (pn !== note.pn) rest.push(pn);
+    for (const pn of [...first, ...rest]) if (chapterText(pn).includes(needle)) return pn;
+  }
+  if (note.title) {
+    const hit = doc?.toc?.find((e) => e.title === note.title && e.pn);
+    if (hit) return hit.pn;
+  }
+  return Math.min(Math.max(1, note.pn ?? 1), doc?.numPages ?? 1);
+}
+
+/** Open a note: land on its quote wherever that text lives today. */
+async function goToNote(note) {
+  if (!doc) return;
+  const pn = locateNote(note);
+  await goToPage(pn);
+  const p = pages.get(pn);
+  const needle = normaliseQuote(note.quote).slice(0, 80);
+  if (!p?.sentences?.length || needle.length <= 8) return;
+  // Either direction: a note quoting a fragment of a sentence, and a note
+  // quoting a selection that ran across several of them, both want the
+  // sentence where the passage starts.
+  const si = p.sentences.findIndex((s) => {
+    const t = normaliseQuote(s.text);
+    return t.includes(needle) || needle.includes(t.slice(0, 60));
+  });
+  if (si < 0) return;
+  cursor = { pn, si };
+  scrollTo(p, sentenceRects(p, p.sentences[si]));
+  repaint();
+  renderSentenceList(pn);
 }
 
 /** Notes belong to a shelved book, so they save through the library. */
@@ -425,29 +508,86 @@ async function openFile(file) {
   setNotes(entry?.notes ?? [], { enabled: !!entry, reason: NOTES_NEED_A_SHELF });
 }
 
+/** Loose enough to recognise the same address typed two ways. */
+function sameSiteUrl(a, b) {
+  const norm = (u) => String(u ?? "").trim().toLowerCase()
+    .replace(/#.*$/, "").replace(/\/index\.html?$/, "/").replace(/\/+$/, "");
+  return !!a && norm(a) === norm(b);
+}
+
+function ago(at) {
+  if (!at) return "earlier";
+  const mins = Math.round((Date.now() - at) / 60000);
+  if (mins < 90) return `${Math.max(1, mins)} minutes ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 36) return `${hours} hours ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
 /*
- * Add a documentation site to the library and open it.
+ * Open a documentation site at an address. ALWAYS re-fetched.
  *
- * Fetching is the slow part -- tens of seconds for a forty-page site -- so
- * progress goes back to the home page as it runs rather than freezing a
- * button. The snapshot is shelved *before* it is opened: it is the expensive
- * thing, and losing it to a render bug would mean fetching the whole site
- * again.
+ * A site is not a file: it changes under you, and reading a stale copy of
+ * documentation is worse than not reading it, because nothing about the page
+ * tells you it is out of date. So every open goes to the network, and the
+ * saved snapshot is a *fallback* rather than the source -- what you get when
+ * the site cannot be reached, announced as such and dated, never passed off
+ * as current.
+ *
+ * The fresh snapshot replaces the saved one on the shelf. The entry is keyed
+ * on the address rather than on the bytes, so notes and reading position
+ * survive the refetch even when the pages themselves have changed.
  */
-async function addSite(url, onProgress) {
-  const snapshot = await snapshotSite(url, onProgress);
-  let entry = null;
-  try {
-    entry = await window.blitz.library.rememberSite({
-      url: snapshot.url,
-      title: snapshot.title,
-      pages: snapshot.chapters.length,
-      snapshot: JSON.stringify(snapshot),
-    });
-  } catch (e) {
-    // Same rule as a book that cannot be shelved: it is still readable.
-    console.warn("[library] could not shelve this site", e);
+async function openSiteAt({ url, entryId = null, onProgress = () => {} }) {
+  // What we already hold, loaded first for two reasons: it carries the
+  // validators that let the refetch ask "has this changed?" rather than
+  // re-download the site, and it is what gets shown if the site is
+  // unreachable.
+  const id = entryId ?? await knownSiteId(url);
+  let saved = null;
+  let savedEntry = null;
+  if (id) {
+    const res = await window.blitz.library.open(id).catch(() => ({ ok: false }));
+    if (res.ok) {
+      try {
+        saved = JSON.parse(new TextDecoder().decode(res.data));
+        savedEntry = res.entry;
+      } catch (e) {
+        console.warn("[site] the saved copy could not be read", e);
+      }
+    }
   }
+
+  let snapshot = null;
+  let failure = null;
+  try {
+    snapshot = await snapshotSite(url, onProgress, saved);
+  } catch (e) {
+    failure = e;
+  }
+
+  let entry = null;
+  if (snapshot) {
+    try {
+      entry = await window.blitz.library.rememberSite({
+        url: snapshot.url,
+        title: snapshot.title,
+        pages: snapshot.chapters.length,
+        snapshot: JSON.stringify(snapshot),
+      });
+    } catch (e) {
+      // Same rule as a book that cannot be shelved: it is still readable.
+      console.warn("[library] could not shelve this site", e);
+    }
+  } else {
+    // Nothing saved to fall back to means there is nothing to show and the
+    // fetch error is the answer -- it goes back to wherever the address was
+    // typed, which explains it far better than an empty reader would.
+    if (!saved) throw failure;
+    snapshot = saved;
+    entry = savedEntry;
+  }
+
   setView("reader");
   await openSite(snapshot);
   applyToc();
@@ -455,9 +595,24 @@ async function addSite(url, onProgress) {
     ? { id: entry.id, pages: snapshot.chapters.length, notes: entry.notes ?? [] }
     : null;
   setNotes(currentBook?.notes ?? [], { enabled: !!currentBook, reason: NOTES_NEED_A_SHELF });
-  // A site you have read before keeps its place across a re-fetch: the entry
-  // is keyed on the address, so the position survives the new pages.
   if (entry?.position) await resumeAt(entry.position);
+  // Last, so it is not overwritten by the resume message: being told you are
+  // looking at an old copy is the more important of the two.
+  if (failure) {
+    status(`Couldn't reach ${url} (${failure.message}) — showing the copy saved ${ago(snapshot.fetchedAt)}`);
+  }
+  return entry;
+}
+
+/** The shelf id for a site at this address, if it is already on the shelf. */
+async function knownSiteId(url) {
+  const books = await window.blitz?.library?.list?.().catch(() => []) ?? [];
+  return books.find((b) => b.kind === "site" && sameSiteUrl(b.url, url))?.id ?? null;
+}
+
+/** Adding a site by address, from the home page. */
+function addSite(url, onProgress) {
+  return openSiteAt({ url, onProgress });
 }
 
 /** A book's own title where it has one, its filename where it doesn't. */
@@ -496,32 +651,24 @@ async function shelve(path, name) {
 }
 
 /** Open a book off the shelf, landing where it was left. */
-async function openBook(book) {
+async function openBook(book, onProgress = () => {}) {
+  // A site is re-fetched every time rather than read off the shelf: see
+  // openSiteAt. The saved snapshot is only what happens when that fails.
+  if (book.kind === "site") {
+    return openSiteAt({ url: book.url, entryId: book.id, onProgress });
+  }
   const res = await window.blitz.library.open(book.id).catch(() => ({ ok: false, reason: "error" }));
   if (!res.ok) {
     // The library points at files rather than copying them, so a book can
     // move out from under an entry. Say so, and offer the picker: reopening
     // it from its new home re-binds the same entry, because the entry is
     // keyed on the bytes and not on the path.
-    status(res.reason === "missing"
-      ? (book.kind === "site"
-          ? `The saved copy of "${book.title}" is gone -- paste its address again to re-fetch it`
-          : `"${book.title}" is no longer at ${book.path}`)
-      : "That book could not be opened");
-    if (res.reason === "missing" && book.kind !== "site") el.file.click();
+    status(res.reason === "missing" ? `"${book.title}" is no longer at ${book.path}` : "That book could not be opened");
+    if (res.reason === "missing") el.file.click();
     return;
   }
   setView("reader");
-  if (book.kind === "site") {
-    // A shelved site opens from its snapshot on disk, never from the network:
-    // it was fetched once, and a book you have read should not need a
-    // connection to open again. Re-pasting its address is how you refresh it.
-    await openSite(JSON.parse(new TextDecoder().decode(res.data)));
-  } else if (book.kind === "epub") {
-    await openEpub(res.data);
-  } else {
-    await openPdf(res.data);
-  }
+  if (book.kind === "epub") await openEpub(res.data); else await openPdf(res.data);
   applyToc();
   currentBook = { id: book.id, pages: doc.numPages, notes: res.entry.notes ?? [] };
   setNotes(currentBook.notes, { enabled: true });
@@ -592,6 +739,7 @@ async function closeDoc() {
   for (const p of pages.values()) evictPage(p); // release canvases/iframes before dropping the map
   renderOrder.length = 0;
   pages.clear();
+  chapterTextCache.clear();
   el.pages.replaceChildren();
   el.sentences.replaceChildren();
   doc = null;
@@ -1168,12 +1316,25 @@ async function renderChapter(pn) {
         : new Promise((r) => { img.addEventListener("load", r, { once: true }); img.addEventListener("error", r, { once: true }); })),
     ).catch(() => {});
 
+    // Step two of "nothing is clipped" (see fitWideContent): whatever could
+    // not be made to scroll inside itself widens the page instead. Capped,
+    // because a genuinely pathological element should make one odd page
+    // rather than a mile-wide one -- and it says so if it hits the cap.
+    let width = EPUB_PAGE_WIDTH;
+    const spill = fitWideContent(p.iframe.contentDocument);
+    if (spill > 2) {
+      width = Math.min(EPUB_PAGE_WIDTH + spill, EPUB_PAGE_WIDTH * 3);
+      p.iframe.style.width = `${width}px`;
+      const left = fitWideContent(p.iframe.contentDocument);
+      if (left > 2) console.warn(`[page ${pn}] ${left}px still outside the page after widening it`);
+    }
+
     const h = Math.max(1, p.iframe.contentDocument.documentElement.scrollHeight);
-    const resized = !p.base || p.base.height !== h;
+    const resized = !p.base || p.base.height !== h || p.base.width !== width;
     // Natural, unscaled size -- the same contract as a PDF page's p.base,
     // which holds its scale-1 viewport. sizeEpubChapter multiplies by zoom.
     const wasHeight = p.base?.height ?? null;
-    p.base = { width: EPUB_PAGE_WIDTH, height: h };
+    p.base = { width, height: h };
     sizeEpubChapter(p);
     if (resized) {
       // Same as a PDF shell learning its real size: a chapter that grows
@@ -1195,6 +1356,40 @@ async function renderChapter(pn) {
 
   await p.rendering;
   return p;
+}
+
+/*
+ * Nothing is ever clipped, in two steps.
+ *
+ * A chapter's page cannot carry a horizontal scrollbar of its own: its
+ * height is measured from its content, so it has to be overflow:hidden, and
+ * anything sticking out past the column would simply be cut off with no sign
+ * it was ever there. That is the one failure a reader cannot detect, so it
+ * is not allowed to happen.
+ *
+ * Step one, here: anything wider than the column that can reasonably scroll
+ * inside itself is made to -- a long shell command, a wide table. Restricted
+ * to block-ish candidates rather than every node, because each read forces a
+ * layout and a docs page has thousands of nodes.
+ *
+ * Step two is the caller's (renderChapter): whatever is STILL too wide after
+ * that widens the page itself. A page 60px wider than its neighbours is a
+ * cosmetic oddity; a page missing its right-hand 60px is a lie.
+ */
+const WIDE_CANDIDATES = "pre, table, figure, img, svg, div, section, blockquote, dl, ul, ol, p, h1, h2, h3";
+
+function fitWideContent(idoc) {
+  const limit = idoc.documentElement.clientWidth;
+  if (!limit) return 0;
+  for (const el of idoc.body.querySelectorAll(WIDE_CANDIDATES)) {
+    if (el.scrollWidth <= limit + 1) continue;
+    // An inline box cannot scroll; make it a block first or the rule is a
+    // no-op and the content stays outside the page.
+    if (getComputedStyle(el).display.startsWith("inline")) el.style.display = "block";
+    el.style.maxWidth = "100%";
+    el.style.overflowX = "auto";
+  }
+  return Math.max(0, idoc.documentElement.scrollWidth - limit);
 }
 
 /*
@@ -1333,6 +1528,34 @@ function epubShellHtml(chapter) {
         width: auto !important;
         height: auto !important;
       }
+      /*
+       * Nothing gets clipped. The page carries overflow:hidden because its
+       * height is measured from its content, so anything wider than the
+       * column would otherwise be cut off with no scrollbar and no sign it
+       * was ever there -- a long shell command, a wide table. These scroll
+       * inside themselves instead; fitWideContent() below catches whatever
+       * this selector misses.
+       */
+      pre, table, figure, .highlight, .wy-table-responsive, .md-typeset__table,
+      .tabbed-content, .doctest, .literal-block-wrapper {
+        max-width: 100%;
+        overflow-x: auto;
+      }
+
+      /* Something on the page that could not be saved -- an oversized clip,
+         an embedded player. Visible on purpose: a page that quietly drops a
+         figure is worse than one that says it dropped it. */
+      .blitzMissing {
+        display: inline-block;
+        margin: .6em 0;
+        padding: .35em .7em;
+        border: 1px dashed rgba(0, 0, 0, .22);
+        border-radius: 3px;
+        font-size: .85em;
+        font-style: italic;
+        opacity: .7;
+      }
+
       /* Text here IS selectable: a note has to be able to quote any
          passage, not just one the voice happens to be on. Clicks are
          forwarded back out to the reader's handlers (wireEpubInput), which
@@ -1595,7 +1818,10 @@ function applyEpubTypography() {
     root.style.setProperty("--reader-line-height", String(epubLineHeight));
     // Unlike zoom, these genuinely reflow the chapter, so its natural height
     // changes and every cached rect describes the old layout.
-    p.base = { width: EPUB_PAGE_WIDTH, height: Math.max(1, root.scrollHeight) };
+    // Keep the width this page was measured at: a page widened to hold a
+    // table it could not otherwise show must not be narrowed back into
+    // clipping it because a font slider moved.
+    p.base = { width: p.base?.width ?? EPUB_PAGE_WIDTH, height: Math.max(1, root.scrollHeight) };
     sizeEpubChapter(p);
     for (const s of p.sentences) { s.rects = null; s.words = null; }
   }
@@ -1902,6 +2128,11 @@ function buildEpubSentences(p) {
       if (!n.nodeValue || !/\S/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
       const tag = n.parentElement?.tagName;
       if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT") return NodeFilter.FILTER_REJECT;
+      // Shown, but not spoken: a heading's permalink anchor renders as "¶"
+      // and belongs on the page, and reading it aloud after every heading
+      // does not. Same for the stand-in left where a clip was too large to
+      // save -- you can see it, the voice steps over it.
+      if (n.parentElement?.closest("[data-blitz-quiet]")) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -3010,7 +3241,7 @@ for (const d of sections) {
 // ---------------------------------------------------------------- wiring
 
 el.toLibrary.onclick = () => goHome();
-initPanels({ onGoTo: goToPage, getContext: noteContext, onSaveNotes: saveNotes });
+initPanels({ onGoTo: goToPage, onOpenNote: goToNote, getContext: noteContext, onSaveNotes: saveNotes });
 setToc([], "Open a book to see its contents.");
 setNotes([], { enabled: false, reason: "Open a book to take notes on it." });
 initHome({ onOpen: openBook, onPick: () => el.file.click(), onAddSite: addSite });
@@ -3129,7 +3360,10 @@ window.__spike = {
   setCursorStyle, play, stop,
   // Test hooks: the note path is driven by a live text selection, which a
   // harness has to be able to see the way the app does.
-  liveSelection, noteContext, addSite,
+  liveSelection, noteContext, addSite, goToNote, locateNote,
+  chapterHref: (pn) => doc?.chapters?.[pn - 1]?.href ?? null,
+  get siteTally() { return lastTally; },
+  openSiteForTest: openSite,
   get cursorStyle() { return cursorStyle; },
   get activeWordIdxs() { return activeWordIdxs; },
 };

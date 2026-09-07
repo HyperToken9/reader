@@ -30,6 +30,9 @@
 const MAX_PAGES = 200;
 const MAX_SNAPSHOT_BYTES = 80 * 1024 * 1024;
 const MAX_ASSET_BYTES = 4 * 1024 * 1024;
+// A demo clip is bigger than a diagram and worth more room, since the
+// alternative is not showing it at all.
+const MAX_MEDIA_BYTES = 12 * 1024 * 1024;
 const MAX_STYLESHEET_BYTES = 2 * 1024 * 1024;
 
 /* Sphinx and friends generate these next to the real pages; they are indexes
@@ -58,28 +61,85 @@ const MAIN_SELECTORS = [
   "article", ".document", ".rst-content", "#content", ".content", "#main-content", ".body",
 ];
 
-/* Chrome that survives inside the main region on some themes. */
-const CHROME_IN_MAIN =
-  "script, noscript, nav, form, [role=search], iframe, object, embed, " +
-  ".headerlink, .wy-breadcrumbs, .rst-footer-buttons, .related, .sphinxsidebar, " +
-  ".md-sidebar, .md-source-file, .theme-doc-footer, .pagination-nav, footer";
+/*
+ * What comes OUT of the main region, and it is deliberately almost nothing.
+ *
+ * The rule is that a snapshot shows what the site shows. Anything visible on
+ * the real page has to survive into the book, so this list is scripts (which
+ * cannot run in the iframe anyway) and the theme's own sidebar if a theme
+ * nests one inside its content region. Not footers, not in-page navs, not
+ * breadcrumbs, not the ¶ anchors -- those are on the page, so they are in
+ * the book. Embedded frames are the one thing that cannot come across, and
+ * they are replaced by a visible marker rather than deleted (below), because
+ * a silently missing element is exactly the failure this list guards.
+ */
+const CHROME_IN_MAIN = "script, noscript, .sphinxsidebar, .md-sidebar, .wy-nav-side";
+
+/*
+ * Shown, not spoken. A heading's permalink anchor renders as "¶" and belongs
+ * on the page -- the site's own CSS keeps it hidden until you hover -- but
+ * reading it aloud after every heading is nonsense. main.js's sentence
+ * walker skips anything under this attribute.
+ */
+const QUIET_IN_MAIN = ".headerlink, .md-source-file, .wy-breadcrumbs";
+
+/*
+ * Only when the whole body is used as a last resort (no recognisable content
+ * region at all). A theme's page shell is laid out for a browser window --
+ * a fixed 300px sidebar with the content margin-shifted past it -- which
+ * inside a page sized to its own content is not chrome the reader loses, it
+ * is a broken layout. The site's contents are in the left rail either way.
+ */
+const SHELL_IN_BODY =
+  ".wy-nav-side, .wy-nav-top, .sphinxsidebar, .sphinxsidebarwrapper, " +
+  ".md-header, .md-sidebar, .md-tabs, .theme-doc-sidebar-container, .navbar";
 
 const parser = new DOMParser();
 
+/** What the most recent snapshot cost, for the diagnostics panel and tests. */
+export let lastTally = null;
+
 // ------------------------------------------------------------- fetching
 
-async function get(url) {
-  const res = await window.blitz?.fetch?.(url);
+async function get(url, opts) {
+  const res = await window.blitz?.fetch?.(url, opts);
   return res ?? { ok: false, reason: "no network bridge" };
 }
 
-async function getHtml(url) {
-  const res = await get(url);
+async function getHtml(url, opts) {
+  const res = await get(url, opts);
   if (!res.ok) return { ok: false, reason: res.reason };
+  if (res.notModified) return { ok: true, notModified: true, url: res.url };
   if (res.contentType && !/html|xml/.test(res.contentType)) {
     return { ok: false, reason: `${res.contentType} is not a page` };
   }
-  return { ok: true, url: res.url, doc: parser.parseFromString(new TextDecoder().decode(res.bytes), "text/html") };
+  return {
+    ok: true,
+    url: res.url,
+    etag: res.etag ?? null,
+    lastModified: res.lastModified ?? null,
+    doc: parser.parseFromString(new TextDecoder().decode(res.bytes), "text/html"),
+  };
+}
+
+/*
+ * Fetching is almost all of the wall clock, and the pages are independent, so
+ * a few at a time. Deliberately a *few*: a docs host will rate-limit a burst
+ * of forty, and being throttled costs more than the parallelism saves.
+ */
+const FETCH_LANES = 4;
+
+async function pooled(items, worker) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(FETCH_LANES, items.length) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await worker(items[i], i);
+    }
+  }));
+  return out;
 }
 
 /*
@@ -195,25 +255,58 @@ function discoverPages(doc, entryUrl) {
 
 // ---------------------------------------------------------- extraction
 
-/** The page itself, with the site's navigation chrome taken off it. */
+/**
+ * The page itself.
+ *
+ * Picking a main region is a bet, and a bad bet loses content silently --
+ * a theme whose real page sits outside whatever `[role=main]` it happens to
+ * carry. So the bet is checked: whatever region wins has to account for most
+ * of the page's prose, and if it does not, the whole body is used instead.
+ * Losing some chrome is a much smaller failure than losing the page.
+ */
 function extractMain(doc) {
+  const textOf = (el) => (el?.textContent ?? "").replace(/\s+/g, " ").trim().length;
+  const bodyLen = textOf(doc.body);
+
+  // The richest candidate wins, not the first one that clears a bar set
+  // against the whole body. A short page is allowed to be short: "About the
+  // author" is four hundred characters next to a sidebar of two thousand,
+  // and a body-relative test threw exactly that page away and pulled the
+  // sidebar in with it.
   let root = null;
+  let best = 0;
   for (const sel of MAIN_SELECTORS) {
-    const found = doc.querySelector(sel);
-    // A main region with almost nothing in it is a theme's empty wrapper, not
-    // the page; keep looking.
-    if (found && (found.textContent ?? "").trim().length > 40) { root = found; break; }
+    for (const found of doc.querySelectorAll(sel)) {
+      const len = textOf(found);
+      if (len > best) { best = len; root = found; }
+    }
   }
-  root = root ?? doc.body;
+  // Falling back to the body means no candidate held anything at all -- a
+  // theme none of the selectors know. Then, and only then, the page shell
+  // comes off, because it cannot lay out inside a self-sized page.
+  const fellBack = best < 40 || best < bodyLen * 0.08;
+  if (fellBack) root = doc.body;
   if (!root) return null;
+
   const clone = root.cloneNode(true);
   for (const el of clone.querySelectorAll(CHROME_IN_MAIN)) el.remove();
+  if (fellBack) for (const el of clone.querySelectorAll(SHELL_IN_BODY)) el.remove();
+  for (const el of clone.querySelectorAll(QUIET_IN_MAIN)) el.setAttribute("data-blitz-quiet", "");
   // Same defusing an EPUB chapter gets: the iframe sandbox already blocks
   // scripts, but a page is easier to reason about with none in it.
   for (const el of clone.querySelectorAll("*")) {
     for (const a of [...el.attributes]) if (/^on/i.test(a.name)) el.removeAttribute(a.name);
   }
   return clone;
+}
+
+/** A visible stand-in for something that could not come across. Never nothing. */
+function marker(doc, label, detail) {
+  const el = doc.createElement("p");
+  el.className = "blitzMissing";
+  el.setAttribute("data-blitz-quiet", "");
+  el.textContent = detail ? `[${label} — ${detail}]` : `[${label}]`;
+  return el;
 }
 
 function pageTitle(doc, root, fallback) {
@@ -253,15 +346,34 @@ function siteTitle(doc, entryUrl) {
  * `onProgress({ phase, done, total, title })` is called as it goes; a 40-page
  * site is tens of seconds of network, which is far too long to show nothing.
  */
-export async function snapshotSite(rawUrl, onProgress = () => {}) {
+export async function snapshotSite(rawUrl, onProgress = () => {}, previous = null) {
   const typed = /^[a-z][a-z0-9+.-]*:/i.test(rawUrl.trim()) ? rawUrl.trim() : `https://${rawUrl.trim()}`;
 
+  // What we already hold for this site, by page address. Every request below
+  // carries the validators that came with it, so an unchanged page costs a
+  // 304 and no body -- which is what makes "check it every time" affordable.
+  const held = new Map((previous?.chapters ?? []).map((c) => [c.href, c]));
+
   onProgress({ phase: "index", done: 0, total: 0 });
-  const first = await getHtml(typed);
+  const first = await getHtml(typed, previous?.index ?? undefined);
   if (!first.ok) throw new Error(`Could not open ${typed} — ${first.reason}`);
 
-  const entryUrl = first.url;
-  const list = discoverPages(first.doc, entryUrl);
+  let entryUrl = first.url;
+  let list;
+  if (first.notModified && previous?.pageList?.length) {
+    // The contents page has not changed, so neither has the page list.
+    entryUrl = previous.url;
+    list = previous.pageList;
+  } else if (first.notModified) {
+    // Told "unchanged" with nothing held to reuse: ask again unconditionally.
+    const again = await getHtml(typed);
+    if (!again.ok || !again.doc) throw new Error(`Could not open ${typed} — ${again.reason ?? "no page"}`);
+    Object.assign(first, again);
+    entryUrl = again.url;
+    list = discoverPages(again.doc, entryUrl);
+  } else {
+    list = discoverPages(first.doc, entryUrl);
+  }
   if (!list.length) throw new Error("Found no pages to read at that address");
 
   // url -> data: URL (or null for one that would not load). Shared across
@@ -302,9 +414,14 @@ export async function snapshotSite(rawUrl, onProgress = () => {}) {
   // The site's stylesheet, gathered once for the whole book rather than per
   // page: it is the same file on every page, and duplicating a theme's fonts
   // across forty chapters is tens of megabytes of identical base64.
+  // Reusable wholesale when the contents page came back 304: a theme's
+  // stylesheet and its webfonts are the same bytes, and they are most of the
+  // traffic. `null` means "not settled yet, go and collect it".
+  let reusedCss = first.notModified && previous?.css ? previous.css : null;
   const cssSeen = new Set();
   const cssParts = [];
   async function collectCss(doc, pageUrl) {
+    if (reusedCss !== null) return;
     for (const link of doc.querySelectorAll('link[rel~="stylesheet"][href]')) {
       const u = absolute(pageUrl, link.getAttribute("href"));
       if (!u || cssSeen.has(u.toString())) continue;
@@ -322,23 +439,48 @@ export async function snapshotSite(rawUrl, onProgress = () => {}) {
   }
 
   // ---- pass one: fetch every page, keep its main region as a live DOM ----
-  const fetched = []; // { url, title, root }
-  for (let i = 0; i < list.length; i++) {
-    const want = list[i];
-    onProgress({ phase: "pages", done: i, total: list.length, title: want.title });
-    const page = i === 0 && pageKey(first.url) === want.url
-      ? { ok: true, url: first.url, doc: first.doc }
-      : await getHtml(want.url);
+  //
+  // A page that comes back 304 is reused from the copy we hold -- its markup
+  // with its images already inlined -- so the common case of reopening an
+  // unchanged site does no downloading at all while still having *checked*
+  // every page. Its cross-page links are re-resolved in pass two either way,
+  // because the page list around it may have moved even if it did not.
+  let done = 0;
+  const tally = { pages: list.length, unchanged: 0, fetched: 0, failed: 0 };
+  const results = await pooled(list, async (want, i) => {
+    const known = held.get(want.url);
+    const page = i === 0 && !first.notModified && pageKey(first.url) === want.url
+      ? { ok: true, url: first.url, doc: first.doc, etag: first.etag, lastModified: first.lastModified }
+      : await getHtml(want.url, known ? { etag: known.etag, lastModified: known.lastModified } : undefined);
+    onProgress({ phase: "pages", done: done++, total: list.length, title: want.title });
     if (!page.ok) {
+      tally.failed++;
       console.warn("[site] skipping", want.url, page.reason);
-      continue;
+      return null;
     }
+    if (page.notModified && known) {
+      tally.unchanged++;
+      const box = document.createElement("div");
+      box.innerHTML = known.bodyHtml;
+      return { url: want.url, title: known.title ?? want.title, root: box.firstElementChild ?? box,
+               etag: known.etag, lastModified: known.lastModified, reused: true };
+    }
+    if (!page.doc) { tally.failed++; return null; }
+    tally.fetched++;
     const root = extractMain(page.doc);
-    if (!root || (root.textContent ?? "").trim().length < 40) continue;
-    await collectCss(page.doc, page.url);
-    fetched.push({ url: want.url, title: want.title || pageTitle(page.doc, root, want.title), root });
-  }
+    if (!root || (root.textContent ?? "").trim().length < 40) return null;
+    return { url: want.url, title: want.title || pageTitle(page.doc, root, want.title), root,
+             doc: page.doc, etag: page.etag, lastModified: page.lastModified, reused: false };
+  });
+
+  const fetched = results.filter(Boolean);
   if (!fetched.length) throw new Error("None of that site's pages had anything to read");
+  // Worth saying out loud: this is the difference between "checked every page"
+  // and "downloaded every page", and it is the whole reason re-checking a site
+  // on every open is affordable.
+  console.info(`[site] ${tally.pages} pages — ${tally.unchanged} unchanged, ${tally.fetched} downloaded, ${tally.failed} unreadable`);
+  lastTally = tally;
+  for (const p of fetched) if (p.doc) await collectCss(p.doc, p.url);
 
   // ---- pass two: rewrite links and inline images, now the page set is known ----
   //
@@ -350,28 +492,101 @@ export async function snapshotSite(rawUrl, onProgress = () => {}) {
     const p = fetched[i];
     onProgress({ phase: "assets", done: i, total: fetched.length, title: p.title });
 
-    for (const img of p.root.querySelectorAll("img[src]")) {
-      // A responsive source set points at files we have not fetched and
-      // cannot resolve inside a srcdoc; the plain src is the one we inline.
+    if (p.reused) {
+      // Its assets are already inline; only the page numbers behind its
+      // cross-references can have moved.
+      for (const a of p.root.querySelectorAll("a[data-href]")) {
+        const to = index.get(pageKey(a.getAttribute("data-href")));
+        if (to) a.setAttribute("data-page", String(to));
+        else a.removeAttribute("data-page");
+      }
+      continue;
+    }
+
+    const odoc = p.root.ownerDocument;
+
+    /* The first real URL behind an image, whether it arrived as src or as a
+     * <picture>'s candidate list. A responsive srcset points at files we have
+     * not fetched and cannot resolve inside a srcdoc, so the candidate has to
+     * be picked here rather than left to the browser. */
+    const pickSrc = (img) => {
+      const own = img.getAttribute("src");
+      if (own) return own;
+      const sets = [img, ...(img.closest("picture")?.querySelectorAll("source") ?? [])]
+        .map((el) => el.getAttribute("srcset"))
+        .filter(Boolean);
+      return sets[0]?.split(",")[0]?.trim().split(/\s+/)[0] ?? null;
+    };
+
+    for (const img of p.root.querySelectorAll("img")) {
+      const ref = pickSrc(img);
       img.removeAttribute("srcset");
       img.removeAttribute("loading");
-      const u = absolute(p.url, img.getAttribute("src"));
+      const u = ref ? absolute(p.url, ref) : null;
       const data = u ? await inline(u.toString()) : null;
-      if (data) img.setAttribute("src", data);
-      else img.remove();
+      if (data) { img.setAttribute("src", data); continue; }
+      // An image that would not come across is replaced by something you can
+      // see -- its own alt text where it has one. A page that quietly loses a
+      // figure is worse than a page that says it lost one.
+      img.replaceWith(marker(odoc, "image", img.getAttribute("alt")?.trim() || null));
     }
-    // A docs page's demo clips are tens of megabytes of MP4 and there is
-    // nothing in them to read; left in place they render as a dead player,
-    // because their <source> cannot resolve inside a srcdoc iframe. Say what
-    // was there instead -- which the voice then reads as "video", the same
-    // brief placeholder a figure gets.
+    for (const el of p.root.querySelectorAll("picture > source")) el.remove();
+
+    // An inline background-image is a figure too on plenty of themes.
+    for (const el of p.root.querySelectorAll('[style*="url("]')) {
+      const css = el.getAttribute("style");
+      const m = /url\(\s*(['"]?)([^'")]+)\1\s*\)/.exec(css);
+      const u = m ? absolute(p.url, m[2]) : null;
+      const data = u ? await inline(u.toString()) : null;
+      if (data) el.setAttribute("style", css.replace(m[0], `url(${data})`));
+    }
+
+    /* A demo clip is part of the page, so it comes across when it fits.
+     * When it does not, what is left behind is its own poster frame and a
+     * marker -- never an empty player, and never silence. */
     for (const m of p.root.querySelectorAll("video, audio")) {
-      const note = m.ownerDocument.createElement("p");
-      note.className = "blitzMedia";
-      note.textContent = `[${m.tagName.toLowerCase()}]`;
-      m.replaceWith(note);
+      const refs = [m.getAttribute("src"), ...[...m.querySelectorAll("source")].map((el) => el.getAttribute("src"))]
+        .filter(Boolean);
+      let inlined = null;
+      for (const ref of refs) {
+        const u = absolute(p.url, ref);
+        inlined = u ? await inline(u.toString(), { max: MAX_MEDIA_BYTES }) : null;
+        if (inlined) break;
+      }
+      if (inlined) {
+        for (const src of m.querySelectorAll("source")) src.remove();
+        m.setAttribute("src", inlined);
+        m.setAttribute("controls", "");
+        m.removeAttribute("autoplay");
+        const poster = m.getAttribute("poster");
+        const pu = poster ? absolute(p.url, poster) : null;
+        const pd = pu ? await inline(pu.toString()) : null;
+        if (pd) m.setAttribute("poster", pd); else m.removeAttribute("poster");
+        m.setAttribute("data-blitz-quiet", "");
+        continue;
+      }
+      const poster = m.getAttribute("poster");
+      const pu = poster ? absolute(p.url, poster) : null;
+      const pd = pu ? await inline(pu.toString()) : null;
+      const stand = marker(odoc, m.tagName.toLowerCase(), refs[0] ? "too large to save" : null);
+      if (pd) {
+        const still = odoc.createElement("img");
+        still.setAttribute("src", pd);
+        m.replaceWith(still, stand);
+      } else {
+        m.replaceWith(stand);
+      }
     }
-    for (const src of p.root.querySelectorAll("source[srcset], source[src]")) src.remove();
+
+    // An embedded frame (a YouTube player, a live demo) cannot come across at
+    // all -- but it is on the page, so it leaves its address behind.
+    for (const f of p.root.querySelectorAll("iframe, object, embed")) {
+      const ref = f.getAttribute("src") ?? f.getAttribute("data");
+      const u = ref ? absolute(p.url, ref) : null;
+      const stand = marker(odoc, "embedded " + f.tagName.toLowerCase(), u ? u.hostname : null);
+      if (u) stand.setAttribute("data-external", u.toString());
+      f.replaceWith(stand);
+    }
 
     for (const a of p.root.querySelectorAll("a[href]")) {
       const u = absolute(p.url, a.getAttribute("href"));
@@ -383,17 +598,25 @@ export async function snapshotSite(rawUrl, onProgress = () => {}) {
         if (href?.startsWith("#")) a.setAttribute("data-anchor", href.slice(1));
         continue;
       }
-      const to = index.get(pageKey(u));
+      const key = pageKey(u);
+      const to = index.get(key);
       // A link into the book jumps; a link out of it opens in the browser.
       // Both are handled by main.js, which sees the click forwarded out of
-      // the iframe (wireEpubInput).
-      if (to) a.setAttribute("data-page", String(to));
+      // the iframe (wireEpubInput). The address is kept alongside the page
+      // number so a reused page can have its number recomputed next time
+      // without being fetched again.
+      if (to) { a.setAttribute("data-href", key); a.setAttribute("data-page", String(to)); }
       else a.setAttribute("data-external", u.toString());
     }
   }
 
   const chapters = fetched.map((p) => ({
     href: p.url,
+    title: p.title,
+    // Kept so the next open can ask "has this changed?" instead of "give me
+    // this again" -- see the top of this function.
+    etag: p.etag ?? null,
+    lastModified: p.lastModified ?? null,
     headHtml: "", // the whole site shares one stylesheet; see `css` below
     bodyHtml: p.root.outerHTML,
   }));
@@ -406,9 +629,14 @@ export async function snapshotSite(rawUrl, onProgress = () => {}) {
   onProgress({ phase: "done", done: fetched.length, total: fetched.length });
   return {
     url: entryUrl,
-    title: siteTitle(first.doc, entryUrl),
+    title: first.doc ? siteTitle(first.doc, entryUrl) : (previous?.title ?? new URL(entryUrl).hostname),
     fetchedAt: Date.now(),
-    css: cssParts.join("\n"),
+    // The contents page's own validators, and the page list it produced, so
+    // the next open can skip rediscovery when it has not changed.
+    index: { etag: first.etag ?? previous?.index?.etag ?? null,
+             lastModified: first.lastModified ?? previous?.index?.lastModified ?? null },
+    pageList: list,
+    css: reusedCss ?? cssParts.join("\n"),
     chapters,
     toc,
   };
