@@ -62,7 +62,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [16 — Rebuild the reading loop on Kokoro, with a word cursor](https://github.com/HyperToken9/reader/issues/16): **verdict: spotlight + nested-dim word cursor**, judged by the human against the shipped loop and set as the default. The cursor doesn't fight the spotlight's calm, and the ~1-in-25 double-width highlight from phoneme grouping is unnoticeable in use. The other variants/cursor styles stay in the code behind URL params only — there is no user-facing switch yet, which is now [20](https://github.com/HyperToken9/reader/issues/20)'s to build alongside the rest of a real settings panel. EPUB support (built after this map's last edit) reuses the same verdict unchanged — it's a highlight-rendering choice, not a PDF-specific one.
 
-- [06 — Can we recover reading order on a real two-column page?](https://github.com/HyperToken9/reader/issues/6): **go, on the human's own reading** — down column one, then column two, spanning bands where they belong, and the band lands on the sentence you are looking at. Ordering is not where the remaining risk lives, and [03](https://github.com/HyperToken9/reader/issues/3)'s hand-written pipeline stays cancelled. What it handed on is *classification*: inline maths is spoken as garbage, and the fix has three parts, all checked — variables are Mathematical Alphanumeric codepoints that `NFKC` folds back to letters, operators (≜ ⊤ ≠ ∈) fold to nothing and need a spoken lexicon, and `!/[A-Za-z]/` already drops pure-maths runs **silently**, making one of [07](https://github.com/HyperToken9/reader/issues/7)'s choices by accident. All of it now sits on [07](https://github.com/HyperToken9/reader/issues/7).
+- [06 — Can we recover reading order on a real two-column page?](https://github.com/HyperToken9/reader/issues/6): **go, on the human's own reading** — down column one, then column two, spanning bands where they belong, and the band lands on the sentence you are looking at. Ordering is not where the remaining risk lives, and [03](https://github.com/HyperToken9/reader/issues/3)'s hand-written pipeline stays cancelled. What it handed on is *classification*: inline maths is spoken as garbage, and the fix has three parts, all checked — variables are Mathematical Alphanumeric codepoints that `NFKC` folds back to letters, operators (≜ ⊤ ≠ ∈) fold to nothing and need a spoken lexicon, and `!/[A-Za-z]/` already drops pure-maths runs **silently**, making a selection decision by accident. On the human's call the two questions were then split: **[07](https://github.com/HyperToken9/reader/issues/7) keeps *whether* a span is spoken** (regions, page shape) and **[23](https://github.com/HyperToken9/reader/issues/23) takes *what it sounds like*** (strings, pronunciation).
 
 ## Not yet specified
 
@@ -89,7 +89,8 @@ This issue is the map. Its tickets are the issues labelled `wayfinder:*`, and
 ticket **N** is issue **#N**. The **frontier** — what is takeable right now — is
 every open, unassigned ticket whose blockers are closed:
 
-- **[#7](https://github.com/HyperToken9/reader/issues/7)** what gets skipped, announced or read — unblocked now that #6 has closed, and now carrying the inline-maths failure
+- **[#7](https://github.com/HyperToken9/reader/issues/7)** what gets skipped, announced or read — unblocked now that #6 has closed; narrowed to *selection*
+- **[#23](https://github.com/HyperToken9/reader/issues/23)** how text becomes speech: maths, symbols and everything unpronounceable — split out of #7
 - **[#9](https://github.com/HyperToken9/reader/issues/9)** is the extracted text clean enough to segment
 - **[#17](https://github.com/HyperToken9/reader/issues/17)** take Python out of the download — unblocked now that #16 has closed
 - **[#20](https://github.com/HyperToken9/reader/issues/20)** redesign the reading UI toward the Premium Reader comp — phase 1 (settings panel) built, awaiting the human's verdict
@@ -99,6 +100,7 @@ every open, unassigned ticket whose blockers are closed:
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
 
 
 
