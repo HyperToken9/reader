@@ -62,6 +62,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 
 - [16 — Rebuild the reading loop on Kokoro, with a word cursor](https://github.com/HyperToken9/reader/issues/16): **verdict: spotlight + nested-dim word cursor**, judged by the human against the shipped loop and set as the default. The cursor doesn't fight the spotlight's calm, and the ~1-in-25 double-width highlight from phoneme grouping is unnoticeable in use. The other variants/cursor styles stay in the code behind URL params only — there is no user-facing switch yet, which is now [20](https://github.com/HyperToken9/reader/issues/20)'s to build alongside the rest of a real settings panel. EPUB support (built after this map's last edit) reuses the same verdict unchanged — it's a highlight-rendering choice, not a PDF-specific one.
 
+- [06 — Can we recover reading order on a real two-column page?](https://github.com/HyperToken9/reader/issues/6): **go, on the human's own reading** — down column one, then column two, spanning bands where they belong, and the band lands on the sentence you are looking at. Ordering is not where the remaining risk lives, and [03](https://github.com/HyperToken9/reader/issues/3)'s hand-written pipeline stays cancelled. What it handed on is *classification*: inline maths is spoken as garbage, and the fix has three parts, all checked — variables are Mathematical Alphanumeric codepoints that `NFKC` folds back to letters, operators (≜ ⊤ ≠ ∈) fold to nothing and need a spoken lexicon, and `!/[A-Za-z]/` already drops pure-maths runs **silently**, making one of [07](https://github.com/HyperToken9/reader/issues/7)'s choices by accident. All of it now sits on [07](https://github.com/HyperToken9/reader/issues/7).
+
 ## Not yet specified
 
 - **Scanned / image-only PDFs** — OCR to obtain a text layer at all. Assumed away for this effort; a real concern for textbooks sourced as scans.
@@ -71,6 +73,7 @@ Reached when that prototype exists and has been driven against real textbook PDF
 - **What gets skipped on a documentation page** — a code listing read aloud verbatim is unbearable, and a docs page is mostly code. Squarely [07](https://github.com/HyperToken9/reader/issues/7)'s question in a new medium, and it inherits [07](https://github.com/HyperToken9/reader/issues/7)'s standing constraint: whatever is skipped must still be click-to-force-read, which is why nothing was silently dropped when sites shipped.
 - **A page that has genuinely changed under a note** — the quote anchor finds a note's text wherever it moved to, and says nothing when the passage is gone. Silently landing on the page number instead is the wrong answer and is what happens today.
 - **What a re-check should cost on a large site** — 26 conditional requests are cheap; 500 are not, and a site with no ETags cannot be checked without downloading. Untested past ~80 pages.
+- **Regions nested inside regions.** The layout model emits boxes wholly contained in other boxes, and the text-item join assigns each item to exactly one region by max area overlap — so a nested region is either double-counted or lost, and "the region this sentence belongs to" has no single answer. Harmless today because little downstream depends on the labels; decisive once something is rendered on top of a region ([13](https://github.com/HyperToken9/reader/issues/13)'s HTML layer) or skipped because of one. Revisit when [07](https://github.com/HyperToken9/reader/issues/7) has said what regions are *for*.
 - **Real equation speech** — MathML/LaTeX-aware reading instead of announce-and-skip. Becomes possible only if [15](https://github.com/HyperToken9/reader/issues/15) recovers equation content; still a hard problem of its own after that.
 
 ## Out of scope
@@ -86,8 +89,7 @@ This issue is the map. Its tickets are the issues labelled `wayfinder:*`, and
 ticket **N** is issue **#N**. The **frontier** — what is takeable right now — is
 every open, unassigned ticket whose blockers are closed:
 
-- **[#6](https://github.com/HyperToken9/reader/issues/6)** reading-order spike — built and integrated behind a checkbox, needs a verdict
-- **[#7](https://github.com/HyperToken9/reader/issues/7)** what gets skipped, announced or read
+- **[#7](https://github.com/HyperToken9/reader/issues/7)** what gets skipped, announced or read — unblocked now that #6 has closed, and now carrying the inline-maths failure
 - **[#9](https://github.com/HyperToken9/reader/issues/9)** is the extracted text clean enough to segment
 - **[#17](https://github.com/HyperToken9/reader/issues/17)** take Python out of the download — unblocked now that #16 has closed
 - **[#20](https://github.com/HyperToken9/reader/issues/20)** redesign the reading UI toward the Premium Reader comp — phase 1 (settings panel) built, awaiting the human's verdict
@@ -97,6 +99,7 @@ every open, unassigned ticket whose blockers are closed:
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
 
 
 
