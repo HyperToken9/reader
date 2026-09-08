@@ -79,6 +79,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 ## Out of scope
 
 - ~~**Building and shipping the production v1 app.**~~ No longer out of scope: the destination was redrawn on 2026-09-06 to include it, rather than starting a fresh map, because the route already walked is the route this app is built on. Kept here struck through so the boundary's move is legible.
+- **A mobile app.** Raised again on 2026-09-08 as a far-future want, and still out. [08](https://github.com/HyperToken9/reader/issues/8) ruled it out on the load-bearing ground that Flutter and mobile discard [02](https://github.com/HyperToken9/reader/issues/2)'s text-layer geometry, which is the thing the whole highlight pipeline is built on — so this is not a port, it is a different product with a different sync mechanism. A fresh map if it is ever wanted, not a resumption of this one.
+- **Cloud connectivity.** Sync of shelf, position and notes across machines; an account; anything server-side. Raised 2026-09-08 as a far-future want. The destination is a local app, and every decision on the route leans on that — [08](https://github.com/HyperToken9/reader/issues/8) chose Electron for a local process, [14](https://github.com/HyperToken9/reader/issues/14) put speech on the machine with no cloud fallback, and [24](https://github.com/HyperToken9/reader/issues/24) is deciding a local store. None of that is wasted if sync arrives later; it just is not this effort.
 - **OCR / scanned-page support.** Ruled out by the embedded-text-layer assumption. Listed above as fog only insofar as a future effort may need it; this map will not chart it.
 
 ---
@@ -100,6 +102,7 @@ every open, unassigned ticket whose blockers are closed:
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
 
 
 
