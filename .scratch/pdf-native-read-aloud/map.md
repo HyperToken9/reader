@@ -1,13 +1,3 @@
-# Map: PDF-native read-aloud
-
-> **The canonical map is [issue #18](https://github.com/HyperToken9/reader/issues/18)**, and
-> the canonical tickets are the issues labelled `wayfinder:*` — ticket **N** is issue **#N**.
-> This file is a working copy kept in the tree so a session can read the whole map without
-> the network. When they disagree, the issue wins.
->
-> GitHub's issue-dependencies API is not available on this repo, so blocking is written into
-> each ticket body as a **Blocked by:** line rather than expressed natively.
-
 ## Destination
 
 A working prototype: a local web app that renders a textbook PDF at native fidelity (PDF.js canvas, zero reflow — diagrams, equations and multi-column layout exactly as authored) and overlays synchronized read-aloud — a locally-run neural voice speaking body prose in correct reading order, tracked by a spotlight band and a word cursor drawn over the real page.
@@ -17,6 +7,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 **Destination redrawn, 2026-09-06.** The prototype answered its question, so the human extended the destination: *a desktop app you download and use*. Productionising was explicitly Out of scope under the old destination; it is now the destination. The route so far is unchanged and every decision below still holds — [08](https://github.com/HyperToken9/reader/issues/8) is the hinge, and the app lives in `app/` on `dev`.
 
 **EPUB support shipped 2026-09-07, out of band.** Every "PDF" above still describes what the map charted; a second, parallel render path (sandboxed per-chapter iframes standing in for PDF.js's text layer) now reuses the whole scroll/geometry/highlight pipeline unchanged for reflowable HTML. Not a redrawn destination — the constraint was always "stay true to the document's native render," and reflowable HTML's native render already is the browser's own layout, so there was no decision to chart here, just a build. Recorded so the map doesn't read as PDF-only against a codebase that isn't.
+
+**Documentation sites shipped 2026-09-07, out of band.** A third way in, on the human's ask: give the reader the address of a docs site (the trigger case was [Spinning Up in Deep RL](https://spinningup.openai.com/en/latest/)) and it is fetched once, shelved, and read like any other book. Not a redrawn destination and barely a new render path — a docs site is already an ordered contents list with prose behind each entry, so a snapshot comes out in exactly the shape `parseEpub` returns and opens through the EPUB code unchanged; a site's page *is* a chapter. What is genuinely new is the fetch (`electron/net.js`, in the main process, because the renderer is a `file://` page that cannot make a cross-origin request) and the snapshot (`renderer/site.js` → JSON under `userData/sites/`, so a site opens offline and is not re-fetched to be re-read). Page discovery follows the site's *own* sidebar rather than crawling links — the author already decided what the pages are and what order they go in. Shelf identity is the address, not the bytes, so re-pasting an address refreshes a site in place and keeps its notes and its position. **Every open re-fetches** — reading stale documentation is worse than not reading it, and nothing on a page tells you it is old — but re-checking is not re-downloading: each request carries the ETag it got last time, so re-opening a 26-page site verifies all 26 against the server and downloads none. The saved snapshot is the fallback for a site that cannot be reached, dated and announced as such. Two standing rules came out of the human's review and hold for anything read this way: **nothing on the page may be hidden or clipped** (a lost right-hand margin is the one failure a reader cannot detect, so wide blocks scroll and anything that still will not fit widens the page; an image or clip that cannot be saved leaves a visible stand-in, never a gap), and **a note is anchored to its quote**, not to a page number that a refetch can move. `scripts/site-check.mjs` is the gate.
 
 ## Notes
 
@@ -76,6 +68,9 @@ Reached when that prototype exists and has been driven against real textbook PDF
 - **What a richer overlay unlocks, once there is structure to hang it on** — definition popovers, re-typeset equations, per-paragraph controls, notes. [13](https://github.com/HyperToken9/reader/issues/13) decides the substrate; what gets built on it is fog until it does, and most of it is past the prototype's destination anyway.
 - **The other Reading Lenses techniques over a PDF surface** — spacing, typeface swap, fixation anchoring, chromatic line guidance, masking, pacer, RSVP. To be revisited per-technique on use-case and importance, and harder here than in HTML since the page is rendered pixels, not reflowable text.
 - **Browser-extension form factor** — overlaying this on PDFs already open in a browser. Blocked in Chrome's built-in viewer today; would need its own viewer. Future form factor, not this effort.
+- **What gets skipped on a documentation page** — a code listing read aloud verbatim is unbearable, and a docs page is mostly code. Squarely [07](https://github.com/HyperToken9/reader/issues/7)'s question in a new medium, and it inherits [07](https://github.com/HyperToken9/reader/issues/7)'s standing constraint: whatever is skipped must still be click-to-force-read, which is why nothing was silently dropped when sites shipped.
+- **A page that has genuinely changed under a note** — the quote anchor finds a note's text wherever it moved to, and says nothing when the passage is gone. Silently landing on the page number instead is the wrong answer and is what happens today.
+- **What a re-check should cost on a large site** — 26 conditional requests are cheap; 500 are not, and a site with no ETags cannot be checked without downloading. Untested past ~80 pages.
 - **Real equation speech** — MathML/LaTeX-aware reading instead of announce-and-skip. Becomes possible only if [15](https://github.com/HyperToken9/reader/issues/15) recovers equation content; still a hard problem of its own after that.
 
 ## Out of scope
@@ -97,10 +92,14 @@ every open, unassigned ticket whose blockers are closed:
 - **[#17](https://github.com/HyperToken9/reader/issues/17)** take Python out of the download — unblocked now that #16 has closed
 - **[#20](https://github.com/HyperToken9/reader/issues/20)** redesign the reading UI toward the Premium Reader comp — phase 1 (settings panel) built, awaiting the human's verdict
 - **[#21](https://github.com/HyperToken9/reader/issues/21)** a home page, a library, and picking up where you left off
+- **[#22](https://github.com/HyperToken9/reader/issues/22)** what Blitz costs the machine, idle and in use — measure, budget, then cut
 
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
+
+
 
 
 
