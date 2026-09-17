@@ -76,6 +76,8 @@ Reached when that prototype exists and has been driven against real textbook PDF
 - **Regions nested inside regions.** The layout model emits boxes wholly contained in other boxes, and the text-item join assigns each item to exactly one region by max area overlap — so a nested region is either double-counted or lost, and "the region this sentence belongs to" has no single answer. Harmless today because little downstream depends on the labels; decisive once something is rendered on top of a region ([13](https://github.com/HyperToken9/reader/issues/13)'s HTML layer) or skipped because of one. Revisit when [07](https://github.com/HyperToken9/reader/issues/7) has said what regions are *for*.
 - **Real equation speech** — MathML/LaTeX-aware reading instead of announce-and-skip. Becomes possible only if [15](https://github.com/HyperToken9/reader/issues/15) recovers equation content; still a hard problem of its own after that.
 
+- **Leaving Electron.** A Tauri shell + React UI was considered 2026-09-17 and narrowed to speech only ([#26](https://github.com/HyperToken9/reader/issues/26)). If it comes back, test WebKitGTK's rendering against the real documents before anything else: on Linux, Tauri doesn't use Chromium, and every check script drives Chromium over CDP.
+
 ## Out of scope
 
 - ~~**Building and shipping the production v1 app.**~~ No longer out of scope: the destination was redrawn on 2026-09-06 to include it, rather than starting a fresh map, because the route already walked is the route this app is built on. Kept here struck through so the boundary's move is legible.
@@ -94,6 +96,7 @@ every open, unassigned ticket whose blockers are closed:
 - **[#7](https://github.com/HyperToken9/reader/issues/7)** what gets skipped, announced or read — unblocked now that #6 has closed; narrowed to *selection*
 - **[#23](https://github.com/HyperToken9/reader/issues/23)** how text becomes speech: maths, symbols and everything unpronounceable — split out of #7
 - **[#25](https://github.com/HyperToken9/reader/issues/25)** dive mode — does the reader ever get to see a reconstruction? Revisits [13](https://github.com/HyperToken9/reader/issues/13); the *decision* is takeable now, the *build* is far future
+- **[#26](https://github.com/HyperToken9/reader/issues/26)** move speech synthesis into a Rust core, rendering kept as is. Same IPC contract; phonemisation and word alignment are the real port
 - **[#9](https://github.com/HyperToken9/reader/issues/9)** is the extracted text clean enough to segment
 - **[#17](https://github.com/HyperToken9/reader/issues/17)** take Python out of the download — unblocked now that #16 has closed
 - **[#20](https://github.com/HyperToken9/reader/issues/20)** redesign the reading UI toward the Premium Reader comp — phase 1 (settings panel) built, awaiting the human's verdict
@@ -103,6 +106,7 @@ every open, unassigned ticket whose blockers are closed:
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
 
 
 
