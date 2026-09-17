@@ -96,7 +96,8 @@ every open, unassigned ticket whose blockers are closed:
 - **[#7](https://github.com/HyperToken9/reader/issues/7)** what gets skipped, announced or read — unblocked now that #6 has closed; narrowed to *selection*
 - **[#23](https://github.com/HyperToken9/reader/issues/23)** how text becomes speech: maths, symbols and everything unpronounceable — split out of #7
 - **[#25](https://github.com/HyperToken9/reader/issues/25)** dive mode — does the reader ever get to see a reconstruction? Revisits [13](https://github.com/HyperToken9/reader/issues/13); the *decision* is takeable now, the *build* is far future
-- **[#26](https://github.com/HyperToken9/reader/issues/26)** move speech synthesis into a Rust core, rendering kept as is. Same IPC contract; phonemisation and word alignment are the real port
+- **[#26](https://github.com/HyperToken9/reader/issues/26)** move speech synthesis into a Rust core, rendering kept as is. Same IPC contract; phonemisation and word alignment are the real port. Not a speed win: 99.7% of synthesis is the ONNX call, identical from Rust
+- **[#27](https://github.com/HyperToken9/reader/issues/27)** make speech as fast as possible: sentence splitting for first audio, int8, threads, GPU, warm start, each measured against the 2026-09-17 baseline
 - **[#9](https://github.com/HyperToken9/reader/issues/9)** is the extracted text clean enough to segment
 - **[#17](https://github.com/HyperToken9/reader/issues/17)** take Python out of the download — unblocked now that #16 has closed
 - **[#20](https://github.com/HyperToken9/reader/issues/20)** redesign the reading UI toward the Premium Reader comp — phase 1 (settings panel) built, awaiting the human's verdict
@@ -106,6 +107,7 @@ every open, unassigned ticket whose blockers are closed:
 A working copy of this file stays at
 [`.scratch/pdf-native-read-aloud/map.md`](https://github.com/HyperToken9/reader/blob/dev/.scratch/pdf-native-read-aloud/map.md);
 this issue is the canonical one.
+
 
 
 
