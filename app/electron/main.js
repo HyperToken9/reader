@@ -8,12 +8,13 @@
  * run in (onnxruntime-node, not WASM), which is what made layout analysis
  * usable at all -- see electron/layout.js.
  *
- * Both models run here, in this process. The renderer talks to them over IPC
- * (see preload.cjs); nothing listens on a public port.
+ * The layout model runs here, in this process; speech runs in a utilityProcess
+ * of its own (see electron/tts.js). The renderer talks to both over IPC (see
+ * preload.cjs); nothing listens on a port.
  */
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import { fileURLToPath } from "node:url";
-import { dirname, join, sep } from "node:path";
+import { dirname, join } from "node:path";
 
 import * as layout from "./layout.js";
 import * as net from "./net.js";
@@ -21,13 +22,6 @@ import * as library from "./library.js";
 import * as tts from "./tts.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-// The speech engine is a separate process, and Python cannot read a file from
-// inside the asar archive -- so tts_server.py is listed in build.asarUnpack and
-// read from the unpacked tree beside it.
-const TTS_SCRIPT = join(here, "tts_server.py").replace(
-  `${sep}app.asar${sep}`,
-  `${sep}app.asar.unpacked${sep}`,
-);
 
 let win = null;
 
@@ -75,6 +69,15 @@ function createWindow() {
 ipcMain.handle("tts:synthesize", (_e, payload) => tts.synthesize(payload));
 ipcMain.handle("tts:voices", () => tts.voices());
 ipcMain.handle("tts:status", () => tts.status());
+// Pressing play calls this first. The first time, it downloads the weights,
+// reporting progress back to the page that asked; after that it is instant.
+ipcMain.handle("tts:prepare", (e) =>
+  tts
+    .prepare((p) => {
+      if (!e.sender.isDestroyed()) e.sender.send("tts:progress", p);
+    })
+    .then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message })),
+);
 ipcMain.handle("layout:analyze", (_e, png) => layout.analyze(Buffer.from(png)));
 ipcMain.handle("layout:ready", () => layout.isReady());
 
@@ -102,8 +105,7 @@ ipcMain.handle("win:fullscreen", (_e, want) => {
 
 app.whenReady().then(() => {
   createWindow();
-  // Both models load in the background; the UI is usable before either is up.
-  tts.start(TTS_SCRIPT).catch((e) => console.error("[tts]", e.message));
+  // Speech is not started here: it loads on the first press of play.
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

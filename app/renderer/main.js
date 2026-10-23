@@ -57,6 +57,8 @@ const el = {
   sentences: $("sentences"), segcount: $("segcount"),
   pages: $("pages"), viewer: $("viewer"), drop: $("drop"),
   engineStatus: $("engineStatus"),
+  speechFetch: $("speechFetch"), speechFetchText: $("speechFetchText"),
+  speechFetchBar: $("speechFetchBar"), speechRetry: $("speechRetry"),
   prevVariant: $("prevVariant"), nextVariant: $("nextVariant"), variantLabel: $("variantLabel"),
   prevCursor: $("prevCursor"), nextCursor: $("nextCursorBtn"), cursorLabel: $("cursorLabel"),
   busyDot: $("busyDot"),
@@ -3088,7 +3090,7 @@ async function speakOne(c) {
     loadingSentence = null;
     nc = await nextCursor(c).catch(() => null);
     if (nc) return speakOne(nc);
-    status(`synth error on the last sentence — is the Kokoro sidecar running? (npm run server)\n${e.message}`);
+    status(`synth error on the last sentence\n${e.message}`);
     return endOfDocument();
   }
   if (gen !== generation) return;
@@ -3165,6 +3167,7 @@ function endOfDocument() {
 async function play(from) {
   if (playing) return pause();
   if (!doc) return;
+  if (!(await speechReady())) return;
   let start = from ?? cursor;
   if (!start) {
     const p = await firstPageWithSentences();
@@ -3176,6 +3179,66 @@ async function play(from) {
   speakOne(start);
   report();
 }
+
+/*
+ * Speech is fetched the first time play is pressed, never at launch: the
+ * page opens and reads without it, and someone who never presses play never
+ * downloads anything. The first press shows the download inline and plays
+ * once it lands; every press after that resolves at once.
+ *
+ * A press while the download is running does nothing -- the bar is already
+ * saying what is happening. A failure (offline, a damaged download) stays on
+ * screen with a Retry, which is just the same press again.
+ */
+let speechPrepared = false;
+let speechPreparing = false;
+
+async function speechReady() {
+  if (speechPrepared) return true;
+  if (speechPreparing) return false;
+  speechPreparing = true;
+  showSpeechFetch({ phase: "start" });
+  const { ok, error } = await window.blitz.prepareSpeech().catch((e) => ({ ok: false, error: e.message }));
+  speechPreparing = false;
+  reportEngineStatus().catch(() => {});
+  if (!ok) {
+    showSpeechFetch({ phase: "failed", error });
+    return false;
+  }
+  speechPrepared = true;
+  el.speechFetch.hidden = true;
+  return true;
+}
+
+const MB = (n) => (n / 1e6).toFixed(0);
+
+function showSpeechFetch(p) {
+  const box = el.viewer.getBoundingClientRect();
+  el.speechFetch.style.left = `${Math.round(box.left + box.width / 2)}px`;
+  el.speechFetch.hidden = false;
+  el.speechFetch.classList.toggle("failed", p.phase === "failed");
+  el.speechRetry.hidden = p.phase !== "failed";
+  if (p.phase === "failed") {
+    el.speechFetchText.textContent = p.error || "Couldn't get the voice ready.";
+  } else if (p.phase === "download") {
+    el.speechFetchText.textContent = `Downloading the voice · ${MB(p.received)} / ${MB(p.total)} MB`;
+    el.speechFetchBar.style.width = `${(100 * p.received) / p.total}%`;
+  } else if (p.phase === "verify") {
+    el.speechFetchText.textContent = "Checking the download";
+    el.speechFetchBar.style.width = "100%";
+  } else if (p.phase === "load") {
+    el.speechFetchText.textContent = "Starting the voice";
+    el.speechFetchBar.style.width = "100%";
+  } else {
+    el.speechFetchText.textContent = "Getting the voice ready";
+    el.speechFetchBar.style.width = "0";
+  }
+}
+
+window.blitz.onSpeechProgress((p) => {
+  if (speechPreparing) showSpeechFetch(p);
+});
+el.speechRetry.addEventListener("click", () => play());
 
 function pause() {
   playing = false;
@@ -3442,16 +3505,18 @@ el.viewer.addEventListener("scroll", closeMenu, { passive: true });
 const PREFERRED_VOICE = "bf_emma"; // liked in [[14]]'s listening comparison
 
 /*
- * Speech loads in the background and can legitimately be missing (the model
- * weights live outside the repo). Say so in the panel rather than letting the
- * first click fail silently -- a silent failure here is exactly the bug that
- * cost a day in the prototype.
+ * Speech can legitimately be missing: its weights are downloaded on the first
+ * press of play. Say so in the panel rather than letting a click fail
+ * silently -- a silent failure here is exactly the bug that cost a day in the
+ * prototype.
  */
 async function reportEngineStatus() {
-  const { ok, error } = await window.blitz.ttsStatus();
-  el.engineStatus.textContent = ok
-    ? "Speech engine ready."
-    : `Speech unavailable — ${error}`;
+  const { ok, installed, error, downloadBytes } = await window.blitz.ttsStatus();
+  el.engineStatus.textContent = !ok
+    ? `Speech unavailable — ${error}`
+    : installed
+      ? "Speech engine ready."
+      : `Speech downloads the first time you press play (${MB(downloadBytes)} MB).`;
   el.engineStatus.classList.toggle("bad", !ok);
 }
 
