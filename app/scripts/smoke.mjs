@@ -24,10 +24,14 @@ const PORT = Number(process.env.BLITZ_SMOKE_CDP_PORT || 9333);
 // diverged from the source tree once, when Python could not be read out of the
 // archive and the shipped app had no voice.
 const BIN = process.env.BLITZ_SMOKE_BIN;
+// detached: its own process group, so done() can take down the Electron that
+// npx (or the AppImage) starts and not just the wrapper. Otherwise the app
+// outlives the run, keeps the port, and the next run tests it instead.
 const app = BIN
-  ? spawn(BIN, [`--remote-debugging-port=${PORT}`], { stdio: ["ignore", "pipe", "pipe"] })
+  ? spawn(BIN, [`--remote-debugging-port=${PORT}`], { stdio: ["ignore", "pipe", "pipe"], detached: true })
   : spawn("npx", ["electron", ".", `--remote-debugging-port=${PORT}`], {
       stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
     });
 const appLog = [];
 app.stdout.on("data", (d) => appLog.push(String(d)));
@@ -35,7 +39,9 @@ app.stderr.on("data", (d) => appLog.push(String(d)));
 
 const done = (code, msg) => {
   if (msg) console.log(msg);
-  if (app.exitCode === null) app.kill("SIGTERM");
+  if (app.exitCode === null) {
+    try { process.kill(-app.pid, "SIGTERM"); } catch { app.kill("SIGTERM"); }
+  }
   process.exit(code);
 };
 
