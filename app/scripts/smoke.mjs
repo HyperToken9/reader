@@ -99,6 +99,10 @@ const evaluate = async (expr) => {
   return r.result.value;
 };
 
+// The preload bridge is there before the renderer's module has run; the
+// checks below need the page itself up.
+for (let i = 0; i < 40 && !(await evaluate("!!window.__spike")); i++) await new Promise((r) => setTimeout(r, 250));
+
 const status = await evaluate("window.blitz.ttsStatus()");
 
 let spoken = null;
@@ -112,6 +116,27 @@ if (process.env.BLITZ_SMOKE_SPEECH) {
     : prepared;
   console.log(`speech: prepared in ${t1 - t0} ms, first sentence in ${Date.now() - t1} ms`, JSON.stringify(spoken));
 }
+
+// Zoom on the home page (39): the keys and the wheel used to zoom the hidden
+// reader, so nothing visible happened. Real input events, not calls into the
+// app, because the bug was in which listener heard them. Ctrl 0 at the end
+// puts the remembered zoom back, since this writes the real userData.
+const ctrlKey = async (key, code) => {
+  for (const type of ["keyDown", "keyUp"]) {
+    await send("Input.dispatchKeyEvent", { type, modifiers: 2, key, code, windowsVirtualKeyCode: key === "=" ? 187 : key === "-" ? 189 : 48 });
+  }
+};
+const ctrlWheel = (deltaY) =>
+  send("Input.dispatchMouseEvent", { type: "mouseWheel", x: 400, y: 300, deltaX: 0, deltaY, modifiers: 2 });
+const homeZoom = () => evaluate("Number(document.getElementById('homeInner').style.zoom || 1)");
+const zoomState = () => evaluate("({ home: Number(document.getElementById('homeInner').style.zoom || 1), reader: window.__spike.scale, dpr: devicePixelRatio })");
+const before = await zoomState();
+await ctrlKey("=", "Equal");
+const afterKey = await zoomState();
+await ctrlWheel(-300);
+const afterWheel = await homeZoom();
+await ctrlKey("0", "Digit0");
+const afterReset = await zoomState();
 
 // Open a real document. This is the check that was missing when a packaged
 // build shipped with a Chromium too old for PDF.js 6 (no Uint8Array.toHex):
@@ -135,6 +160,11 @@ for (let i = 0; i < 40; i++) {
   await new Promise((r) => setTimeout(r, 500));
 }
 
+// The same keys inside a book drive the reader, and only the reader.
+const readerBefore = await zoomState();
+await ctrlKey("=", "Equal");
+const readerAfter = await zoomState();
+
 const checks = [
   ["speech status answers", status?.ok, status?.error],
   ...(spoken ? [["speech speaks a sentence", spoken.ok && spoken.spans > 0 && spoken.bytes > 1000, spoken.error ?? JSON.stringify(spoken)]] : []),
@@ -144,6 +174,11 @@ const checks = [
   ["PDF opens", opened?.pages > 0, "the file input accepted a PDF and no page appeared"],
   ["first page renders", opened?.rendered, "page 1 never finished rasterising"],
   ["text layer has words", opened?.words > 0, "no spans in the text layer — nothing to highlight"],
+  ["ctrl + zooms the home page, not the reader", afterKey.home > before.home && afterKey.reader === before.reader, JSON.stringify({ before, afterKey })],
+  ["ctrl+wheel zooms the home page", afterWheel > afterKey.home, `${afterKey.home} → ${afterWheel}`],
+  ["ctrl 0 resets the home page", afterReset.home === 1, `zoom ${afterReset.home}`],
+  ["ctrl + in a book zooms the reader only", readerAfter.reader > readerBefore.reader && readerAfter.home === readerBefore.home, JSON.stringify({ readerBefore, readerAfter })],
+  ["window zoom never moves", [afterKey, afterReset, readerAfter].every((s) => s.dpr === before.dpr), `devicePixelRatio ${before.dpr} → ${readerAfter.dpr}`],
   ["no console errors", errors.length === 0, errors.join(" | ")],
 ];
 
