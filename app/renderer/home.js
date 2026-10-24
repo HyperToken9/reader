@@ -185,11 +185,68 @@ function initSiteInput() {
   field.onkeydown = (e) => { if (e.key === "Enter") go(); };
 }
 
+/*
+ * The home page's own zoom (39), separate from the reader's. Ctrl +/-/0 and
+ * ctrl+wheel are the same gestures as in a book, but here they scale the
+ * page's own content with CSS `zoom` on .homeInner -- never the window's
+ * zoom, which would also stretch the reader the moment a book opened and
+ * compound with its own magnification. The scroll container stays the size
+ * of the window; only what is in it grows. Remembered across launches.
+ */
+const HOME_ZOOM_KEY = "blitz.homeZoom";
+const HOME_ZOOM_MIN = 0.5;
+const HOME_ZOOM_MAX = 2.5;
+let homeZoom = 1;
+
+function loadHomeZoom() {
+  let z = NaN;
+  try { z = Number(localStorage.getItem(HOME_ZOOM_KEY)); } catch { /* no storage is fine */ }
+  return Number.isFinite(z) && z > 0 ? Math.min(HOME_ZOOM_MAX, Math.max(HOME_ZOOM_MIN, z)) : 1;
+}
+
+/** Zoom the home page to `next`, keeping the point at `anchorClientY` (or the middle) where it was. */
+function zoomHome(next, anchorClientY = null) {
+  next = Math.round(Math.min(HOME_ZOOM_MAX, Math.max(HOME_ZOOM_MIN, next)) * 100) / 100;
+  if (next === homeZoom) return;
+  const home = $("home");
+  const box = home.getBoundingClientRect();
+  const anchor = anchorClientY === null
+    ? home.clientHeight / 2
+    : Math.max(0, Math.min(home.clientHeight, anchorClientY - box.top));
+  const at = home.scrollTop + anchor;
+  const prev = homeZoom;
+  homeZoom = next;
+  $("homeInner").style.zoom = String(next);
+  home.scrollTop = at * (next / prev) - anchor;
+  try { localStorage.setItem(HOME_ZOOM_KEY, String(next)); } catch { /* not fatal */ }
+}
+
+function initHomeZoom() {
+  homeZoom = loadHomeZoom();
+  $("homeInner").style.zoom = String(homeZoom);
+  // passive:false so preventDefault keeps Chromium's window zoom out of it.
+  $("home").addEventListener("wheel", (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const per = e.deltaMode === 1 ? 0.05 : 0.0012;
+    zoomHome(homeZoom * Math.exp(-e.deltaY * per), e.clientY);
+  }, { passive: false });
+  // The reader binds the same keys for its own zoom and ignores them unless
+  // it is the view showing; this is the other half.
+  addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || document.body.dataset.view !== "home") return;
+    if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomHome(homeZoom * 1.1); }
+    else if (e.key === "-") { e.preventDefault(); zoomHome(homeZoom / 1.1); }
+    else if (e.key === "0") { e.preventDefault(); zoomHome(1); }
+  });
+}
+
 export function initHome({ onOpen, onPick, onAddSite }) {
   handlers = { open: onOpen, pick: onPick, addSite: onAddSite };
   $("greeting").textContent = greeting();
   $("homePick").onclick = () => handlers.pick();
   initSiteInput();
+  initHomeZoom();
   const search = $("shelfSearch");
   search.oninput = () => { query = search.value.trim().toLowerCase(); paintShelf(); };
   // Escape clears rather than closing anything -- there is nothing to close.

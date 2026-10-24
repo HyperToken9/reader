@@ -3805,9 +3805,11 @@ el.viewer.addEventListener("wheel", (e) => {
 }, { passive: false });
 
 // Keyboard zoom, for the same reason: ctrl +/-/0 is the other half of the
-// gesture people already have in their hands.
+// gesture people already have in their hands. Only while a book is showing:
+// the home page has its own zoom (home.js), and zooming the hidden reader
+// from there swallowed the keys with nothing visible happening (39).
 addEventListener("keydown", (e) => {
-  if (!(e.ctrlKey || e.metaKey)) return;
+  if (!(e.ctrlKey || e.metaKey) || document.body.dataset.view !== "reader") return;
   if (e.key === "+" || e.key === "=") { e.preventDefault(); reZoom(scale * 1.1); }
   else if (e.key === "-") { e.preventDefault(); reZoom(scale / 1.1); }
   else if (e.key === "0") { e.preventDefault(); reZoom(1.2); }
