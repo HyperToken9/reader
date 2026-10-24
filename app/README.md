@@ -83,6 +83,7 @@ Other commands:
 | `npm start` | Builds, then runs the app the way a packaged copy runs |
 | `npm run smoke` | Launches the app and asserts it came up wired (see below) |
 | `npm run dist` | Packages an AppImage and a .deb via electron-builder |
+| `npm run dist:review` | `dist`, then copies the AppImage to the main checkout's `app/release/Blitz.AppImage`, the one copy to click for review, from any worktree |
 | `npm run speech:parity` | Checks the speech engine's word spans against the old Python engine's |
 | `npm run speech:bench` | Warm real-time factor of the speech engine |
 

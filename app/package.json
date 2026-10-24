@@ -11,6 +11,7 @@
     "build": "vite build",
     "start": "npm run build && electron .",
     "dist": "node scripts/fetch-espeak.mjs && npm run build && electron-builder",
+    "dist:review": "npm run dist && node scripts/review-copy.mjs",
     "speech:parity": "node scripts/speech-parity.mjs",
     "speech:bench": "node scripts/speech-parity.mjs --bench",
     "smoke": "npm run build && node scripts/smoke.mjs",
