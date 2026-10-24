@@ -1,0 +1,695 @@
+[
+ {
+  "id": "J-01",
+  "section": "J",
+  "label": "Tall brackets drawn by the maths engine",
+  "on_page": "A five-row column vector with tall square brackets, inline in a sentence.",
+  "ideal": "A column vector x, y, z, w, one is written vertically on the page.",
+  "note": "",
+  "typst_source": "A column vector $vec(x, y, z, w, 1, delim: \"[\")$ is written vertically on the page."
+ },
+ {
+  "id": "J-02",
+  "section": "J",
+  "label": "Matrix bracket pieces set as separate glyphs",
+  "on_page": "A 3x3 identity matrix whose brackets are the separate pieces ⎡ ⎢ ⎣ ⎤ ⎥ ⎦.",
+  "ideal": "(skip the matrix, or: the three by three identity matrix.) The grid above is the identity matrix, built the way older equation editors build it.",
+  "note": "",
+  "typst_source": "#grid(columns: 5, column-gutter: 5pt, row-gutter: 2pt,\n  text(font: \"DejaVu Sans\")[⎡], [1], [0], [0], text(font: \"DejaVu Sans\")[⎤],\n  text(font: \"DejaVu Sans\")[⎢], [0], [1], [0], text(font: \"DejaVu Sans\")[⎥],\n  text(font: \"DejaVu Sans\")[⎣], [0], [0], [1], text(font: \"DejaVu Sans\")[⎦])\nThe grid above is the identity matrix, built the way older equation editors build it."
+ },
+ {
+  "id": "J-03",
+  "section": "J",
+  "label": "Box-drawing characters in a directory tree",
+  "on_page": "A monospace directory tree drawn with ├── │ └── characters.",
+  "ideal": "(a code block: app, renderer, main.js, electron, tts.js, or skipped) The tree shows where the two scripts live.",
+  "note": "",
+  "typst_source": "#text(font: \"DejaVu Sans Mono\", size: 9pt)[#raw(\"app/\\n├── renderer/\\n│   └── main.js\\n└── electron/\\n    └── tts.js\")]\n\nThe tree shows where the two scripts live."
+ },
+ {
+  "id": "J-04",
+  "section": "J",
+  "label": "Dot leaders in a table of contents",
+  "on_page": "Three table-of-contents lines with dotted leaders to page numbers.",
+  "ideal": "Chapter 1, Vectors and Scalars, page 17. Chapter 2, The Calculus of Motion, page 43. Chapter 3, Springs, page 81.",
+  "note": "",
+  "typst_source": "#box(width: 10cm)[Chapter 1 Vectors and Scalars #box(width: 1fr, repeat[.]) 17] \\\n#box(width: 10cm)[Chapter 2 The Calculus of Motion #box(width: 1fr, repeat[.]) 43] \\\n#box(width: 10cm)[Chapter 3 Springs #box(width: 1fr, repeat[.]) 81]"
+ },
+ {
+  "id": "J-05",
+  "section": "J",
+  "label": "Running header and page number",
+  "on_page": "Body text; the furniture itself is in the header/footer of every page.",
+  "ideal": "Every page of this document carries a running header and a page number in the footer. (Header and page number never spoken.)",
+  "note": "",
+  "typst_source": "Every page of this document carries a running header (\"Blitz text test bench\") and a page number in the footer. Neither should be read aloud, and neither should be glued onto the first or last sentence of a page."
+ },
+ {
+  "id": "J-06",
+  "section": "J",
+  "label": "A sentence broken across a page",
+  "on_page": "One long sentence flowing over a page break.",
+  "ideal": "The whole sentence as one unit, with no page number or header inside it.",
+  "note": "",
+  "typst_source": "This sentence is placed at the very bottom of a page so that it has to continue on the next page, which means the page number and the running header sit in the middle of it when the text is extracted page by page, and a reader that segments one page at a time will cut it into two pieces, each of which it will then treat as a sentence of its own, with the first piece ending in mid-air and the second piece starting in the middle of a clause that the listener has already half forgotten by the time the next page has been fetched, rendered and read."
+ },
+ {
+  "id": "J-07",
+  "section": "J",
+  "label": "Private-use glyph (icon font)",
+  "on_page": "A pointing-hand icon whose ToUnicode entry was rewritten to private-use U+F0E0 (post-processed), then a sentence.",
+  "ideal": "(icon skipped, or 'Note:') Keep the lid closed while the centrifuge is spinning.",
+  "note": "Post-processed: ToUnicode for ☞ remapped to U+F0E0, as icon fonts do.",
+  "typst_source": "#text(font: \"DejaVu Sans\")[☞] Keep the lid closed while the centrifuge is spinning."
+ },
+ {
+  "id": "J-08",
+  "section": "J",
+  "label": "Unmappable glyph arriving as a control character",
+  "on_page": "Δp and Δt, with the Δ glyph's ToUnicode rewritten to U+0003 (post-processed), as in Millington p.60.",
+  "ideal": "The impulse equals the change in momentum, delta p, over the short interval delta t.",
+  "note": "Post-processed: ToUnicode for Δ in this font remapped to U+0003.",
+  "typst_source": "The impulse equals the change in momentum, #text(font: \"DejaVu Serif\")[Δ]p, over the short interval #text(font: \"DejaVu Serif\")[Δ]t."
+ },
+ {
+  "id": "J-09",
+  "section": "J",
+  "label": "Zero-width space inside a word",
+  "on_page": "'database' and 'timestamp' each containing an invisible U+200B.",
+  "ideal": "The database was rebuilt overnight, and the timestamp column was kept.",
+  "note": "",
+  "typst_source": "The data#sym.zws;base was rebuilt overnight, and the time#sym.zws;stamp column was kept."
+ },
+ {
+  "id": "J-10",
+  "section": "J",
+  "label": "Soft hyphen inside a word",
+  "on_page": "'hyperparameter' and 'metaparameter' each containing an invisible U+00AD soft hyphen.",
+  "ideal": "Tune one hyperparameter at a time, and never more than one metaparameter.",
+  "note": "",
+  "typst_source": "Tune one hyper#\"\\u{00AD}\"parameter at a time, and never more than one meta#\"\\u{00AD}\"parameter."
+ },
+ {
+  "id": "J-11",
+  "section": "J",
+  "label": "Decorative bullets",
+  "on_page": "Three lines starting with the ornaments ❖ ➤ ■.",
+  "ideal": "Weigh the sample. Dissolve it in water. Record the temperature.",
+  "note": "",
+  "typst_source": "#text(font: \"DejaVu Sans\")[❖] Weigh the sample. \\\n#text(font: \"DejaVu Sans\")[➤] Dissolve it in water. \\\n#text(font: \"DejaVu Sans\")[■] Record the temperature."
+ },
+ {
+  "id": "J-12",
+  "section": "J",
+  "label": "Labels inside a figure",
+  "on_page": "A boxed plot with axis labels 'v (m/s)', 't (s)', '0', point labels A and B, and a caption.",
+  "ideal": "Figure 1: Velocity against time for a falling ball. (Labels inside the plot are not read.)",
+  "note": "",
+  "typst_source": "#figure(box(width: 7cm, height: 3cm, stroke: 0.5pt)[\n  #place(top + left, dx: 3pt, dy: 3pt)[v (m/s)]\n  #place(bottom + right, dx: -3pt, dy: -3pt)[t (s)]\n  #place(bottom + left, dx: 3pt, dy: -3pt)[0]\n  #place(center + horizon)[A]\n  #place(top + right, dx: -12pt, dy: 12pt)[B]\n  #place(bottom + left, line(start: (10pt, -8pt), end: (180pt, -70pt), stroke: 0.6pt))\n], caption: [Velocity against time for a falling ball.])"
+ },
+ {
+  "id": "J-13",
+  "section": "J",
+  "label": "Ornamental section break",
+  "on_page": "Two sentences separated by a centred row of fleurons.",
+  "ideal": "The first scene ends here. (pause) The second scene begins the next morning.",
+  "note": "",
+  "typst_source": "The first scene ends here.\n#align(center)[#text(font: \"DejaVu Sans\")[❧ ❧ ❧]]\nThe second scene begins the next morning."
+ },
+ {
+  "id": "J-14",
+  "section": "J",
+  "label": "Line numbers in a code listing",
+  "on_page": "A three-line code listing with grey line numbers 1 2 3 in a gutter.",
+  "ideal": "(code announced or read without the gutter numbers) The loop on line 2 adds every element.",
+  "note": "",
+  "typst_source": "#grid(columns: 2, column-gutter: 8pt, text(font: \"DejaVu Sans Mono\", size: 9pt, fill: gray)[1 \\ 2 \\ 3],\n  text(size: 9pt)[#raw(\"let total = 0;\\nfor (const x of xs) total += x;\\nreturn total;\")])\nThe loop on line 2 adds every element."
+ },
+ {
+  "id": "J-15",
+  "section": "J",
+  "label": "Watermark behind the text",
+  "on_page": "Body text over a pale diagonal watermark (page background).",
+  "ideal": "This page carries a large diagonal watermark behind the body text. It is decoration, not content. (The word 'SPECIMEN' itself is not read.)",
+  "note": "",
+  "typst_source": "This page carries a large diagonal SPECIMEN watermark behind the body text. It is decoration, not content."
+ },
+ {
+  "id": "S-01",
+  "section": "S",
+  "label": "Capital delta",
+  "on_page": "Δx (U+0394, a font with proper mapping).",
+  "ideal": "The change delta x is small compared with x itself.",
+  "note": "",
+  "typst_source": "The change Δx is small compared with x itself."
+ },
+ {
+  "id": "S-02",
+  "section": "S",
+  "label": "Greek letters in prose",
+  "on_page": "α β θ π λ σ in running text.",
+  "ideal": "The angles alpha, beta and theta sum to pi, and lambda is the wavelength while sigma is the spread.",
+  "note": "",
+  "typst_source": "The angles α, β and θ sum to π, and λ is the wavelength while σ is the spread."
+ },
+ {
+  "id": "S-03",
+  "section": "S",
+  "label": "Comparison signs",
+  "on_page": "≤ ≥ ≠ ≈",
+  "ideal": "If x is less than or equal to 5 and y is greater than or equal to 2, then x not equal to y need not hold, and pi is approximately 3.14.",
+  "note": "",
+  "typst_source": "If x ≤ 5 and y ≥ 2, then x ≠ y need not hold, and π ≈ 3.14."
+ },
+ {
+  "id": "S-04",
+  "section": "S",
+  "label": "Plus-minus, times, divide",
+  "on_page": "± × ÷ =",
+  "ideal": "The rod is 12 plus or minus 0.5 centimetres long; 3 times 4 equals 12 and 12 divided by 3 equals 4.",
+  "note": "",
+  "typst_source": "The rod is 12 ± 0.5 cm long; 3 × 4 = 12 and 12 ÷ 3 = 4."
+ },
+ {
+  "id": "S-05",
+  "section": "S",
+  "label": "Degrees",
+  "on_page": "°C with a space, 90° bare.",
+  "ideal": "Water boils at 100 degrees Celsius, the body sits near 37 degrees Celsius, and a right angle is 90 degrees.",
+  "note": "",
+  "typst_source": "Water boils at 100 °C, the body sits near 37 °C, and a right angle is 90°."
+ },
+ {
+  "id": "S-06",
+  "section": "S",
+  "label": "Percent and per mille",
+  "on_page": "% and ‰",
+  "ideal": "Prices rose 15 percent this year, and the salinity is 35 per mille.",
+  "note": "",
+  "typst_source": "Prices rose 15% this year, and the salinity is 35‰."
+ },
+ {
+  "id": "S-07",
+  "section": "S",
+  "label": "Currencies",
+  "on_page": "$ € £ ¥ ₹ before amounts.",
+  "ideal": "It cost 5 dollars 99 here, 20 euros in Paris, 3 pounds in London, 500 yen in Tokyo and 100 rupees in Delhi.",
+  "note": "",
+  "typst_source": "It cost \\$5.99 here, €20 in Paris, £3 in London, ¥500 in Tokyo and ₹100 in Delhi."
+ },
+ {
+  "id": "S-08",
+  "section": "S",
+  "label": "Micro sign and units",
+  "on_page": "µ is U+00B5 MICRO SIGN in the source; m/s² uses a superscript-two character.",
+  "ideal": "Each cell is 10 micrometres wide, the dose is 5 micrograms per decilitre, and g equals 9.81 metres per second squared.",
+  "note": "",
+  "typst_source": "Each cell is 10 µm wide, the dose is 5 µg/dL, and g = 9.81 m/s²."
+ },
+ {
+  "id": "S-09",
+  "section": "S",
+  "label": "Vulgar fractions",
+  "on_page": "½ ¾ ⅓",
+  "ideal": "Add half a cup of flour; three quarters of the class passed and one third stayed behind.",
+  "note": "",
+  "typst_source": "Add ½ cup of flour; ¾ of the class passed and ⅓ stayed behind."
+ },
+ {
+  "id": "S-10",
+  "section": "S",
+  "label": "Unicode superscripts and subscripts",
+  "on_page": "x² y³ 10⁻⁵ H₂O CO₂ as Unicode characters.",
+  "ideal": "We have x squared plus y cubed, a rate of ten to the minus five per second, and water is H 2 O while C O 2 is a gas.",
+  "note": "",
+  "typst_source": "We have x² + y³, a rate of 10⁻⁵ per second, and water is H₂O while CO₂ is a gas."
+ },
+ {
+  "id": "S-11",
+  "section": "S",
+  "label": "Typeset superscripts and subscripts",
+  "on_page": "The same as S-10 but raised/lowered ordinary digits, as most PDFs do it.",
+  "ideal": "Same as S-10: x squared plus y cubed, ten to the minus five, H 2 O, C O 2.",
+  "note": "",
+  "typst_source": "We have x#super(typographic: false)[2] + y#super(typographic: false)[3], a rate of 10#super(typographic: false)[−5] per second, and water is H#sub(typographic: false)[2]O while CO#sub(typographic: false)[2] is a gas."
+ },
+ {
+  "id": "S-12",
+  "section": "S",
+  "label": "Arrows",
+  "on_page": "→ ⇒ ↑ ↓",
+  "ideal": "The reaction A to B (A goes to B) is fast, the rule p implies q is a premise, and prices went up while sales went down.",
+  "note": "",
+  "typst_source": "The reaction A → B is fast, the rule p ⇒ q is a premise, and prices went ↑ while sales went ↓."
+ },
+ {
+  "id": "S-13",
+  "section": "S",
+  "label": "Primes",
+  "on_page": "′ and ″ as derivative marks and as feet/inches.",
+  "ideal": "Compare f prime of x with f double prime of x; the shelf is 5 feet 11 inches tall.",
+  "note": "",
+  "typst_source": "Compare f′(x) with f″(x); the shelf is 5′ 11″ tall."
+ },
+ {
+  "id": "S-14",
+  "section": "S",
+  "label": "Big operators as text",
+  "on_page": "∑ ∫ ∞ √ in running text.",
+  "ideal": "The sum of the terms diverges, the integral from 0 to infinity converges, and the square root of 2 is irrational.",
+  "note": "",
+  "typst_source": "The ∑ of the terms diverges, the ∫ from 0 to ∞ converges, and √2 is irrational."
+ },
+ {
+  "id": "S-15",
+  "section": "S",
+  "label": "Set and logic symbols",
+  "on_page": "∈ ∉ ∀ ∃",
+  "ideal": "For every x in S there is a y not in T; for all epsilon greater than 0 there exists delta greater than 0 such that the bound holds.",
+  "note": "",
+  "typst_source": "For every x ∈ S there is a y ∉ T; ∀ε > 0 ∃δ > 0 such that the bound holds."
+ },
+ {
+  "id": "S-16",
+  "section": "S",
+  "label": "Mathematical italic letters as text",
+  "on_page": "𝑃 𝐴 𝜽 𝑛 typed as Unicode mathematical alphanumerics (what modern maths fonts emit).",
+  "ideal": "The probability P of A rises with the parameter theta, and n is the sample size.",
+  "note": "",
+  "typst_source": "The probability 𝑃(𝐴) rises with the parameter 𝜽, and 𝑛 is the sample size."
+ },
+ {
+  "id": "S-17",
+  "section": "S",
+  "label": "Defined-as and other relations",
+  "on_page": "≜ ∝ ⊆",
+  "ideal": "Let f be defined as g plus 1, assume a is proportional to b, and note that A is a subset of B.",
+  "note": "",
+  "typst_source": "Let 𝑓 ≜ 𝑔 + 1, assume a ∝ b, and note that A ⊆ B."
+ },
+ {
+  "id": "S-18",
+  "section": "S",
+  "label": "Section, copyright and trademark signs",
+  "on_page": "§ ¶ © ™ ®",
+  "ideal": "See section 4.2 and paragraph 3; the text is copyright 2026 Blitz, and Kokoro trademark is named here only as an example registered.",
+  "note": "",
+  "typst_source": "See § 4.2 and ¶ 3; the text is © 2026 Blitz, and Kokoro™ is named here only as an example®."
+ },
+ {
+  "id": "S-19",
+  "section": "S",
+  "label": "Ellipsis",
+  "on_page": "Single-character ellipsis U+2026.",
+  "ideal": "Wait... (pause) then what happened to the other half?",
+  "note": "",
+  "typst_source": "Wait… then what happened to the other half?"
+ },
+ {
+  "id": "S-20",
+  "section": "S",
+  "label": "En dash ranges and pairs",
+  "on_page": "– between numbers and between names.",
+  "ideal": "Read pages 10 to 20 of the 1990 to 1995 report on the London to Paris line.",
+  "note": "",
+  "typst_source": "Read pages 10–20 of the 1990–1995 report on the London–Paris line."
+ },
+ {
+  "id": "S-21",
+  "section": "S",
+  "label": "Em dash",
+  "on_page": "— with no surrounding spaces.",
+  "ideal": "The result, surprisingly, was exactly zero. (with pauses)",
+  "note": "",
+  "typst_source": "The result—surprisingly—was exactly zero."
+ },
+ {
+  "id": "S-22",
+  "section": "S",
+  "label": "Minus sign versus hyphen",
+  "on_page": "U+2212 minus vs ASCII hyphen.",
+  "ideal": "At minus 40 degrees Celsius the two scales agree; the hyphenated minus 40 is the same number.",
+  "note": "",
+  "typst_source": "At −40 °C the two scales agree; the hyphenated #\"-\"40 is the same number."
+ },
+ {
+  "id": "S-23",
+  "section": "S",
+  "label": "Ampersand, hash, slash and ratio",
+  "on_page": "& # : / in prose",
+  "ideal": "R and D spent number 3 of the budget on a 3 to 2 ratio of kilometres per hour tests and or audits.",
+  "note": "",
+  "typst_source": "R&D spent \\#3 of the budget on a 3:2 ratio of km/h tests and/or audits."
+ },
+ {
+  "id": "P-01",
+  "section": "P",
+  "label": "Ligatures fi fl ff ffi ffl",
+  "on_page": "Libertinus Serif with standard ligatures on (fi, fl, ff, ffi, ffl glyphs).",
+  "ideal": "The official efficient affluent fluffy fjord shuffle baffled five office staff.",
+  "note": "",
+  "typst_source": "The official efficient affluent fluffy fjord shuffle baffled five office staff."
+ },
+ {
+  "id": "P-02",
+  "section": "P",
+  "label": "Hyphenated line ends",
+  "on_page": "A narrow justified column where long words are hyphenated across line ends.",
+  "ideal": "Internationalisation and incomprehensibility are characteristically troublesome for straightforward extraction.",
+  "note": "",
+  "typst_source": "#block(width: 4.2cm)[#set par(justify: true)\n#set text(hyphenate: true)\nInternationalisation and incomprehensibility are characteristically troublesome for straightforward extraction.]"
+ },
+ {
+  "id": "P-03",
+  "section": "P",
+  "label": "Compound hyphen at a line end",
+  "on_page": "A very narrow column so the real hyphens of compounds fall at line ends.",
+  "ideal": "A well-known self-contained state-of-the-art object-oriented design.",
+  "note": "",
+  "typst_source": "#block(width: 1.45cm)[#set par(justify: false)\nA well-known self-contained state-of-the-art object-oriented design.]"
+ },
+ {
+  "id": "P-04",
+  "section": "P",
+  "label": "Tight letter tracking",
+  "on_page": "Three lines of increasingly tight letter-spacing (-0.05em, -0.12em, -0.2em).",
+  "ideal": "All three sentences with normal word boundaries.",
+  "note": "",
+  "typst_source": "#text(tracking: -0.05em)[Tracking minus five hundredths keeps these words apart.] \\\n#text(tracking: -0.12em)[Tracking minus twelve hundredths may start to weld.] \\\n#text(tracking: -0.2em)[Tracking minus two tenths welds these words together.]"
+ },
+ {
+  "id": "P-05",
+  "section": "P",
+  "label": "Wide letter-spacing",
+  "on_page": "An all-caps heading with +0.3em tracking.",
+  "ideal": "Widely spaced heading. The heading above is letter-spaced the way chapter openers often are.",
+  "note": "",
+  "typst_source": "#text(tracking: 0.3em)[WIDELY SPACED HEADING] \\\nThe heading above is letter-spaced the way chapter openers often are."
+ },
+ {
+  "id": "P-06",
+  "section": "P",
+  "label": "Small caps",
+  "on_page": "Small-cap glyphs (OpenType smcp) for NASA, Royal Society, UNIX.",
+  "ideal": "NASA and the Royal Society both run UNIX servers.",
+  "note": "",
+  "typst_source": "#smallcaps[Nasa] and the #smallcaps[Royal Society] both run #smallcaps[Unix] servers."
+ },
+ {
+  "id": "P-07",
+  "section": "P",
+  "label": "Drop cap",
+  "on_page": "A large initial O in its own box, the rest of the word 'nce' starting the paragraph.",
+  "ideal": "Once upon a time a reader met a drop cap and had to decide what to make of it. The large letter sits in its own box beside the paragraph.",
+  "note": "",
+  "typst_source": "#grid(columns: (auto, 1fr), gutter: 3pt, text(size: 30pt)[O], [nce upon a time a reader met a drop cap and had to decide what to make of it. The large letter sits in its own box beside the paragraph.])"
+ },
+ {
+  "id": "P-08",
+  "section": "P",
+  "label": "Footnote markers",
+  "on_page": "Two superscript footnote numbers attached to words; the notes print at the page foot.",
+  "ideal": "This claim needs support, and so does this one. (Markers silent or 'footnote 1'; the note text read later or on request.)",
+  "note": "",
+  "typst_source": "This claim#footnote[The note text appears at the foot of the page.] needs support, and so does this one#footnote[A second note.]."
+ },
+ {
+  "id": "P-09",
+  "section": "P",
+  "label": "URL",
+  "on_page": "A URL with a path and a query string.",
+  "ideal": "Visit example dot org slash docs slash v2 for the details.",
+  "note": "",
+  "typst_source": "Visit https://example.org/docs/v2?lang=en for the details."
+ },
+ {
+  "id": "P-10",
+  "section": "P",
+  "label": "Email address",
+  "on_page": "An email address.",
+  "ideal": "Write to reader dot help at example dot com with questions.",
+  "note": "",
+  "typst_source": "Write to reader.help\\@example.com with questions."
+ },
+ {
+  "id": "P-11",
+  "section": "P",
+  "label": "Code identifiers in prose",
+  "on_page": "snake_case, a dotted call, camelCase and SCREAMING_CASE in inline code.",
+  "ideal": "Call parse config first, then foo dot bar of x, and finally get element by id on the max size buffer.",
+  "note": "",
+  "typst_source": "Call `parse_config()` first, then `foo.bar(x)`, and finally `getElementById` on the `MAX_SIZE` buffer."
+ },
+ {
+  "id": "P-12",
+  "section": "P",
+  "label": "Numbers",
+  "on_page": "Thousands separator, version number, scientific notation, long decimal.",
+  "ideal": "The total was one thousand two hundred thirty-four point five six units; version three point ten replaced three point nine; the tolerance is one times ten to the minus five; and zero point zero zero zero zero zero one is a millionth.",
+  "note": "",
+  "typst_source": "The total was 1,234.56 units; version 3.10 replaced 3.9; the tolerance is 1e-5; and 0.000001 is a millionth."
+ },
+ {
+  "id": "P-13",
+  "section": "P",
+  "label": "Dates and times",
+  "on_page": "ISO date, 24-hour time, abbreviated month.",
+  "ideal": "The run started on the twenty-fourth of October 2026 at fourteen thirty and ended on 24 October 2026 at four oh five pm.",
+  "note": "",
+  "typst_source": "The run started on 2026-10-24 at 14:30 and ended on 24 Oct 2026 at 4:05 pm."
+ },
+ {
+  "id": "P-14",
+  "section": "P",
+  "label": "Abbreviations with full stops",
+  "on_page": "e.g. i.e. Dr. Fig. approx. et al. p. vs.",
+  "ideal": "Some solvents, for example ethanol, are safe, that is mostly. Doctor Rao showed in figure 3 that approximately 4 kilometres is enough, as Smith and others (2019) found on page 12, versus 6 kilometres before. (Split into exactly two sentences.)",
+  "note": "",
+  "typst_source": "Some solvents, e.g. ethanol, are safe, i.e. mostly. Dr. Rao showed in Fig. 3 that approx. 4 km is enough, as Smith et al. (2019) found on p. 12, vs. 6 km before."
+ },
+ {
+  "id": "P-15",
+  "section": "P",
+  "label": "Nested quotes and parentheses",
+  "on_page": "Curly double and single quotes, nested parentheses.",
+  "ideal": "She said, the very deeply nested case works, he wrote, and meant it.",
+  "note": "",
+  "typst_source": "“She said, ‘the (very (deeply) nested) case’ works,” he wrote (and meant it)."
+ },
+ {
+  "id": "P-16",
+  "section": "P",
+  "label": "Numbered list",
+  "on_page": "A three-item numbered list (1. 2. 3.).",
+  "ideal": "One: heat the solution. Two: add the reagent. Three: stir for two minutes. (or without the numbers)",
+  "note": "",
+  "typst_source": "+ Heat the solution.\n+ Add the reagent.\n+ Stir for two minutes."
+ },
+ {
+  "id": "P-17",
+  "section": "P",
+  "label": "Lettered list in a sentence",
+  "on_page": "(a) (b) (c) inline.",
+  "ideal": "The kit needs a, a beaker, b, a burner and c, a timer.",
+  "note": "",
+  "typst_source": "The kit needs (a) a beaker, (b) a burner and (c) a timer."
+ },
+ {
+  "id": "P-18",
+  "section": "P",
+  "label": "Two-column section",
+  "on_page": "Two short columns side by side.",
+  "ideal": "The left column starts this thought and carries it down to the bottom of the column before it stops. The right column picks the story up again and finishes it here.",
+  "note": "",
+  "typst_source": "#columns(2, gutter: 8mm)[The left column starts this thought and carries it down to the bottom of the column before it stops. #colbreak() The right column picks the story up again and finishes it here.]"
+ },
+ {
+  "id": "P-19",
+  "section": "P",
+  "label": "Heading without a full stop",
+  "on_page": "A bold heading line with no terminal punctuation, then a sentence.",
+  "ideal": "Energy and Work. (pause) Work is force times distance.",
+  "note": "",
+  "typst_source": "#text(weight: \"bold\", size: 13pt)[Energy and Work] \\\nWork is force times distance."
+ },
+ {
+  "id": "P-20",
+  "section": "P",
+  "label": "Roman numerals",
+  "on_page": "IV VIII II",
+  "ideal": "Chapter four covers Henry the Eighth and the aftermath of World War Two.",
+  "note": "",
+  "typst_source": "Chapter IV covers Henry VIII and the aftermath of World War II."
+ },
+ {
+  "id": "P-21",
+  "section": "P",
+  "label": "Accented letters",
+  "on_page": "ï é ç ö",
+  "ideal": "The naive cafe owner admired the facade designed by Schrodinger's cousin.",
+  "note": "",
+  "typst_source": "The naïve café owner admired the façade designed by Schrödinger’s cousin."
+ },
+ {
+  "id": "P-22",
+  "section": "P",
+  "label": "Initials and acronyms",
+  "on_page": "Spaced initials, dotted acronym, plain acronyms.",
+  "ideal": "J R R Tolkien never visited the U S A, but NASA and the S Q L committee did. (one sentence)",
+  "note": "",
+  "typst_source": "J. R. R. Tolkien never visited the U.S.A., but NASA and the SQL committee did."
+ },
+ {
+  "id": "P-23",
+  "section": "P",
+  "label": "Citations",
+  "on_page": "Bracketed numeric citations and author-year.",
+  "ideal": "Earlier work disagreed with Smith 2019 and with the review by Lee and others. (bracket numbers silent or brief)",
+  "note": "",
+  "typst_source": "Earlier work [12, 14] disagreed with Smith (2019) and with the review by Lee et al. [7]."
+ },
+ {
+  "id": "P-24",
+  "section": "P",
+  "label": "A small table",
+  "on_page": "A 3x3 table with a header row.",
+  "ideal": "Element, symbol, mass: hydrogen, H, 1.008; carbon, C, 12.011. (row by row)",
+  "note": "",
+  "typst_source": "#table(columns: 3, [Element], [Symbol], [Mass (u)], [Hydrogen], [H], [1.008], [Carbon], [C], [12.011])"
+ },
+ {
+  "id": "P-25",
+  "section": "P",
+  "label": "Code block",
+  "on_page": "A three-line C loop in a code block.",
+  "ideal": "(code block announced or skipped) The loop above sums the array.",
+  "note": "",
+  "typst_source": "#raw(block: true, lang: \"c\", \"for (int i = 0; i < n; i++) {\\n  sum += a[i];\\n}\")\nThe loop above sums the array."
+ },
+ {
+  "id": "P-26",
+  "section": "P",
+  "label": "Chemical charges",
+  "on_page": "Unicode superscript charges.",
+  "ideal": "Iron appears as F E three plus and sulfate as S O four two minus in the solution.",
+  "note": "",
+  "typst_source": "Iron appears as Fe³⁺ and sulfate as SO₄²⁻ in the solution."
+ },
+ {
+  "id": "M-01",
+  "section": "M",
+  "label": "Inline maths mid-sentence",
+  "on_page": "Inline equation set in the maths font.",
+  "ideal": "The energy E equals m c squared follows from the rest mass alone.",
+  "note": "",
+  "typst_source": "The energy $E = m c^2$ follows from the rest mass alone."
+ },
+ {
+  "id": "M-02",
+  "section": "M",
+  "label": "Inline fraction",
+  "on_page": "Slash fraction and stacked inline fraction.",
+  "ideal": "The ratio a over b equals one half when b equals 2 a.",
+  "note": "",
+  "typst_source": "The ratio $a/b$ equals $frac(1, 2)$ when $b = 2a$."
+ },
+ {
+  "id": "M-03",
+  "section": "M",
+  "label": "Numbered display equation",
+  "on_page": "Display equation with an equation number (1).",
+  "ideal": "Newton gives the law F equals m a, equation 1, which we use throughout.",
+  "note": "",
+  "typst_source": "#set math.equation(numbering: \"(1)\")\nNewton gives the law\n$ F = m a $\nwhich we use throughout."
+ },
+ {
+  "id": "M-04",
+  "section": "M",
+  "label": "Display with a limit and fraction",
+  "on_page": "Millington-style limit of a difference quotient.",
+  "ideal": "The velocity is v equals the limit as delta t tends to zero of delta p over delta t, which is the derivative of position.",
+  "note": "",
+  "typst_source": "The velocity is\n$ v = lim_(Delta t -> 0) (Delta p)/(Delta t) $\nwhich is the derivative of position."
+ },
+ {
+  "id": "M-05",
+  "section": "M",
+  "label": "Matrix",
+  "on_page": "A 2x2 matrix with round brackets.",
+  "ideal": "The rotation matrix is R equals the two by two matrix cos theta, minus sin theta; sin theta, cos theta, for an angle theta. (or 'matrix skipped')",
+  "note": "",
+  "typst_source": "The rotation matrix is\n$ R = mat(cos theta, -sin theta; sin theta, cos theta) $\nfor an angle $theta$."
+ },
+ {
+  "id": "M-06",
+  "section": "M",
+  "label": "A sentence that is only maths",
+  "on_page": "An inline equation with nothing else in the paragraph.",
+  "ideal": "x squared plus y squared equals r squared.",
+  "note": "",
+  "typst_source": "$x^2 + y^2 = r^2$."
+ },
+ {
+  "id": "M-07",
+  "section": "M",
+  "label": "Sum and integral displays",
+  "on_page": "Display sum with limits and a definite integral.",
+  "ideal": "The sum from i equals 1 to n of i equals n times n plus 1 over 2, and the integral from 0 to 1 of x squared d x equals one third.",
+  "note": "",
+  "typst_source": "$ sum_(i=1)^n i = (n(n+1))/2 quad \"and\" quad integral_0^1 x^2 dif x = 1/3 $"
+ },
+ {
+  "id": "M-08",
+  "section": "M",
+  "label": "Sub- and superscripts inline",
+  "on_page": "Stacked sub/superscripts.",
+  "ideal": "Each term x i squared multiplies the entry a i j of the matrix.",
+  "note": "",
+  "typst_source": "Each term $x_i^2$ multiplies the entry $a_(i j)$ of the matrix."
+ },
+ {
+  "id": "M-09",
+  "section": "M",
+  "label": "Greek inside maths",
+  "on_page": "Greek letters set in the maths font (math italic).",
+  "ideal": "We require alpha plus beta equals gamma and delta x greater than zero.",
+  "note": "",
+  "typst_source": "We require $alpha + beta = gamma$ and $Delta x > 0$."
+ },
+ {
+  "id": "M-10",
+  "section": "M",
+  "label": "Roots, norms and absolute values",
+  "on_page": "√ with vinculum, double bars, single bars.",
+  "ideal": "The length is the square root of x squared plus y squared, written the norm of v or the absolute value of v.",
+  "note": "",
+  "typst_source": "The length is $sqrt(x^2 + y^2)$, written $norm(bold(v))$ or $|v|$."
+ },
+ {
+  "id": "M-11",
+  "section": "M",
+  "label": "Vectors with arrows and hats",
+  "on_page": "Accents set above letters.",
+  "ideal": "The dot product v dot w uses the unit vector x hat.",
+  "note": "",
+  "typst_source": "The dot product $arrow(v) dot arrow(w)$ uses the unit vector $hat(x)$."
+ },
+ {
+  "id": "M-12",
+  "section": "M",
+  "label": "Set-builder notation",
+  "on_page": "Braces, ∈, blackboard R.",
+  "ideal": "The positive reals are the set of x in R such that x is greater than zero.",
+  "note": "",
+  "typst_source": "The positive reals are ${x in RR | x > 0}$."
+ },
+ {
+  "id": "M-13",
+  "section": "M",
+  "label": "Piecewise definition",
+  "on_page": "A cases block with a tall left brace.",
+  "ideal": "f of x equals x if x is at least zero, and minus x otherwise. This is the absolute value.",
+  "note": "",
+  "typst_source": "$ f(x) = cases(x \"if\" x >= 0, -x \"otherwise\") $\nThis is the absolute value."
+ }
+]
