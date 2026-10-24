@@ -101,6 +101,14 @@
            #viewer is the scroller. -->
       <div id="pageNow" hidden><span id="pageNowText">—</span></div>
 
+      <!-- Speech is downloaded the first time play is pressed, and this is
+           where that shows: progress, then playback, or why it failed. -->
+      <div id="speechFetch" hidden role="status" aria-live="polite">
+        <span id="speechFetchText">Getting the voice ready</span>
+        <span class="track"><span id="speechFetchBar"></span></span>
+        <button id="speechRetry" hidden>Retry</button>
+      </div>
+
       <!-- Where a link goes, in the corner a browser puts it. -->
       <div id="linkPeek" hidden><span id="linkPeekIcon"></span><span id="linkPeekText"></span></div>
 
@@ -112,7 +120,7 @@
           <span class="monoLabel">configure</span>
           <button id="closeSettings" class="iconBtn" title="Close settings (h)" aria-label="Close settings"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"/></svg></button>
         </header>
-        <p class="proto" id="engineStatus">starting the speech engine…</p>
+        <p class="proto" id="engineStatus">checking speech…</p>
 
         <!-- One section open at a time (main.js enforces it and remembers
              which). Six short lists beat one long one: the panel held every

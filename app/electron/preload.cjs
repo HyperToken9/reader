@@ -10,8 +10,12 @@ contextBridge.exposeInMainWorld("blitz", {
   synthesize: (payload) => ipcRenderer.invoke("tts:synthesize", payload),
   /** -> string[] of voice names */
   voices: () => ipcRenderer.invoke("tts:voices"),
-  /** -> {ok, error?} — whether speech is available at all */
+  /** -> {ok, installed, error?, downloadBytes} — whether speech works, and whether play will download first */
   ttsStatus: () => ipcRenderer.invoke("tts:status"),
+  /** Download the weights if needed and start the engine -> {ok, error?}. Progress arrives on onSpeechProgress. */
+  prepareSpeech: () => ipcRenderer.invoke("tts:prepare"),
+  /** cb({phase: "download"|"verify"|"load", received?, total?}) */
+  onSpeechProgress: (cb) => ipcRenderer.on("tts:progress", (_e, p) => cb(p)),
   /** PNG bytes (ArrayBuffer) -> [{label, score, box:[x1,y1,x2,y2]}] in reading order */
   analyzeLayout: (pngArrayBuffer) => ipcRenderer.invoke("layout:analyze", pngArrayBuffer),
   /** -> boolean */

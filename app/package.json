@@ -6,17 +6,21 @@
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
-    "setup:speech": "./scripts/setup-speech.sh",
+    "postinstall": "node scripts/fetch-espeak.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "start": "npm run build && electron .",
-    "dist": "npm run build && electron-builder",
+    "dist": "node scripts/fetch-espeak.mjs && npm run build && electron-builder",
+    "speech:parity": "node scripts/speech-parity.mjs",
+    "speech:bench": "node scripts/speech-parity.mjs --bench",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "smoke:dist": "BLITZ_SMOKE_BIN=release/linux-unpacked/blitz node scripts/smoke.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.3",
+    "koffi": "3.3.3",
     "onnxruntime-node": "^1.29.0",
+    "ort-speech": "npm:onnxruntime-node@1.23.2",
     "pdfjs-dist": "6.3.289",
     "ppu-doclayout": "^1.0.0"
   },
@@ -31,8 +35,21 @@
     "productName": "Blitz",
     "files": [
       "electron/**/*",
+      "!electron/**/__pycache__",
       "dist/renderer/**/*",
-      "package.json"
+      "vendor/espeak-ng/**/*",
+      "package.json",
+      "!node_modules/ort-speech/bin/napi-v6/{darwin,win32}/**",
+      "!node_modules/ort-speech/bin/napi-v6/linux/arm64/**",
+      "!node_modules/ort-speech/bin/napi-v6/linux/x64/libonnxruntime_providers_{cuda,tensorrt}.so",
+      "!node_modules/@koromix/koffi-*/musl_*/**",
+      "!node_modules/koffi/{vendor,doc}/**"
+    ],
+    "extraResources": [
+      {
+        "from": "licenses",
+        "to": "licenses"
+      }
     ],
     "linux": {
       "target": [
@@ -46,7 +63,10 @@
       "output": "release"
     },
     "asarUnpack": [
-      "electron/tts_server.py"
+      "vendor/espeak-ng/**",
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**",
+      "node_modules/ort-speech/**"
     ]
   },
   "allowScripts": {

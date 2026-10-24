@@ -11,3 +11,6 @@ app/release/
 
 # Throwaway prototype deps
 .scratch/**/node_modules/
+
+# libespeak-ng and its English data, fetched by app/scripts/fetch-espeak.mjs
+app/vendor/

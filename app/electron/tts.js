@@ -1,120 +1,152 @@
 /*
  * Kokoro speech, as seen by the renderer.
  *
- * The renderer only ever calls synthesize()/voices() over IPC, so it does not
- * know or care how speech is produced. Today the engine is a Python child
- * process (tts_server.py, carried over from prototype 16) speaking HTTP on a
- * loopback port that only this process knows about. That is deliberately
- * behind this module: swapping the engine for an in-process onnxruntime-node
- * one -- which is what a shippable download needs, since it drops the Python
- * dependency -- changes this file and nothing else.
+ * The renderer calls synthesize()/voices() over IPC and does not know how
+ * speech is produced. Behind this module the engine is a Node port of Kokoro
+ * (electron/speech/) running in its own Electron utilityProcess -- see
+ * speech/worker.js for why it is a separate process.
  *
- * Engine location comes from BLITZ_TTS_HOME (default ~/.local/share/blitz-tts),
- * which holds venv/ and kokoro/. See app/README.md.
+ * Nothing about speech happens at launch. The weights (~190 MB) are fetched
+ * the first time the reader presses play: the renderer calls prepare(), which
+ * downloads into <userData>/speech/ with progress events, verifies, and then
+ * starts the engine. Someone who never presses play never downloads anything.
  */
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { app, utilityProcess } from "electron";
+import { cpus } from "node:os";
+import { dirname, join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import * as model from "./speech/model.js";
 
-const HOME = process.env.BLITZ_TTS_HOME || join(homedir(), ".local/share/blitz-tts");
-const PYTHON = join(HOME, "venv/bin/python");
+const here = dirname(fileURLToPath(import.meta.url));
+// koffi and espeak need real files, not paths inside the asar archive; the
+// build unpacks vendor/espeak-ng (see build.asarUnpack in package.json).
+const unpacked = (p) => p.replace(`${sep}app.asar${sep}`, `${sep}app.asar.unpacked${sep}`);
+const ESPEAK = unpacked(join(here, "../vendor/espeak-ng"));
+const WORKER = join(here, "speech/worker.js");
+const modelDir = () => process.env.BLITZ_SPEECH_DIR || join(app.getPath("userData"), "speech");
 
 /*
- * The engine binds an OS-assigned free port on loopback rather than a fixed
- * one: a fixed port means a second copy of the app collides with the first and
- * the engine dies at startup. The child prints the port it got on its first
- * line of stdout, and only this process ever learns it.
+ * Half the cores, never more than eight. Speech is synthesized while speech is
+ * playing, so pinning every core starves the audio thread (heard as crackle),
+ * and on a 16-core machine 16 threads ran at 0.36x real time where 8 ran at
+ * 0.27x: oversubscribing cost throughput as well.
  */
-let port = null;
-let base = null;
-let child = null;
-let ready = null;
-let lastError = null;
+const THREADS = Number(process.env.BLITZ_TTS_THREADS) || Math.max(1, Math.min(8, Math.floor(cpus().length / 2)));
 
-/** Poll /voices until the model is loaded. Cold start is a few seconds. */
-async function waitForServer(timeoutMs = 180_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (child && child.exitCode !== null) {
-      throw new Error(`speech engine exited with code ${child.exitCode}`);
-    }
-    if (base) {
-      try {
-        const res = await fetch(`${base}/voices`, { signal: AbortSignal.timeout(1000) });
-        if (res.ok) return true;
-      } catch {
-        /* not up yet */
-      }
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error("speech engine did not come up in time");
+/*
+ * The voices are fixed by the pinned voices-v1.0.bin (speech/model.js), so
+ * the list is known before it is downloaded -- the voice picker fills in at
+ * launch without anything being fetched.
+ */
+const VOICES = [
+  "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica", "af_kore", "af_nicole", "af_nova",
+  "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam",
+  "am_michael", "am_onyx", "am_puck", "am_santa", "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+  "bm_daniel", "bm_fable", "bm_george", "bm_lewis", "ef_dora", "em_alex", "em_santa", "ff_siwis",
+  "hf_alpha", "hf_beta", "hm_omega", "hm_psi", "if_sara", "im_nicola", "jf_alpha", "jf_gongitsune",
+  "jf_nezumi", "jf_tebukuro", "jm_kumo", "pf_dora", "pm_alex", "pm_santa", "zf_xiaobei", "zf_xiaoni",
+  "zf_xiaoxiao", "zf_xiaoyi", "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang",
+];
+
+let child = null;
+let ready = null; // Promise for a running, initialised engine
+let lastError = null;
+let nextId = 1;
+const pending = new Map(); // id -> {resolve, reject}
+
+function call(op, args = {}) {
+  return new Promise((resolve, reject) => {
+    if (!child) return reject(new Error("speech engine is not running"));
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    child.postMessage({ id, op, ...args });
+  });
 }
 
-export function start(scriptPath) {
+function spawnEngine() {
+  const proc = utilityProcess.fork(WORKER, [], { serviceName: "Blitz speech", stdio: "pipe" });
+  proc.stdout.on("data", (d) => process.stdout.write(`[speech] ${d}`));
+  proc.stderr.on("data", (d) => process.stderr.write(`[speech] ${d}`));
+  proc.on("message", ({ id, ok, result, error }) => {
+    const p = pending.get(id);
+    if (!p) return;
+    pending.delete(id);
+    if (ok) p.resolve(result);
+    else p.reject(new Error(error));
+  });
+  proc.on("exit", (code) => {
+    if (child !== proc) return; // an engine we already replaced
+    const err = new Error(`speech engine exited (${code})`);
+    for (const p of pending.values()) p.reject(err);
+    pending.clear();
+    child = null;
+    ready = null;
+    if (code) lastError = err.message;
+  });
+  child = proc;
+}
+
+/**
+ * Get speech ready to play: download the weights if they are not here yet
+ * (onProgress gets {phase, received, total}), then start the engine. Safe to
+ * call on every press of play -- after the first it resolves at once. A
+ * failure leaves nothing half-started, so calling it again is the retry.
+ */
+export function prepare(onProgress) {
   if (ready) return ready;
-  if (!existsSync(PYTHON)) {
-    lastError = `no speech engine at ${HOME} — see app/README.md`;
-    ready = Promise.reject(new Error(lastError));
-    ready.catch(() => {});
-    return ready;
-  }
-  child = spawn(PYTHON, [scriptPath], {
-    env: { ...process.env, BLITZ_TTS_HOME: HOME, BLITZ_TTS_PORT: "0" },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  child.stdout.on("data", (d) => {
-    const text = String(d);
-    const m = text.match(/^\s*PORT (\d+)/m);
-    if (m && port === null) {
-      port = Number(m[1]);
-      base = `http://127.0.0.1:${port}`;
+  ready = (async () => {
+    const dir = modelDir();
+    await model.ensure(dir, onProgress);
+    onProgress?.({ phase: "load" });
+    spawnEngine();
+    try {
+      await call("init", {
+        model: join(dir, model.FILES[0].name),
+        voices: join(dir, model.FILES[1].name),
+        espeakLib: join(ESPEAK, "libespeak-ng.so"),
+        espeakData: join(ESPEAK, "espeak-ng-data"),
+        threads: THREADS,
+      });
+    } catch (e) {
+      // A model onnxruntime cannot load is as good as corrupt: re-hash it
+      // next time rather than trusting the marker again.
+      await model.distrust(dir);
+      throw e;
     }
-    process.stdout.write(`[tts] ${text}`);
-  });
-  child.stderr.on("data", (d) => process.stderr.write(`[tts] ${d}`));
-  child.on("exit", (code) => {
-    if (code !== 0 && code !== null) lastError = `speech engine exited (${code})`;
-  });
-  ready = waitForServer().catch((e) => {
+    lastError = null;
+  })();
+  const attempt = ready;
+  attempt.catch((e) => {
     lastError = e.message;
-    throw e;
+    if (ready === attempt) stop();
   });
-  ready.catch(() => {});
-  return ready;
+  return attempt;
 }
 
 export function stop() {
-  if (child && child.exitCode === null) child.kill("SIGTERM");
+  const proc = child;
   child = null;
   ready = null;
-  port = null;
-  base = null;
+  for (const p of pending.values()) p.reject(new Error("speech engine stopped"));
+  pending.clear();
+  proc?.kill();
 }
 
+/** -> {ok, installed, error?}: whether speech works, and whether play will download first. */
 export async function status() {
-  if (!ready) return { ok: false, error: lastError ?? "not started" };
-  try {
-    await ready;
-    return { ok: true };
-  } catch {
-    return { ok: false, error: lastError };
+  const installed = await model.installed(modelDir());
+  return { ok: !lastError, installed, error: lastError ?? undefined, downloadBytes: model.TOTAL_BYTES };
+}
+
+export const voices = async () => ({ voices: VOICES });
+
+/** {text, voice, speed} -> {sr, audio_b64 (wav pcm16), words, spans} */
+export async function synthesize({ text, voice, speed }) {
+  // Only prepare() downloads. If the engine stopped (it crashed, say) with
+  // the weights already here, starting it again is quick and silent.
+  if (!ready && !(await model.installed(modelDir()))) {
+    throw new Error("speech is not downloaded yet; press play to fetch it");
   }
+  await prepare();
+  return call("synthesize", { text, voice, speed });
 }
-
-async function call(path, init) {
-  await ready;
-  const res = await fetch(`${base}${path}`, init);
-  if (!res.ok) throw new Error(`${path} ${res.status}: ${await res.text()}`);
-  return res.json();
-}
-
-export const voices = () => call("/voices");
-
-export const synthesize = (payload) =>
-  call("/synthesize", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });

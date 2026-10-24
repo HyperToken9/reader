@@ -1,10 +1,16 @@
 /*
  * Startup smoke test: launch the packaged renderer inside Electron and assert
- * the window actually came up wired -- speech engine reachable, voice list
+ * the window actually came up wired -- speech status answering, voice list
  * populated, no console errors. Drives the real app over CDP rather than
  * mocking, because everything interesting here is in the wiring.
  *
  *   npm run build && node scripts/smoke.mjs
+ *
+ * Speech is downloaded on the first press of play, so by default this only
+ * checks that speech answers. BLITZ_SMOKE_SPEECH=1 also prepares it -- which
+ * downloads the ~190 MB of weights into BLITZ_SPEECH_DIR (or the app's
+ * userData) if they are not there -- and speaks one sentence through the
+ * engine's utilityProcess.
  */
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -93,12 +99,18 @@ const evaluate = async (expr) => {
   return r.result.value;
 };
 
-// The engines load in the background; give them the same grace a reader would.
-let status = null;
-for (let i = 0; i < 60; i++) {
-  status = await evaluate("window.blitz.ttsStatus()");
-  if (status?.ok) break;
-  await new Promise((r) => setTimeout(r, 1000));
+const status = await evaluate("window.blitz.ttsStatus()");
+
+let spoken = null;
+if (process.env.BLITZ_SMOKE_SPEECH) {
+  const t0 = Date.now();
+  const prepared = await evaluate("window.blitz.prepareSpeech()");
+  const t1 = Date.now();
+  spoken = prepared.ok
+    ? await evaluate("window.blitz.synthesize({ text: 'The parser reads one token at a time.', voice: 'bf_emma', speed: 1 })" +
+        ".then((r) => ({ ok: true, sr: r.sr, bytes: r.audio_b64.length, words: r.words.length, spans: r.spans.length }), (e) => ({ ok: false, error: e.message }))")
+    : prepared;
+  console.log(`speech: prepared in ${t1 - t0} ms, first sentence in ${Date.now() - t1} ms`, JSON.stringify(spoken));
 }
 
 // Open a real document. This is the check that was missing when a packaged
@@ -124,7 +136,8 @@ for (let i = 0; i < 40; i++) {
 }
 
 const checks = [
-  ["speech engine ready", status?.ok, status?.error],
+  ["speech status answers", status?.ok, status?.error],
+  ...(spoken ? [["speech speaks a sentence", spoken.ok && spoken.spans > 0 && spoken.bytes > 1000, spoken.error ?? JSON.stringify(spoken)]] : []),
   ["voice list populated", await evaluate("document.getElementById('voice').options.length > 1"), "voice <select> is empty"],
   ["viewer mounted", await evaluate("!!document.getElementById('pages')"), "#pages missing"],
   ["layout model reachable", typeof (await evaluate("window.blitz.layoutReady()")) === "boolean", "layoutReady did not answer"],

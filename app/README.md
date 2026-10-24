@@ -20,8 +20,7 @@ Planning and the prototypes that led to this live in
 ## Running it
 
 ```sh
-npm install
-npm run setup:speech    # one time, ~500 MB of model weights (see below)
+npm install             # also fetches libespeak-ng into vendor/ (see "Speech engine")
 npm run dev             # Vite + Electron with hot reload
 ```
 
@@ -78,6 +77,8 @@ Other commands:
 | `npm start` | Builds, then runs the app the way a packaged copy runs |
 | `npm run smoke` | Launches the app and asserts it came up wired (see below) |
 | `npm run dist` | Packages an AppImage and a .deb via electron-builder |
+| `npm run speech:parity` | Checks the speech engine's word spans against the old Python engine's |
+| `npm run speech:bench` | Warm real-time factor of the speech engine |
 
 ## Why Electron
 
@@ -95,50 +96,72 @@ onnxruntime-node it is ~1.4s a page, off the thread that paints the UI.
 
 ```
 electron/main.js        window, IPC handlers, owns both models
-        preload.cjs     the only bridge to the renderer: five calls, nothing else
-        layout.js       PP-DocLayoutV2 via onnxruntime-node, in process
+        preload.cjs     the only bridge to the renderer
+        layout.js       PP-DocLayoutV2 via onnxruntime-node 1.29, in process
         tts.js          owns the speech engine; the renderer never sees how it works
-        tts_server.py   Kokoro, spawned as a child process (see "Speech engine")
+        speech/         Kokoro in Node, in its own utilityProcess (see "Speech engine")
 renderer/               PDF.js render, sentence geometry, highlight overlay, audio
         epub.js         EPUB parsing: unzip, resolve resources to blob: URLs, per spine chapter
 ```
 
 Context isolation is on and `nodeIntegration` is off. The renderer gets
-`window.blitz.{synthesize, voices, ttsStatus, analyzeLayout, layoutReady}` and
-no other reach into Node.
+`window.blitz.{synthesize, voices, ttsStatus, prepareSpeech, onSpeechProgress,
+analyzeLayout, layoutReady, ...}` and no other reach into Node.
 
 ## Speech engine
 
-`npm run setup:speech` builds a Python venv and the Kokoro model under
-`$BLITZ_TTS_HOME` (default `~/.local/share/blitz-tts`) — outside the repo,
-because it is ~500 MB of weights, and outside `/tmp`, because a routine
-cleanup once wiped the whole thing.
+Speech is Kokoro, ported to Node (`electron/speech/`) from the Python engine
+the app used to spawn. Nobody installs anything for it:
 
-Two things about that setup are easy to get wrong:
+- **The weights download on the first press of play**, never at launch. The
+  reading chrome shows an inline progress bar, the ~190 MB land once in
+  `<userData>/speech/` (`~/.config/Blitz/speech` for the packaged app), and
+  then it plays. Both files come from kokoro-onnx's GitHub releases, pinned by
+  URL and sha256 in `electron/speech/model.js`. A download resumes where it
+  stopped; a damaged one fails its checksum and is fetched again; a file that
+  was truncated or written to after it was checked is fetched again rather
+  than loaded. `BLITZ_SPEECH_DIR` points the app at another directory.
+- **Phonemes come from libespeak-ng 1.52**, the build kokoro-onnx itself uses,
+  called through koffi. `npm install` (and `npm run dist`) fetch it, with its
+  English data only (~1.5 MB), from the espeakng-loader wheel into `vendor/`
+  (`scripts/fetch-espeak.mjs`, pinned by sha256). It is GPL-3.0; the notice
+  ships in `resources/licenses/`. Not the npm `phonemizer` package: its WASM
+  espeak pronounces differently and matched the Python path on only 73% of
+  sentences.
+- **It runs in its own `utilityProcess`** on onnxruntime-node **1.23.2**, under
+  the `ort-speech` npm alias, while the layout model stays on 1.29 in the main
+  process. Two onnxruntime versions cannot share a process, 1.29 is ~20%
+  slower on this graph and shifts timings, and a separate process keeps
+  synthesis off the main process and the audio thread.
 
-- **The stock `kokoro-v1.0.onnx` release will not work.** It has no `duration`
-  output, so `create_timed()` returns no phoneme timings, so the word cursor
-  never moves — silently, with audio that sounds fine. The setup script exports
-  its own model from the PyTorch checkpoint to get that output, and
-  `tts_server.py` refuses to start on a model without it.
+Two things are easy to get wrong:
+
+- **The model must have a `duration` output.** Without it there are no
+  phoneme timings, so the word cursor never moves — silently, with audio that
+  sounds fine. The pinned `model-files-v1.1/kokoro-v1.0.fp16.onnx` has it (the
+  original v1.0 release did not, which is why the app once exported its own),
+  and the engine refuses to load a model without it.
 - **Punctuation-only text has no phonemes.** Kokoro raises `Nothing to
   synthesize` on a "sentence" that is just `-` or `2.`. Hyphens *inside* words
   are fine (`well-known`, `Michaelis–Menten` and `self-organising` all
   synthesize); the failure is only ever a fragment with no letters in it, which
-  the renderer now filters before it asks for audio.
+  the renderer filters before it asks for audio.
 
-The engine runs as a child process on an OS-assigned loopback port that only
-the main process learns, so two copies of the app can run at once.
+`npm run speech:parity` runs a 206-sentence corpus through the engine and
+compares the word spans with what the Python engine produced
+(`scripts/speech-parity/`). It compares spans, not audio: the model graph has
+random ops, so audio is not bit-identical even Python against Python.
 
-`tts.js` is the seam. Replacing Python with an in-process onnxruntime-node
-engine — which is what a real download needs, so users never install Python —
-changes that file and nothing else.
+`tts.js` is the seam: the renderer only ever calls `synthesize`/`voices` and
+gets back `{sr, audio_b64, words, spans}`.
 
 ## Testing
 
 `npm run smoke` launches the real app under Electron, drives it over CDP, and
-asserts the window came up wired: speech engine reachable, voice list
-populated, viewer mounted, layout model answering, no console errors. It then
+asserts the window came up wired: speech status answering, voice list
+populated, viewer mounted, layout model answering, no console errors.
+`BLITZ_SMOKE_SPEECH=1` also prepares speech (downloading the weights if they
+are not there) and speaks a sentence through the engine's process. It then
 *opens a PDF* and asserts page 1 finishes rendering with words in its text
 layer. That second half exists because the first half once passed on a build
 that could not open a single document: the window was healthy in every way the

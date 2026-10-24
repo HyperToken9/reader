@@ -1,0 +1,13 @@
+[server] loaded /home/homefree/.local/share/blitz-tts/kokoro/kokoro-v1.0.fp16.onnx, has_timings=True
+1.8896705519982788
+1.3392407100000001
+1.7789090269999999
+[server] loaded /home/homefree/.local/share/blitz-tts/kokoro/kokoro-v1.0.fp16.onnx, has_timings=True
+1.765807517000212
+1.289138979
+{"label":"venv-python","trial":0,"port_line_s":1.89,"ready_s":1.92,"first_audio_s":2.8,"warm_same_sentence_s":0.7,"spans":7}
+{"label":"venv-python","trial":1,"port_line_s":1.78,"ready_s":1.79,"first_audio_s":2.54,"warm_same_sentence_s":0.67,"spans":7}
+{"label":"venv-python","trial":2,"port_line_s":1.76,"ready_s":1.76,"first_audio_s":2.44,"warm_same_sentence_s":0.69,"spans":7}
+{"label":"pyinstaller","trial":0,"port_line_s":1.92,"ready_s":1.95,"first_audio_s":2.7,"warm_same_sentence_s":0.67,"spans":7}
+{"label":"pyinstaller","trial":1,"port_line_s":1.9,"ready_s":1.9,"first_audio_s":2.71,"warm_same_sentence_s":0.71,"spans":7}
+{"label":"pyinstaller","trial":2,"port_line_s":1.82,"ready_s":1.82,"first_audio_s":2.68,"warm_same_sentence_s":0.73,"spans":7}

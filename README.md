@@ -14,14 +14,14 @@ That constraint is the whole point. Apps that read PDFs aloud generally extract 
 text into their own reflowed environment first, which is exactly where diagrams and
 equations fall apart. Nothing here reflows anything.
 
-Electron, with local models and no network at read time: **Kokoro** for speech
-(with phoneme-level timings, which is what makes the word cursor honest) and
-**PP-DocLayoutV2** for reading order. Linux, packaged as an AppImage and a `.deb`.
+Electron, with local models: **Kokoro** for speech (with phoneme-level timings,
+which is what makes the word cursor honest), downloaded the first time you press
+play, and **PP-DocLayoutV2** for reading order. Linux, packaged as an AppImage
+and a `.deb`.
 
 ```sh
 cd app
 npm install
-npm run setup:speech    # one time, ~500 MB of model weights
 npm run dev
 ```
 
