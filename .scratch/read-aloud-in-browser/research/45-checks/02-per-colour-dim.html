@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset=utf-8><style>
+body{font:20px/1.5 serif;margin:20px;width:760px}
+#dark{background:#111;color:#ddd;padding:8px}
+a{color:#0645ad} code{background:#eee;color:#a00}
+#dark a{color:#8cf}
+</style><style id=hs></style></head><body>
+<p id=p1>Per-colour dim: first sentence with a <a href="#">blue link</a> and <code>code()</code>. Second <em>sentence</em> is the spoken one right now. Third sentence is dim again.</p>
+<div id=dark>Dark site sentence one is dim with <a href="#">a light link</a>. Dark site sentence two is the spoken one now.</div>
+<p id=p4>currentColor alone: <a href="#">link</a> should stay blue if currentColor tracks the element.</p>
+<pre id=out></pre>
+<script>
+const out=[];const log=(...a)=>out.push(a.join(' '));
+function pos(root,off){const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=tw.nextNode()){if(off<=n.data.length)return [n,off];off-=n.data.length}}
+function rng(root,a,b){const r=new Range();r.setStart(...pos(root,a));r.setEnd(...pos(root,b));return r}
+// Split a range into per-text-node sub-ranges, bucket by computed colour.
+function paintDim(ranges, prefix, alpha){
+  const buckets=new Map();
+  for(const R of ranges){
+    const root=R.commonAncestorContainer.nodeType===1?R.commonAncestorContainer:R.commonAncestorContainer.parentNode;
+    const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
+    while(n=tw.nextNode()){
+      if(!R.intersectsNode(n))continue;
+      const sub=new Range();sub.selectNodeContents(n);
+      if(n===R.startContainer)sub.setStart(n,R.startOffset);
+      if(n===R.endContainer)sub.setEnd(n,R.endOffset);
+      const c=getComputedStyle(n.parentElement).color;
+      if(!buckets.has(c))buckets.set(c,[]);buckets.get(c).push(sub);
+    }
+  }
+  let css='',i=0;
+  for(const [c,rs] of buckets){const name=prefix+(i++);CSS.highlights.set(name,new Highlight(...rs));
+    css+=`::highlight(${name}){color:rgb(from ${c} r g b / calc(alpha * ${alpha}))}\n`;}
+  return css;
+}
+const p1=document.getElementById('p1');const t=p1.textContent;
+const s=t.indexOf('Second'),e=t.indexOf('Third'),w=t.indexOf('spoken');
+const d=document.getElementById('dark');const dt=d.textContent;const ds=dt.indexOf('Dark site sentence two'),dw=dt.indexOf('spoken');
+let css=paintDim([rng(p1,0,s),rng(p1,e,t.length),rng(d,0,ds)],'dim',0.4);
+css+=paintDim([rng(p1,s,w),rng(p1,w+6,e),rng(d,ds,dw),rng(d,dw+6,dt.length)],'wdim',0.72);
+const p4=document.getElementById('p4');CSS.highlights.set('cc',new Highlight(rng(p4,0,p4.textContent.length)));
+css+='::highlight(cc){color:currentColor}';
+document.getElementById('hs').textContent=css;
+log(css);
+document.getElementById('out').textContent=out.join('\n');
+</script></body></html>

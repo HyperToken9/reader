@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset=utf-8><style>
+body{font:20px/1.5 serif;margin:20px;width:760px}
+#dark{background:#111;color:#ddd;padding:8px}
+a{color:#0645ad} code{background:#eee;color:#a00}
+::highlight(dim){color:color-mix(in srgb, currentColor 35%, transparent)}
+::highlight(wdim){color:color-mix(in srgb, currentColor 70%, transparent)}
+::highlight(op){opacity:.2;filter:blur(2px);color:inherit}
+</style></head><body>
+<p id=p1>First sentence is dim with a <a href="#">blue link</a> and <code>code()</code>. Second <em>sentence</em> is the spoken one right now. Third sentence is dim again.</p>
+<div id=dark>Dark site sentence one is dim. Dark site sentence two is dim too.</div>
+<p id=p3>Opacity test: this whole line should look normal if opacity is ignored.</p>
+<div id=host></div>
+<pre id=out></pre>
+<script>
+const out=[];const log=(...a)=>out.push(a.join(' '));
+log('UA',navigator.userAgent.match(/Chrome\/[\d.]+/)[0]);
+log('highlights', typeof CSS.highlights);
+const p1=document.getElementById('p1');
+const text=p1.textContent; const s=text.indexOf('Second'), e=text.indexOf('Third');
+function pos(root,off){const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=tw.nextNode()){if(off<=n.data.length)return [n,off];off-=n.data.length}}
+function rng(root,a,b){const r=new Range();r.setStart(...pos(root,a));r.setEnd(...pos(root,b));return r}
+const w=text.indexOf('spoken');
+const dim=new Highlight(rng(p1,0,s),rng(p1,e,text.length));
+const dark=document.getElementById('dark');dim.add(rng(dark,0,dark.textContent.length));
+const wdim=new Highlight(rng(p1,s,w),rng(p1,w+6,e));
+const host=document.getElementById('host');const sr=host.attachShadow({mode:'open'});
+sr.innerHTML='<p>Shadow text A styled only by document sheet.</p><p>Shadow text B with adopted sheet.</p>';
+const ps=sr.querySelectorAll('p');
+dim.add(rng(ps[0],0,ps[0].textContent.length));
+const sh=new Highlight(rng(ps[1],0,ps[1].textContent.length));
+const sheet=new CSSStyleSheet();sheet.replaceSync('::highlight(shdim){color:color-mix(in srgb, currentColor 35%, transparent)}');sr.adoptedStyleSheets=[sheet];
+CSS.highlights.set('dim',dim);CSS.highlights.set('wdim',wdim);CSS.highlights.set('shdim',sh);
+const p3=document.getElementById('p3');CSS.highlights.set('op',new Highlight(rng(p3,0,p3.textContent.length)));
+try{const cs=getComputedStyle(p1,'::highlight(dim)');log('computed ::highlight(dim) color',cs.color)}catch(x){log('gcs err',x)}
+const sample='Dr. Smith went home, e.g. by bus. J. R. R. Tolkien wrote it. Pi is 3.14. See https://ex.com/a?b=1 now. Smith et al. agree. See Fig. 3 below. It costs $3.50 today.';
+const seg=new Intl.Segmenter('en',{granularity:'sentence'});
+log('SENTENCES:');for(const x of seg.segment(sample))log('  |'+x.segment+'|');
+const ws=new Intl.Segmenter('en',{granularity:'word'});
+log('WORDS:', [...ws.segment("don't e-mail U.S. 3.14 co-op naïve")].filter(x=>x.isWordLike).map(x=>x.segment).join(' / '));
+log('caretPositionFromPoint', typeof document.caretPositionFromPoint, 'caretRangeFromPoint', typeof document.caretRangeFromPoint);
+log('highlightsFromPoint', typeof CSS.highlights.highlightsFromPoint);
+const r=p1.getBoundingClientRect();const cp=document.caretPositionFromPoint(r.left+5,r.top+5);log('caret at p1', cp&&cp.offsetNode.nodeName, cp&&cp.offset);
+const hr=host.getBoundingClientRect();
+const c1=document.caretPositionFromPoint(hr.left+20,hr.top+20);log('caret in shadow w/o roots', c1&&c1.offsetNode.nodeName);
+const c2=document.caretPositionFromPoint(hr.left+20,hr.top+20,{shadowRoots:[sr]});log('caret in shadow with roots', c2&&c2.offsetNode.nodeName, c2&&JSON.stringify(c2.offsetNode.data));
+try{log('highlightsFromPoint at p1 start', JSON.stringify(CSS.highlights.highlightsFromPoint(r.left+5,r.top+5).map(h=>[...CSS.highlights].find(([k,v])=>v===h.highlight)?.[0])))}catch(x){log('hfp err',x.message)}
+log('rects of spoken sentence', rng(p1,s,e).getClientRects().length);
+document.getElementById('out').textContent=out.join('\n');
+</script></body></html>
