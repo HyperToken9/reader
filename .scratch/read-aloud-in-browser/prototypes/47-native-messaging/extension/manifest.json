@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Blitz read-aloud (PROTOTYPE 47)",
+  "version": "0.0.1",
+  "description": "Throwaway: speaks a sentence through Blitz's Node engine over native messaging.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjU3+Zu0w3NApeLXu5gVrG/vLEQ26kx85pUmTVZuGYaY/7JFEwLVHxiinJ7D0BqI4yrUoPPHOe+2BihRlBS3BKZi4Ycx7uxI8mtCPcDW8Jzft9cI8ZzddyFsLBjw24C6U2ykNRmznX8AZvKxAObnHI9IhP65a9JvWdSEwZeOx83vaPkJdVzAMKyfmq4Npz+uOBt2+eO5dyifPnDyIlMP8f6OERYrnSYyNGo0dIgRF2dQJTU5Hj6/1IB/EPiVxzBwZKq1qYj3DUzPYFAKaZ1myQ9gQUH5cZmPARy8kPyBrMEkxENiVD33iEBD0bdGKGZNBjvIx35q9t4754ek11FZGswIDAQAB",
+  "permissions": ["nativeMessaging", "offscreen", "contextMenus"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "proto-47-native-messaging",
+  "private": true,
+  "type": "module",
+  "description": "PROTOTYPE (throwaway): Blitz's Node speech engine as a Chrome native messaging host.",
+  "scripts": {
+    "postinstall": "node fetch-espeak.mjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "koffi": "3.3.3",
+    "ort-speech": "npm:onnxruntime-node@1.23.2"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+vendor/
+out/
+host/launcher.sh
+host/host.log
