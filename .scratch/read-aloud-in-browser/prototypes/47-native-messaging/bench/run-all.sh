@@ -10,7 +10,7 @@ export BLITZ_ESPEAK_DIR=${BLITZ_ESPEAK_DIR:-$HOME/.cache/blitz-speech-espeak-ng}
 mkdir -p out
 run() {
   echo "=== $* | before: $(uptime)" | tee -a out/bench.log
-  flock "$LOCK" sh -c "echo \"  locked: \$(uptime)\"; $*" 2>&1 | tee -a out/bench.log
+  timeout "${STEP_TIMEOUT:-900}" flock "$LOCK" sh -c "echo \"  locked: \$(uptime)\"; $*" 2>&1 | tee -a out/bench.log
   echo "  after: $(uptime)" | tee -a out/bench.log
 }
 steps=${*:-"rtf exact ttfa passage survival idle ids"}
@@ -26,6 +26,7 @@ for s in $steps; do
     passage) run "BLITZ_TTS_THREADS=4 node bench/browser.mjs passage" ;;
     survival) run "BLITZ_TTS_THREADS=4 node bench/browser.mjs survival" ;;
     idle) run "BLITZ_TTS_THREADS=4 node bench/browser.mjs idle" && run "BLITZ_TTS_THREADS=4 node bench/host-direct.mjs idle" ;;
+    transport) run "BLITZ_TTS_THREADS=4 node bench/host-direct.mjs exact out/ref-t4b.json" ;;
     ids) run "node bench/browser.mjs ids" ;;
   esac
 done

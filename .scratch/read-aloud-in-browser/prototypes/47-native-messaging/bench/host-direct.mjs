@@ -63,7 +63,7 @@ async function speak(h, id, text) {
   }
   const end = await h.next((m) => m.id === id && m.type === "end");
   const pcm = Buffer.concat(parts);
-  return { start, pcm, sha: createHash("sha256").update(pcm).digest("hex"), firstMs: start._at - t, totalMs: end._at - t, maxBytes };
+  return { start, pcm, hostSha: end.sha, sha: createHash("sha256").update(pcm).digest("hex"), firstMs: start._at - t, totalMs: end._at - t, maxBytes };
 }
 
 function procStat(pid) {
@@ -93,13 +93,14 @@ if (mode === "rtf") {
   console.log(JSON.stringify({ event: "rtf", threads: ready.threads, engineRTF: +(synth / audio).toFixed(3), endToEndRTF: +(wall / audio).toFixed(3), audio_s: +audio.toFixed(1) }));
 } else if (mode === "exact") {
   const ref = JSON.parse(readFileSync(arg, "utf8"));
-  let same = 0, pcmSame = 0, spansSame = 0, n = 0, maxBytes = 0;
+  let same = 0, pcmSame = 0, spansSame = 0, n = 0, maxBytes = 0, transport = 0;
   const diffs = [];
   for (const s of corpus) {
     if (!ref[s.id]) continue;
     n++;
     const r = await speak(h, s.id, s.text);
     maxBytes = Math.max(maxBytes, r.maxBytes);
+    transport += r.sha === r.hostSha;
     const a = r.sha === ref[s.id].sha;
     const b = JSON.stringify([r.start.words, r.start.spans]) === JSON.stringify([ref[s.id].words, ref[s.id].spans]);
     pcmSame += a;
@@ -107,7 +108,7 @@ if (mode === "rtf") {
     same += a && b;
     if (!(a && b)) diffs.push({ id: s.id, pcm: a, spans: b });
   }
-  console.log(JSON.stringify({ event: "exact", sentences: n, identical: same, pcmIdentical: pcmSame, spansIdentical: spansSame, largestMessageBytes: maxBytes, diffs: diffs.slice(0, 10) }));
+  console.log(JSON.stringify({ event: "exact", sentences: n, pcmArrivedAsHostMadeIt: transport, identical: same, pcmIdentical: pcmSame, spansIdentical: spansSame, largestMessageBytes: maxBytes, spanDiffs: diffs.filter((d) => !d.spans).map((d) => d.id) }));
 } else if (mode === "idle") {
   const pid = (await (h.send({ op: "stats" }), h.next((m) => m.type === "stats"))).pid;
   const loaded = procStat(pid);

@@ -20,6 +20,7 @@
  * The engine is engine/engine.js + engine/phonemize.js, copied verbatim from
  * app/electron/speech on origin/dev (489272f). Same init as worker.js.
  */
+import { createHash } from "node:crypto";
 import { cpus, homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -89,7 +90,8 @@ const ops = {
         await send({ type: "start", id: m.id, sr: r.sr, words: r.words, spans: r.spans, samples: r.audio.length, nchunks, synthMs: +synthMs.toFixed(1), waitMs: +(t - asked).toFixed(1) });
         for (let k = 0; k < nchunks; k++)
           await send({ type: "chunk", id: m.id, seq: k, pcm: pcm.subarray(k * CHUNK * 2, (k + 1) * CHUNK * 2).toString("base64") });
-        await send({ type: "end", id: m.id });
+        // The fingerprint of what the engine made, so the far end can check what arrived.
+        await send({ type: "end", id: m.id, sha: createHash("sha256").update(pcm).digest("hex") });
       } catch (e) {
         send({ type: "error", id: m.id, error: e?.message ?? String(e) });
       }

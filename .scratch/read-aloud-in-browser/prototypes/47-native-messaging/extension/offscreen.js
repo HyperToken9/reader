@@ -46,6 +46,7 @@ function onHost(k, m) {
   if (m.type === "end") {
     // Fingerprint exactly what arrived, to compare with the engine run in-process.
     const sen = s.sentences[k];
+    sen.hostSha = m.sha;
     const all = new Uint8Array(sen.parts.reduce((n, p) => n + p.length, 0));
     let o = 0;
     for (const p of sen.parts) all.set(p, o), (o += p.length);
@@ -155,7 +156,7 @@ chrome.runtime.onMessage.addListener((m, _sender, reply) => {
       });
       return;
     case "dump":
-      reply({ fired: s?.fired ?? [], received: s?.received ?? [], underruns: s?.underruns ?? [], clockSamples, sentences: s ? Object.fromEntries(Object.entries(s.sentences).map(([k, v]) => [k, { startCtx: v.startCtx, samples: v.samples, sha: v.sha, spans: v.spans, words: v.words }])) : {} });
+      reply({ fired: s?.fired ?? [], received: s?.received ?? [], underruns: s?.underruns ?? [], clockSamples, sentences: s ? Object.fromEntries(Object.entries(s.sentences).map(([k, v]) => [k, { startCtx: v.startCtx, samples: v.samples, sha: v.sha, hostSha: v.hostSha, spans: v.spans, words: v.words }])) : {} });
       return;
   }
   reply(true);

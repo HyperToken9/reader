@@ -24,12 +24,13 @@ const mode = args[0];
 const opt = (k, d) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
 const PROFILE = opt("--profile", "/home/homefree/.claude/jobs/ec2bb647/tmp/p47/chrome-profile");
 const OUT = join(root, "out");
+const NULL_AUDIO = process.env.P47_AUDIO === "null";
 mkdirSync(OUT, { recursive: true });
 const corpus = JSON.parse(readFileSync(join(root, "corpus/sentences.json"), "utf8"));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const load = () => loadavg().map((x) => +x.toFixed(2));
 const record = (o) => {
-  const line = { at: new Date().toISOString(), mode, load1_5_15: load(), ...o };
+  const line = { at: new Date().toISOString(), mode, audio: NULL_AUDIO ? "alsa-null" : "muted", load1_5_15: load(), ...o };
   appendFileSync(join(OUT, "results.jsonl"), JSON.stringify(line) + "\n");
   console.log(JSON.stringify(line));
 };
@@ -58,8 +59,10 @@ async function launch(extPath = EXT, profile = freshProfile()) {
     userDataDir: profile,
     pipe: true,
     enableExtensions: [extPath],
-    args: ["--mute-audio", "--no-first-run", "--no-default-browser-check"],
-    env: { ...process.env, BLITZ_TTS_THREADS: process.env.BLITZ_TTS_THREADS || "4" },
+    // P47_AUDIO=null: not muted (so Chrome sees the page as audible) but sent
+    // to ALSA's null device with PulseAudio unreachable, so still silent.
+    args: [...(NULL_AUDIO ? ["--alsa-output-device=null"] : ["--mute-audio"]), "--no-first-run", "--no-default-browser-check"],
+    env: { ...process.env, BLITZ_TTS_THREADS: process.env.BLITZ_TTS_THREADS || "4", ...(NULL_AUDIO ? { PULSE_SERVER: "unix:/tmp/p47-no-pulse" } : {}) },
   });
   const swt = await browser.waitForTarget((t) => t.type() === "service_worker" && t.url().endsWith("/background.js"), { timeout: 15000 });
   const id = new URL(swt.url()).host;
@@ -78,7 +81,14 @@ async function readFrom(env, pid) {
   await el.scrollIntoView();
   const box = await el.boundingBox();
   await env.tab.mouse.click(box.x + 5, box.y + box.height / 2, { button: "right" });
-  return env.sw.evaluate((tabId) => p47.readFromHere(tabId), env.tabId);
+  for (let i = 0; ; i++)
+    try {
+      return await env.sw.evaluate((tabId) => p47.readFromHere(tabId), env.tabId);
+    } catch (e) {
+      if (i >= 5 || !/Receiving end/.test(e.message)) throw e;
+      console.error("retrying readFromHere:", e.message);
+      await sleep(500);
+    }
 }
 
 async function waitFor(env, fn, timeout = 60000, arg) {
@@ -162,9 +172,17 @@ if (mode === "passage") {
   await readFrom(env, corpus[0].id);
   await waitFor(env, () => p47.session?.ttfaMs);
   const t = Date.now();
-  await sleep(secs * 1000);
+  let offscreenGoneAtS = null, dump = null;
+  while (Date.now() - t < secs * 1000) {
+    await sleep(2000);
+    const alive = (await env.sw.evaluate(() => p47.offscreen())).alive;
+    if (!alive && offscreenGoneAtS === null) offscreenGoneAtS = (Date.now() - t) / 1000;
+    if (!alive) break;
+    if (Date.now() - t > (secs - 3) * 1000) dump = await env.sw.evaluate(() => chrome.runtime.sendMessage({ to: "offscreen", type: "dump" }));
+  }
   const words = await env.tab.evaluate(() => __words);
-  const dump = await env.sw.evaluate(() => chrome.runtime.sendMessage({ to: "offscreen", type: "dump" }));
+  if (!dump) dump = { clockSamples: [], underruns: [], sentences: {}, note: "offscreen document was gone" };
+  record({ kind: "passage-offscreen", offscreenGoneAtS, offscreenAgeAtGoneS: offscreenGoneAtS && offscreenGoneAtS + (await sessionSummary(env))?.ttfaMs / 1000, swLog: (await env.sw.evaluate(() => p47.log)).slice(-4) });
   const swSide = await env.sw.evaluate(() => p47.session.perSentence.map((r) => ({ synthMs: r.synthMs, samples: r.samples, waitMs: r.waitMs })));
   await env.sw.evaluate(() => p47.stop());
   writeFileSync(join(OUT, "passage.json"), JSON.stringify({ words, dump, swSide, corpusIds: corpus.map((s) => s.id) }));
@@ -181,12 +199,15 @@ if (mode === "passage") {
   const cs = dump.clockSamples;
   const ctxRate = cs.length > 2 ? (cs.at(-1).ctxTime - cs[0].ctxTime) / ((cs.at(-1).wall - cs[0].wall) / 1000) : null;
   const synth = swSide.filter((r) => r.synthMs);
+  const sens = Object.values(dump.sentences).filter((x) => x.sha);
+  const transportExact = sens.filter((x) => x.sha === x.hostSha).length;
   record({
     kind: "passage", secondsListened: (Date.now() - t) / 1000, words: words.length, sentencesPlayed: Object.values(dump.sentences).filter((s) => s.startCtx !== null).length,
     audioSpanS: lag.at(-1).t,
     lagMs: { median: pct(lag.map((p) => p.lag), 0.5), p95: pct(lag.map((p) => p.lag), 0.95), max: Math.max(...lag.map((p) => p.lag)) },
     fireLateMs: { median: pct(lag.map((p) => p.fireLate), 0.5), p95: pct(lag.map((p) => p.fireLate), 0.95) },
     driftMsPerMin: +(fit(lag) * 60).toFixed(3), lagFirst10sMean: +mean(first).toFixed(2), lagLast10sMean: +mean(last).toFixed(2),
+    pcmArrivedBitExact: `${transportExact}/${sens.length}`,
     audioClockVsWall: ctxRate && +((ctxRate - 1) * 1e6).toFixed(1) + " ppm", underruns: dump.underruns,
     hostRTFduringPlayback: +(synth.reduce((a, r) => a + r.synthMs, 0) / 1000 / (synth.reduce((a, r) => a + r.samples, 0) / 24000)).toFixed(3),
   });
@@ -238,7 +259,9 @@ if (mode === "idle") {
   // Host RAM and idle CPU, as Chrome launched it, loaded and quiet.
   const env = await launch();
   await readFrom(env, "bench2");
-  await waitFor(env, () => p47.session?.doneEpoch, 60000);
+  await waitFor(env, () => p47.session?.ttfaMs, 60000);
+  await sleep(8000);
+  await env.sw.evaluate(() => p47.stop());
   const st = await env.sw.evaluate(() => p47.hostStats());
   await sleep(5000);
   const a = procStat(st.pid);
