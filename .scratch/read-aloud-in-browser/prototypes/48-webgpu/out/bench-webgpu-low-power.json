@@ -1,0 +1,126 @@
+{
+ "exp": "bench",
+ "tag": "webgpu-low-power",
+ "env": {
+  "at": "2026-11-10T12:49:32.043Z",
+  "uptime": "18:19:32 up 3 days, 59 min,  1 user,  load average: 16.13, 16.31, 12.02",
+  "loadavg": [
+   16.13,
+   16.31,
+   12.02
+  ]
+ },
+ "info": {
+  "ep": "webgpu",
+  "powerPreference": "low-power",
+  "crossOriginIsolated": true,
+  "hardwareConcurrency": 16,
+  "ortVersion": "1.31.1",
+  "adapter": {
+   "vendor": "amd",
+   "architecture": "gcn-5",
+   "shaderF16": true
+  },
+  "model": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 594.0149999856949,
+   "mb": 163.527961
+  },
+  "voices": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 120.47999998927116
+  },
+  "sessionMs": 5409.034999996424,
+  "numThreadsEffective": 4,
+  "initMs": 6615.765000015497
+ },
+ "firstRun": [
+  {
+   "rtf": 0.809,
+   "ms": 2226,
+   "audioS": 2.75,
+   "each": [
+    2226
+   ]
+  }
+ ],
+ "warmup": [
+  {
+   "rtf": 0.249,
+   "ms": 11881,
+   "audioS": 47.63,
+   "each": [
+    946,
+    1477,
+    1776,
+    2175,
+    2521,
+    2985
+   ]
+  }
+ ],
+ "runs": [
+  {
+   "rtf": 0.252,
+   "ms": 11990,
+   "audioS": 47.63,
+   "each": [
+    952,
+    1322,
+    1832,
+    2168,
+    2618,
+    3099
+   ]
+  },
+  {
+   "rtf": 0.245,
+   "ms": 11685,
+   "audioS": 47.63,
+   "each": [
+    877,
+    1403,
+    1829,
+    2287,
+    2531,
+    2758
+   ]
+  },
+  {
+   "rtf": 0.238,
+   "ms": 11340,
+   "audioS": 47.63,
+   "each": [
+    880,
+    1277,
+    1751,
+    2054,
+    2509,
+    2868
+   ]
+  }
+ ],
+ "warmRtf": [
+  0.252,
+  0.245,
+  0.238
+ ],
+ "mem": {
+  "byType": {
+   "browser": 1057.4
+  },
+  "totalPssMB": 1057.4,
+  "gpu": {
+   "nvidiaMB": null,
+   "nvidiaCompute": "765973, 7"
+  }
+ },
+ "jsMem": {
+  "jsHeapUsed": 43137053,
+  "uaSpecific": 465887789
+ }
+}

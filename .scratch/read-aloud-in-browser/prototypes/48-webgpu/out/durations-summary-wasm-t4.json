@@ -1,0 +1,48 @@
+{
+ "tag": "wasm-t4",
+ "env": {
+  "at": "2026-11-10T13:55:38.359Z",
+  "uptime": "19:25:38 up 3 days,  2:05,  1 user,  load average: 8.76, 9.50, 8.04",
+  "loadavg": [
+   8.76,
+   9.5,
+   8.04
+  ]
+ },
+ "info": {
+  "ep": "wasm",
+  "powerPreference": "high-performance",
+  "crossOriginIsolated": true,
+  "hardwareConcurrency": 16,
+  "ortVersion": "1.31.1",
+  "model": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 218.8900000154972,
+   "mb": 163.527961
+  },
+  "voices": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 37.95000001788139
+  },
+  "sessionMs": 2889.5750000178814,
+  "numThreadsEffective": 4,
+  "initMs": 3148.014999985695
+ },
+ "summary": {
+  "sentencesDurationsIdentical": "182/206",
+  "onnxRunsIdentical": "187/210",
+  "tokensIdentical": "28274/28297",
+  "maxFrameDiff": 1,
+  "spansIdentical": "181/206",
+  "sameWordGrouping": "206/206",
+  "spanDiffMs": {
+   "p50": "0.0",
+   "p95": "25.0",
+   "max": "90.0"
+  }
+ }
+}

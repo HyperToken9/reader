@@ -1,0 +1,13 @@
+{
+  "name": "prototype-48-webgpu",
+  "private": true,
+  "type": "module",
+  "description": "PROTOTYPE 48 (throwaway): Kokoro on WebGPU in an MV3 offscreen document",
+  "dependencies": {
+    "koffi": "3.3.3",
+    "onnxruntime-web": "1.31.1",
+    "ort-speech": "npm:onnxruntime-node@1.23.2",
+    "phonemizer": "1.2.1",
+    "puppeteer-core": "25.16.0"
+  }
+}

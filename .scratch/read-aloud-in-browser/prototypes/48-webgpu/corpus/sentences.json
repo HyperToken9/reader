@@ -1,0 +1,1032 @@
+[
+ {
+  "id": "bench0",
+  "book": "bench",
+  "text": "The parser reads one token at a time."
+ },
+ {
+  "id": "bench1",
+  "book": "bench",
+  "text": "Glucose is phosphorylated by hexokinase in the first step of glycolysis."
+ },
+ {
+  "id": "bench2",
+  "book": "bench",
+  "text": "A scanner, also called a lexer, takes in the linear stream of characters and chunks them together into a series of tokens."
+ },
+ {
+  "id": "bench3",
+  "book": "bench",
+  "text": "In 1586, Mary Queen of Scots was put on trial for treason, accused of plotting to assassinate Queen Elizabeth I of England."
+ },
+ {
+  "id": "bench4",
+  "book": "bench",
+  "text": "The force of gravity on an object near the Earth's surface is about 9.8 metres per second squared, which we usually write as g = 9.8 m/s²."
+ },
+ {
+  "id": "bench5",
+  "book": "bench",
+  "text": "Reinforcement learning is concerned with solving sequential decision-making problems, in which an agent takes actions in an environment and receives rewards, and the goal is to maximise the cumulative reward over time."
+ },
+ {
+  "id": "ci0",
+  "book": "ci",
+  "text": "If your class has a method named init() , it is called automatically when the object is constructed."
+ },
+ {
+  "id": "ci1",
+  "book": "ci",
+  "text": "Now we can evaluate the + ."
+ },
+ {
+  "id": "ci2",
+  "book": "ci",
+  "text": "Our interpreter uses Java’s Double type to represent numbers, so we produce a value of that type."
+ },
+ {
+  "id": "ci3",
+  "book": "ci",
+  "text": "Likely a majority of working programmers today are using an object-oriented language."
+ },
+ {
+  "id": "ci4",
+  "book": "ci",
+  "text": "Using that, here’s a grammar for breakfast menus: Yes, I really am going to be using breakfast examples throughout this entire book."
+ },
+ {
+  "id": "ci5",
+  "book": "ci",
+  "text": "This script isn’t part of the interpreter itself."
+ },
+ {
+  "id": "ci6",
+  "book": "ci",
+  "text": "For that, we already have the built-in print statement."
+ },
+ {
+  "id": "ci7",
+  "book": "ci",
+  "text": "For now, we are only going to worry about a handful of expressions: Literals – Numbers, strings, Booleans, and nil ."
+ },
+ {
+  "id": "ci8",
+  "book": "ci",
+  "text": "BANG, BANG_EQUAL, EQUAL, EQUAL_EQUAL, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, // Literals."
+ },
+ {
+  "id": "ci9",
+  "book": "ci",
+  "text": "Then it defines a (usually infinite) set of “strings” that are “in” the grammar."
+ },
+ {
+  "id": "ci10",
+  "book": "ci",
+  "text": "EQUAL_EQUAL : EQUAL); break; case '<': addToken(match('=') ?"
+ },
+ {
+  "id": "ci11",
+  "book": "ci",
+  "text": "A parenthesized expression on the next line: func (parenthesized) Is this a call to func(parenthesized) , or two expression statements, one for func and one for a parenthesized expression?"
+ },
+ {
+  "id": "ci12",
+  "book": "ci",
+  "text": "We’re smart language hackers, right?"
+ },
+ {
+  "id": "ci13",
+  "book": "ci",
+  "text": "DESIGN NOTE: EXPRESSIONS AND STATEMENTS Lox has both expressions and statements."
+ },
+ {
+  "id": "ci14",
+  "book": "ci",
+  "text": "When we loop back around to start the next lexeme, start gets reset and the comment’s lexeme disappears in a puff of smoke."
+ },
+ {
+  "id": "ci15",
+  "book": "ci",
+  "text": "Right now, it prints out the tokens our forthcoming scanner will emit so that we can see if we’re making progress. << lox/Lox.java add after runPrompt() Error handling 4.1.1 While we’re setting things up, another key piece of infrastructure is error handling."
+ },
+ {
+  "id": "ci16",
+  "book": "ci",
+  "text": "Instantiation and initialization 3.9.5 Classes that only have behavior aren’t super useful."
+ },
+ {
+  "id": "ci17",
+  "book": "ci",
+  "text": "Symbols come in two delectable flavors: A terminal is a letter from the grammar’s alphabet."
+ },
+ {
+  "id": "ci18",
+  "book": "ci",
+  "text": "Object-orientation works fine for many parts of our interpreter, but these tree classes rub against the grain of Java."
+ },
+ {
+  "id": "ci19",
+  "book": "ci",
+  "text": "There are only objects—no classes—and each individual object may contain state and methods."
+ },
+ {
+  "id": "ci20",
+  "book": "ci",
+  "text": "When the French colonized North America in the 1700s, they brought beignets with them."
+ },
+ {
+  "id": "ci21",
+  "book": "ci",
+  "text": "There’s no technical need for this, but it lets us cram all of the classes into a single Java file."
+ },
+ {
+  "id": "ci22",
+  "book": "ci",
+  "text": "This design note would turn into a design diatribe if I went into complete detail about how that even works, much less all the various ways that JavaScript’s “solution” is a bad idea."
+ },
+ {
+  "id": "ci23",
+  "book": "ci",
+  "text": "NEXT PART: “A TREE-WALK INTERPRETER” → Hand-cra\"ed by Robert Nystrom — © 2015 – 2020 A TREE-WALK INTERPRETER With this part, we begin jlox, the first of our two interpreters."
+ },
+ {
+  "id": "ci24",
+  "book": "ci",
+  "text": "We -- -a; could implement that ourselves, but, honestly, unless you’re trying to cram for an upcoming programming interview, it’s not worth your time."
+ },
+ {
+  "id": "ci25",
+  "book": "ci",
+  "text": "Throw in some ham and Hollandaise, and you’ve got eggs Benedict."
+ },
+ {
+  "id": "ci26",
+  "book": "ci",
+  "text": "Try to come up with edge case behavior I didn’t specify here."
+ },
+ {
+  "id": "ci27",
+  "book": "ci",
+  "text": "JavaScript’s “constructor function” notion pushes you pretty hard towards defining class-like objects."
+ },
+ {
+  "id": "ci28",
+  "book": "ci",
+  "text": "Some of those are easy: An if expression evaluates to the result of whichever branch is chosen."
+ },
+ {
+  "id": "ci29",
+  "book": "ci",
+  "text": "The Go team provides a canonical code formatter, gofmt, and the ecosystem is fervent about its use, which ensures that idiomatic styled code works well with this simple rule."
+ },
+ {
+  "id": "ci30",
+  "book": "ci",
+  "text": "Each kind of expression in Lox behaves differently at runtime."
+ },
+ {
+  "id": "ci31",
+  "book": "ci",
+  "text": "They are also a handy medium for communicating with other language hackers about syntax."
+ },
+ {
+  "id": "ci32",
+  "book": "ci",
+  "text": "Does it produce the tokens you expect?"
+ },
+ {
+  "id": "ci33",
+  "book": "ci",
+  "text": "Maybe your intuition can help."
+ },
+ {
+  "id": "ci34",
+  "book": "ci",
+  "text": "If it does, it goes back and tries turning the previous newline into a semicolon to get something grammatically valid."
+ },
+ {
+  "id": "ci35",
+  "book": "ci",
+  "text": "In each step of the game, you pick a rule and follow what it tells you to do."
+ },
+ {
+  "id": "ci36",
+  "book": "ci",
+  "text": "Then it loops back and does it again, starting from the very next character in the source code."
+ },
+ {
+  "id": "ci37",
+  "book": "ci",
+  "text": "To recognize the beginning of a number lexeme, we look for any digit."
+ },
+ {
+  "id": "ci38",
+  "book": "ci",
+  "text": "The start field points to the first character in the lexeme being scanned, and current points at the character currently being considered."
+ },
+ {
+  "id": "ci39",
+  "book": "ci",
+  "text": "People have thrown all sorts of language features, design patterns and programming tricks to try to knock that problem down but no perfect language has finished it off yet."
+ },
+ {
+  "id": "cb40",
+  "book": "cb",
+  "text": "Babington’s animosity was fueled by the death of Lord Darcy, his greatgrandfather, who was beheaded for his involvement in the Pilgrimage of Grace, a Catholic uprising against Henry VIII."
+ },
+ {
+  "id": "cb41",
+  "book": "cb",
+  "text": "It would have been deemed unchivalrous had Henry VIII attempted to invade the country of a recently dead king, now under the rule of an infant queen."
+ },
+ {
+  "id": "cb42",
+  "book": "cb",
+  "text": "However, it is also possible to have substitution at a much higher level, whereby each word is represented by another word or symbol—this would be a code."
+ },
+ {
+  "id": "cb43",
+  "book": "cb",
+  "text": "Theologians also studied the Hadīth, which consists of the Prophet’s daily utterances."
+ },
+ {
+  "id": "cb44",
+  "book": "cb",
+  "text": "Walsingham was Elizabeth’s most ruthless minister."
+ },
+ {
+  "id": "cb45",
+  "book": "cb",
+  "text": "On February 8, 1587, in the Great Hall of Fotheringhay Castle, an audience of three hundred gathered to watch the beheading."
+ },
+ {
+  "id": "cb46",
+  "book": "cb",
+  "text": "Historians debate whether it was Mary or the Scottish nobles who instigated the plot, but on the night of February 9, 1567, Darnley’s house was blown up and, as he attempted to escape, he was strangled."
+ },
+ {
+  "id": "cb47",
+  "book": "cb",
+  "text": "Table 1 This table of relative frequencies is based on passages taken from newspapers and novels, and the total sample was 100,362 alphabetic characters."
+ },
+ {
+  "id": "cb48",
+  "book": "cb",
+  "text": "Walsingham’s hopes were soon fulfilled."
+ },
+ {
+  "id": "cb49",
+  "book": "cb",
+  "text": "Walsingham had long wished for the death of Mary Queen of Scots, but he was aware of Elizabeth’s reluctance to execute her cousin."
+ },
+ {
+  "id": "cb50",
+  "book": "cb",
+  "text": "As Mary crossed the moors she spied some horsemen approaching, and immediately thought that these must be Babington’s men coming to rescue her."
+ },
+ {
+  "id": "cb51",
+  "book": "cb",
+  "text": "Indeed, it is not unknown for modern spies who have run out of standard-issue invisible ink to improvise by using their own urine."
+ },
+ {
+  "id": "cb52",
+  "book": "cb",
+  "text": "Figure 7 The science of secret writing and its main branches."
+ },
+ {
+  "id": "cb53",
+  "book": "cb",
+  "text": "SaU i SaEe KC ZCRd aK tC AJaNe a IaNCMJ CI UCMJ SaGeKtU?” eFiRCDMe, taReK IJCS the thCMKand and Cne niDhtK Once a few letters have been established, cryptanalysis progresses very rapidly."
+ },
+ {
+  "id": "cb54",
+  "book": "cb",
+  "text": "Table 2 Frequency analysis of enciphered message."
+ },
+ {
+  "id": "cb55",
+  "book": "cb",
+  "text": "Unfortunately for Babou, this gave the king ample opportunity to carry on a long-term affair with his wife."
+ },
+ {
+  "id": "cb56",
+  "book": "cb",
+  "text": "Their skills provided a steady flow of uncovered secrets, which influenced the decisions of their masters and mistresses, thereby affecting Europe’s history at critical moments."
+ },
+ {
+  "id": "cb57",
+  "book": "cb",
+  "text": "Cardano’s book aroused Walsingham’s interest, but it was a decipherment by the Flemish cryptanalyst Philip van Marnix that really convinced him of the power of having a codebreaker at his disposal."
+ },
+ {
+  "id": "cb58",
+  "book": "cb",
+  "text": "The manufacture of paper gave rise to the profession of warraqīn, or “those who handle paper,” human photocopying machines who copied manuscripts and supplied the burgeoning publishing industry."
+ },
+ {
+  "id": "cb59",
+  "book": "cb",
+  "text": "For example, the most common three-letter words in English are the and and, and these are relatively easy to spot-Lhe, which appears six times, and aPV, which appears five times."
+ },
+ {
+  "id": "cb60",
+  "book": "cb",
+  "text": "Philip’s letter described a plan to invade England, but it was intercepted by William of Orange, who passed it to Marnix, his cipher secretary."
+ },
+ {
+  "id": "cb61",
+  "book": "cb",
+  "text": "From the enemy’s point of view, if the message is intercepted and the algorithm is known, there is still the horrendous task of checking all possible keys."
+ },
+ {
+  "id": "cb62",
+  "book": "cb",
+  "text": "To decipher a monoalphabetic cipher you need only identify the true value of each of the 26 characters, whereas to decipher a code you need to identify the true value of hundreds or even thousands of codewords."
+ },
+ {
+  "id": "cb63",
+  "book": "cb",
+  "text": "And when one of the Pope’s own encrypted messages was captured by the Florentines, the Pope sent a copy to Soro in the hope that he would be reassured that it was unbreakable."
+ },
+ {
+  "id": "cb64",
+  "book": "cb",
+  "text": "800 and 1200, Arab scholars enjoyed a vigorous period of intellectual achievement."
+ },
+ {
+  "id": "cb65",
+  "book": "cb",
+  "text": "English Catholics did not recognize Henry VIII’s divorce, they did not acknowledge his ensuing marriage to Anne Boleyn, and they certainly did not accept their daughter Elizabeth as Queen."
+ },
+ {
+  "id": "cb66",
+  "book": "cb",
+  "text": "Entitled A Void, Adair’s translation is surprisingly readable (see Appendix A)."
+ },
+ {
+  "id": "cb67",
+  "book": "cb",
+  "text": "He asked Phelippes to forge a postscript to Mary’s letter, which would entice Babington to name names."
+ },
+ {
+  "id": "cb68",
+  "book": "cb",
+  "text": "The trial was held in Fotheringhay Castle, a bleak, miserable place in the middle of the featureless fens of East Anglia."
+ },
+ {
+  "id": "cb69",
+  "book": "cb",
+  "text": "The apparently untouched letter could then be delivered to Mary or her correspondents, who remained oblivious to what was going on."
+ },
+ {
+  "id": "cb70",
+  "book": "cb",
+  "text": "This was the first of a series of revelations which continued until Muhammad died some twenty years later."
+ },
+ {
+  "id": "cb71",
+  "book": "cb",
+  "text": "The next year, Mary escaped from her prison, gathered an army of six thousand royalists, and made a final attempt to regain her crown."
+ },
+ {
+  "id": "cb72",
+  "book": "cb",
+  "text": "The letters a and l are the most common in Arabic, partly because of the definite article al-, whereas the letter j appears only a tenth as frequently."
+ },
+ {
+  "id": "cb73",
+  "book": "cb",
+  "text": "Now during this time Shahrazad had borne King Shahriyar three sons."
+ },
+ {
+  "id": "cb74",
+  "book": "cb",
+  "text": "For example, Technically, a code is defined as substitution at the level of words or phrases, whereas a cipher is defined as substitution at the level of letters."
+ },
+ {
+  "id": "cb75",
+  "book": "cb",
+  "text": "At first sight, codes seem to offer more security than ciphers, because words are much less vulnerable to frequency analysis than letters."
+ },
+ {
+  "id": "cb76",
+  "book": "cb",
+  "text": "When the trial finished, she left the judges to decide her fate, pardoning them in advance for the inevitable decision."
+ },
+ {
+  "id": "cb77",
+  "book": "cb",
+  "text": "At last, having established the complete cipher alphabet, we can unscramble the entire ciphertext, and the cryptanalysis is complete."
+ },
+ {
+  "id": "cb78",
+  "book": "cb",
+  "text": "The process worked equally well for getting messages out of Chartley Hall."
+ },
+ {
+  "id": "cb79",
+  "book": "cb",
+  "text": "The breakthrough occurred in the East, and required a brilliant combination of linguistics, statistics and religious devotion."
+ },
+ {
+  "id": "bio80",
+  "book": "bio",
+  "text": "Both xanthoproteic and Millon’s tests are negative for tapioca (casava), which is deficient in phenylalanine and tyrosine."
+ },
+ {
+  "id": "bio81",
+  "book": "bio",
+  "text": "Then the 2’-3’ cyclic phosphate is formed."
+ },
+ {
+  "id": "bio82",
+  "book": "bio",
+  "text": "Histidine 119 accepts a proton from the cyclic phosphate and product is released."
+ },
+ {
+  "id": "bio83",
+  "book": "bio",
+  "text": "Application of pI is shown in Box 4.4."
+ },
+ {
+  "id": "bio84",
+  "book": "bio",
+  "text": "Class 2: Transferases This class of enzymes transfers one group (other than hydrogen) from the substrate to another substrate."
+ },
+ {
+  "id": "bio85",
+  "book": "bio",
+  "text": "Defects in SLC40A1 gene are associated with type 4 hemochromatosis."
+ },
+ {
+  "id": "bio86",
+  "book": "bio",
+  "text": "Isoelectric pH of amino acids has been described in Chapter 3."
+ },
+ {
+  "id": "bio87",
+  "book": "bio",
+  "text": "3.19: Formation of glutamine The methyl group of Methionine, after activation, may be transferred to an acceptor, which becomes methylated (see Chapter 16)."
+ },
+ {
+  "id": "bio88",
+  "book": "bio",
+  "text": "The C-terminal amino acid may be identified by Carboxypepti-­ dase A and B."
+ },
+ {
+  "id": "bio89",
+  "book": "bio",
+  "text": "5.10: Enzyme and substrate are specific to each other."
+ },
+ {
+  "id": "bio90",
+  "book": "bio",
+  "text": "The primary structure is maintained by the covalent bonds of the peptide linkages (Fig."
+ },
+ {
+  "id": "bio91",
+  "book": "bio",
+  "text": "The lock can be opened by its own key only (Figs 5.9 and 5.10). iii."
+ },
+ {
+  "id": "bio92",
+  "book": "bio",
+  "text": "In order to emphasize the presence of -SH group, the molecule sometimes written as CoA-SH."
+ },
+ {
+  "id": "bio93",
+  "book": "bio",
+  "text": "Sakaguchi's test Guanidinium (Arginine) 7."
+ },
+ {
+  "id": "bio94",
+  "book": "bio",
+  "text": "Usually the N-terminal amino acid is written on the left hand side when the sequence of the protein is denoted."
+ },
+ {
+  "id": "bio95",
+  "book": "bio",
+  "text": "Bond is broken between D and E, with the help of Glu and Asp residues in the enzyme, which are opposite to each other Fig."
+ },
+ {
+  "id": "bio96",
+  "book": "bio",
+  "text": "The structure of NAD+ is Nicotinamide-Ribose-P-P-Ribose-Adenine (see Fig."
+ },
+ {
+  "id": "bio97",
+  "book": "bio",
+  "text": "4.3: End groups of polypeptide chain Fig."
+ },
+ {
+  "id": "bio98",
+  "book": "bio",
+  "text": "The porcine insulin and human insulin are structurally similar, except the C terminal amino acid in B chain (Thr → Ala) (Fig."
+ },
+ {
+  "id": "bio99",
+  "book": "bio",
+  "text": "Hence, proteins may be ‘salted in’ or ‘salted out’."
+ },
+ {
+  "id": "bio100",
+  "book": "bio",
+  "text": "In certain cases, e.g. copper in Tyrosinase, the metal is tightly bound with the enzyme. iii."
+ },
+ {
+  "id": "bio101",
+  "book": "bio",
+  "text": "ATP7A and ATP7B are copper transporting ATPases that are related to SLC31A1."
+ },
+ {
+  "id": "bio102",
+  "book": "bio",
+  "text": "Monoamino monocarboxylic acids: ¾¾Reactions due to carboxyl group ¾¾Reactions due to amino group ¾¾Reactions of SH group ¾¾Peptide bond formation • Simple amino acids: Glycine, Alanine (Fig."
+ },
+ {
+  "id": "bio103",
+  "book": "bio",
+  "text": "3.18: Transamination reaction 30 Textbook of Biochemistry Amide Formation Due to Side Chains The-COOH group of dicarboxylic amino acids (other than alpha carboxyl) can combine with ammonia to form the corresponding amide."
+ },
+ {
+  "id": "bio104",
+  "book": "bio",
+  "text": "This enzyme makes it possible for the precise positioning of the CO2 molecule and the hydroxyl (OH – ) ion for the formation of bicarbonate ion."
+ },
+ {
+  "id": "bio105",
+  "book": "bio",
+  "text": "Class 2: Transferases: Transfer of groups other than hydrogen."
+ },
+ {
+  "id": "bio106",
+  "book": "bio",
+  "text": "D-amino acids have multiple functions in bacteria, like synthesis of cross-links in cell wall."
+ },
+ {
+  "id": "bio107",
+  "book": "bio",
+  "text": "In the example shown in Figure 5.1, the reduced co-enzyme, generated in the first reaction can take part in the second reaction."
+ },
+ {
+  "id": "bio108",
+  "book": "bio",
+  "text": "Cupric ions chelate with peptide bonds of proteins in alkaline medium produce a pink or violet color."
+ },
+ {
+  "id": "bio109",
+  "book": "bio",
+  "text": "Ionophores or transport antibiotics increase permeability of membranes by acting as channel formers."
+ },
+ {
+  "id": "bio110",
+  "book": "bio",
+  "text": "Activation energy is defined as the energy required to convert all molecules of a reacting substance from the ground state to the transition state. iii."
+ },
+ {
+  "id": "bio111",
+  "book": "bio",
+  "text": "The tertiary structure is maintained by noncovalent interactions such as hydrophobic bonds, electrostatic bonds and van der Waals forces."
+ },
+ {
+  "id": "bio112",
+  "book": "bio",
+  "text": "Precipitation by Alkaloidal Reagents Tungstic acid, phosphotungstic acid, trichloro acetic acid, picric acid, sulfosalicylic acid and tannic acid are powerful protein precipitating agents."
+ },
+ {
+  "id": "bio113",
+  "book": "bio",
+  "text": "At the isoelectric point, the number of anions and cations present on the protein molecule will be equal and the net charge is zero."
+ },
+ {
+  "id": "bio114",
+  "book": "bio",
+  "text": "Expression of proteins during growth and development will be different from the resting cell."
+ },
+ {
+  "id": "bio115",
+  "book": "bio",
+  "text": "This needs a minimum of two peptide bonds, and so individual amino acids and dipeptides will not answer this test."
+ },
+ {
+  "id": "bio116",
+  "book": "bio",
+  "text": "Zein from corn lacks tryptophan and lysine."
+ },
+ {
+  "id": "bio117",
+  "book": "bio",
+  "text": "For example, albumin cannot be renatured by removing the physical agent."
+ },
+ {
+  "id": "bio118",
+  "book": "bio",
+  "text": "Proteins are used for body building; all the major structural and functional aspects of the body are carried out by protein molecules."
+ },
+ {
+  "id": "bio119",
+  "book": "bio",
+  "text": "Domain is the term used to denote a compact globular functio­nal unit of a protein."
+ },
+ {
+  "id": "gp120",
+  "book": "gp",
+  "text": "Clearly they aren’t traveling at the same velocity."
+ },
+ {
+  "id": "gp121",
+  "book": "gp",
+  "text": "2.1.2 V ECTORS AND D IRECTIONS There is another interpretation of a vector."
+ },
+ {
+  "id": "gp122",
+  "book": "gp",
+  "text": "For a detailed explanation of different systems and converting between them see Eberly [2003]."
+ },
+ {
+  "id": "gp123",
+  "book": "gp",
+  "text": "32 Chapter 2 The Mathematics of Particles The vector product is indicated by a multiplication sign, a × b, and so is often called the “cross product.”"
+ },
+ {
+  "id": "gp124",
+  "book": "gp",
+  "text": "In mathematical notation this is written using the “limit” notation \u0003p \u0003t→0 \u0003t v = lim which simply means that the velocity would be accurately given by the distance traveled divided by the time gap (\u0003p/\u0003t), if we could make the gap infinitely small (limt→0 )."
+ },
+ {
+  "id": "gp125",
+  "book": "gp",
+  "text": "They are the bread-and-butter topics for physics development, so it would be inconvenient to step through them each time they arise."
+ },
+ {
+  "id": "gp126",
+  "book": "gp",
+  "text": "22 Chapter 2 The Mathematics of Particles A change in position, given as a vector, can be split into two elements: a = dn [2.1] where d is the straight-line distance of the change (called the “magnitude” of the vector) and n is the direction of the change."
+ },
+ {
+  "id": "gp127",
+  "book": "gp",
+  "text": "Strictly speaking this handedness is called “chirality,” and each alternative is an “enantiomorph,” although those terms are rarely if ever used in game development."
+ },
+ {
+  "id": "gp128",
+  "book": "gp",
+  "text": "If you are working on a DirectX-only project and are keen to stay with a lefthanded system, then you’ll need to make the occasional adjustment in the code."
+ },
+ {
+  "id": "gp129",
+  "book": "gp",
+  "text": "We can see this in the scalar products: |a| ≡ 1 |b| = 2.0 |c| = 1.5 a · b = 0.3 a · b = −1.2 If one vector is not normalized, then the size of the scalar product is multiplied by its length (from equation 2.4)."
+ },
+ {
+  "id": "gp130",
+  "book": "gp",
+  "text": "This is well beyond the scope of this book and should only be attempted if you have a decent code profiler telling you that a speed-up would be useful."
+ },
+ {
+  "id": "gp131",
+  "book": "gp",
+  "text": "We are interested in vector analysis (usually widened to “matrix analysis,” of which vectors are just one part)."
+ },
+ {
+  "id": "gp132",
+  "book": "gp",
+  "text": "At the most well-known end of the spectrum this includes the quaternions, a vectorlike structure that represents the orientation of an object in three-dimensional space."
+ },
+ {
+  "id": "gp133",
+  "book": "gp",
+  "text": "Mass-Aggregate Physics turns the particle physics engine into one capable of simulating any kind of object by connecting masses together with springs and rods."
+ },
+ {
+  "id": "gp134",
+  "book": "gp",
+  "text": "In addition most of the commercial engines I’ve worked with (both middleware and developers’ own) have been right-handed."
+ },
+ {
+  "id": "gp135",
+  "book": "gp",
+  "text": "This process starts with two non-parallel vectors."
+ },
+ {
+  "id": "gp136",
+  "book": "gp",
+  "text": "I have used an object-oriented design for the source code and have always tried to err on the side of clarity."
+ },
+ {
+  "id": "gp137",
+  "book": "gp",
+  "text": "Even those few studios that use other languages for building the final game (including LISP, Lua, and Python) have most of their core engines written in C++."
+ },
+ {
+  "id": "gp138",
+  "book": "gp",
+  "text": "We can think of any position as a change of position from the origin (written as 0, where each component of the vector is zero) to the target location."
+ },
+ {
+  "id": "gp139",
+  "book": "gp",
+  "text": "The scalar product methods have the following form: Excerpt from include/cyclone/core.h class Vector3 { // ..."
+ },
+ {
+  "id": "gp140",
+  "book": "gp",
+  "text": "So if we need to find the angle (which we rarely do), then using the scalar product would be a faster solution."
+ },
+ {
+  "id": "gp141",
+  "book": "gp",
+  "text": "If you are developing in a language other than C++, then you will need to translate the code."
+ },
+ {
+  "id": "gp142",
+  "book": "gp",
+  "text": "I have also added a full method version, scalarProduct, in case you are more comfortable writing things longhand rather than remembering the slightly odd behavior of the * operator."
+ },
+ {
+  "id": "gp143",
+  "book": "gp",
+  "text": "By default single precision * is provided. */ typedef float real; } Excerpt from include/cyclone/core.h namespace cyclone { /** * Holds a vector in 3 dimensions."
+ },
+ {
+  "id": "gp144",
+  "book": "gp",
+  "text": "In particular most languages do not have a built-in vector class to represent the kind of vector we are interested in."
+ },
+ {
+  "id": "gp145",
+  "book": "gp",
+  "text": "The source code is based on the GLUT toolkit, which wraps OpenGL in a platform-independent way."
+ },
+ {
+  "id": "gp146",
+  "book": "gp",
+  "text": "This selection doesn’t betray any bias on my part (in fact I find OpenGL difficult to optimize for large-scale engines), and you should be able to transfer the physics so that it works with whatever rendering platform you are using."
+ },
+ {
+  "id": "gp147",
+  "book": "gp",
+  "text": "In other words, a × b \u0005= b × a."
+ },
+ {
+  "id": "gp148",
+  "book": "gp",
+  "text": "When we talk about contact detection and contact resolution later in the book, we will need this algorithm several times."
+ },
+ {
+  "id": "gp149",
+  "book": "gp",
+  "text": "Both objects start at the same place and end at the same place at the same time."
+ },
+ {
+  "id": "gp150",
+  "book": "gp",
+  "text": "Vector addition and subtraction, multiplication by a scalar, and different types of multiplication can all be understood in terms of how these movements relate."
+ },
+ {
+  "id": "gp151",
+  "book": "gp",
+  "text": "For a pair of vectors, a and b, the magnitude of the vector product represents the component of b that is not in the direction of a."
+ },
+ {
+  "id": "gp152",
+  "book": "gp",
+  "text": "The Geometry of the Vector Product Once again using the scalar product as an example, we can interpret the magnitude of the vector product of a vector and a normalized vector."
+ },
+ {
+  "id": "gp153",
+  "book": "gp",
+  "text": "As you can see, the line numbers are not continuous."
+ },
+ {
+  "id": "gp154",
+  "book": "gp",
+  "text": "Other engines use impulses for everything: the book resting on the table is kept there by lots of miniature collisions rather than a constant force."
+ },
+ {
+  "id": "gp155",
+  "book": "gp",
+  "text": "We will also review matrices."
+ },
+ {
+  "id": "gp156",
+  "book": "gp",
+  "text": "Vector c, however, is smaller in magnitude, but it is not pointing at right angles to a."
+ },
+ {
+  "id": "gp157",
+  "book": "gp",
+  "text": "The corresponding code makes up most of the rest of this book, very little of which will make sense unless you grasp the general idea of this section."
+ },
+ {
+  "id": "gp158",
+  "book": "gp",
+  "text": "Some developers still swear by C and believe that using anything else for game development is tantamount to heresy."
+ },
+ {
+  "id": "gp159",
+  "book": "gp",
+  "text": "In this case its component in the direction of a is negative."
+ },
+ {
+  "id": "drl160",
+  "book": "drl",
+  "text": "This is known as the exploration-exploitation tradeoff covered in Section 3.3."
+ },
+ {
+  "id": "drl161",
+  "book": "drl",
+  "text": "In reinforcement learning, you are what is called the “agent,” and the flag pole and your surroundings are called an “environment.”"
+ },
+ {
+  "id": "drl162",
+  "book": "drl",
+  "text": "In Replay memory, we need to keep track of the current size of the memory (self.size) and the location of the most recent experience (self.head)."
+ },
+ {
+  "id": "drl163",
+  "book": "drl",
+  "text": "The only way an agent can get information about these functions is through the states, actions, and rewards it actually experiences in the environment—that is, the tuples (st, at, rt)."
+ },
+ {
+  "id": "drl164",
+  "book": "drl",
+  "text": "This chapter introduced REINFORCE, a policy gradient algorithm."
+ },
+ {
+  "id": "drl165",
+  "book": "drl",
+  "text": "The authors coined the term DQN or “Deep Q-Networks” and demonstrated the first example of learning a control policy directly from high-dimensional image data using RL."
+ },
+ {
+  "id": "drl166",
+  "book": "drl",
+  "text": "This book focuses on methods that are policy-based, value-based, and a combination of the two."
+ },
+ {
+  "id": "drl167",
+  "book": "drl",
+  "text": "However, despite the simplicity of the example we worked through, it illustrates a fundamental concept—that TD learning is a mechanism for backing up information about an environment’s reward function through time, from later to earlier time steps."
+ },
+ {
+  "id": "drl168",
+  "book": "drl",
+  "text": "Lines 20–22 track the actual size of the memory and the total number of experiences gathered by the agent, and lines 23–24 set the training flag, algorithm.to_train."
+ },
+ {
+  "id": "drl169",
+  "book": "drl",
+  "text": "Section 4.4 presents the DQN algorithm and in Section 4.5 we discuss an example implementation."
+ },
+ {
+  "id": "drl170",
+  "book": "drl",
+  "text": "Suppose an agent is learning to play the toy environment shown in Figure 3.1."
+ },
+ {
+  "id": "drl171",
+  "book": "drl",
+  "text": "Having defined reinforcement learning as an MDP and the objective, we can now express the reinforcement learning control loop from Figure 1.2 as an MDP control loop in Algorithm 1.1."
+ },
+ {
+  "id": "drl172",
+  "book": "drl",
+  "text": "We also introduce a simple approach for solving this problem—an ε-greedy policy."
+ },
+ {
+  "id": "drl173",
+  "book": "drl",
+  "text": "Each trajectory τi contains (s, a, r, s′) tuples."
+ },
+ {
+  "id": "drl174",
+  "book": "drl",
+  "text": "An agent only needs to visit a representative subset of the state-action space."
+ },
+ {
+  "id": "drl175",
+  "book": "drl",
+  "text": "This is discussed in Chapter 5."
+ },
+ {
+  "id": "drl176",
+  "book": "drl",
+  "text": "Once the parameters of the function approximator have been updated once, all of the experiences must be discarded and the experience-collection process must begin again."
+ },
+ {
+  "id": "drl177",
+  "book": "drl",
+  "text": "The mechanism for storing and retrieving experiences—(s, a, r, s′, a′) tuples—is abstracted into the Memory classes introduced in Chapter 2."
+ },
+ {
+  "id": "drl178",
+  "book": "drl",
+  "text": "Use Qπ(s, a; θ) to act in the environment, by acting greedily with respect to the Q-values."
+ },
+ {
+  "id": "drl179",
+  "book": "drl",
+  "text": "Figure 1.4 depicts a grid-world environment in which an agent can move from cell to cell vertically or horizontally."
+ },
+ {
+  "id": "drl180",
+  "book": "drl",
+  "text": "In Section 1.3, we saw the three primary learnable functions in reinforcement learning."
+ },
+ {
+  "id": "drl181",
+  "book": "drl",
+  "text": "Since the Q-function estimate in DQN is different, we need to override calc_q_loss. train also needs to be changed to reflect the additional choices of the number of batches and parameter updates per batch."
+ },
+ {
+  "id": "drl182",
+  "book": "drl",
+  "text": "We discuss the Vπ and Qπ functions in more detail in Chapter 3."
+ },
+ {
+  "id": "drl183",
+  "book": "drl",
+  "text": "Knowing Q*(s, a) therefore yields an optimal policy."
+ },
+ {
+  "id": "drl184",
+  "book": "drl",
+  "text": "Table 4.1 compares the probability of selecting a1 and a2 in state s under the ε-greedy and Boltzmann policies as we vary Qπ(s, a1) and Qπ(s, a2)."
+ },
+ {
+  "id": "drl185",
+  "book": "drl",
+  "text": "Code 4.5 Replay: sample Click here to view code image 1 # slm_lab/agent/memory/replay.py 2 3 class Replay(Memory): 4 ..."
+ },
+ {
+  "id": "drl186",
+  "book": "drl",
+  "text": "17 return q_loss 4.5.2 DQN Training Loop The training loop in Code 4.2 proceeds as follows: At each time step, train is called and the agent checks if it is ready to train (line 10)."
+ },
+ {
+  "id": "drl187",
+  "book": "drl",
+  "text": "The quality of an algorithm affects the data it is trained on, which in turn affects the algorithm’s performance."
+ },
+ {
+  "id": "drl188",
+  "book": "drl",
+  "text": "The first experiment compares the effect of different values of the discount factor γ; the second shows the improvement from using a baseline in the reinforcing signal."
+ },
+ {
+  "id": "drl189",
+  "book": "drl",
+  "text": "We will see this throughout the book."
+ },
+ {
+  "id": "drl190",
+  "book": "drl",
+  "text": "Discarding the oldest experiences is also important."
+ },
+ {
+  "id": "drl191",
+  "book": "drl",
+  "text": "This returns an action from the action space by sampling from a random uniform distribution over the actions."
+ },
+ {
+  "id": "drl192",
+  "book": "drl",
+  "text": "Maximizing the objective is the same as maximizing the return."
+ },
+ {
+  "id": "drl193",
+  "book": "drl",
+  "text": "The memory is retained across training steps so that experiences can be reused."
+ },
+ {
+  "id": "drl194",
+  "book": "drl",
+  "text": "Learning is more effective when we can both increase and decrease the action probabilities."
+ },
+ {
+  "id": "drl195",
+  "book": "drl",
+  "text": "However, the memory should also be small enough so that each experience is likely to be sampled more than once before being discarded, which makes learning more efficient."
+ },
+ {
+  "id": "drl196",
+  "book": "drl",
+  "text": "One way to tackle this problem with the Boltzmann policy is to use a large value of τ at the beginning of training so that the action probability distribution is more uniform."
+ },
+ {
+  "id": "drl197",
+  "book": "drl",
+  "text": "Each time an agent selects an action, it samples a from the probability distribution over the actions generated by the Boltzmann policy."
+ },
+ {
+  "id": "drl198",
+  "book": "drl",
+  "text": "In the same manner as Vπ, the return is measured from the current state s to the end of an episode."
+ },
+ {
+  "id": "drl199",
+  "book": "drl",
+  "text": "In this chapter we introduce the main concepts in reinforcement learning."
+ }
+]

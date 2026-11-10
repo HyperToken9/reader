@@ -1,0 +1,64 @@
+{
+ "summary": {
+  "passageS": 134.7,
+  "sentences": 13,
+  "gaps": 0,
+  "words": 364,
+  "audioClockVsSystemClockMs": -3.66,
+  "msgLatencyMs": {
+   "p50": "1.18",
+   "p95": "1.85",
+   "max": "9.59"
+  },
+  "cursorErrMs": {
+   "p50": "1.6",
+   "p95": "4.0",
+   "max": "4.8"
+  },
+  "cursorMeanErrFirst30sMs": "1.4",
+  "cursorMeanErrLast30sMs": "0.4",
+  "note": "cursorErr recomputed after fixing span matching (first-word collision); see run.mjs"
+ },
+ "env": {
+  "at": "2026-11-10T14:25:36.429Z",
+  "uptime": "19:55:36 up 3 days,  2:35,  1 user,  load average: 3.42, 3.97, 5.08",
+  "loadavg": [
+   3.42,
+   3.97,
+   5.08
+  ]
+ },
+ "mem": {
+  "byType": {
+   "browser": 136.3,
+   "zygote": 32,
+   "gpu-process": 193.6,
+   "utility": 71.7,
+   "renderer": 38.4,
+   "renderer(extension)": 657.5
+  },
+  "totalPssMB": 1129.6,
+  "gpu": {
+   "drmVramMB": 554.7,
+   "drmGttMB": 517,
+   "nvidiaRow": "|    0   N/A  N/A         1458802    C+G   ...rack-uuid=3190708988185955192          7MiB |",
+   "nvidiaMB": 7,
+   "nvidiaCompute": "1458802, 7"
+  },
+  "gpuPid": 1458802
+ },
+ "marks": {
+  "tSent": 1794320605581.7,
+  "tArrive": 1794320605583.47,
+  "offscreen": {
+   "created": false,
+   "ms": 0.09999999403953552
+  },
+  "tReady": 1794320605583.5452,
+  "firstSynthMs": 705.0900000035763,
+  "firstWallStart": 1794320606525.5217,
+  "ttfaMs": 943.82177734375,
+  "gaps": 0,
+  "audioS": 134.73133333333334
+ }
+}

@@ -1,0 +1,53 @@
+{
+ "tag": "webgpu-low-power",
+ "env": {
+  "at": "2026-11-10T13:20:44.758Z",
+  "uptime": "18:50:44 up 3 days,  1:30,  1 user,  load average: 3.23, 4.63, 8.02",
+  "loadavg": [
+   3.23,
+   4.63,
+   8.02
+  ]
+ },
+ "info": {
+  "ep": "webgpu",
+  "powerPreference": "low-power",
+  "crossOriginIsolated": true,
+  "hardwareConcurrency": 16,
+  "ortVersion": "1.31.1",
+  "adapter": {
+   "vendor": "amd",
+   "architecture": "gcn-5",
+   "shaderF16": true
+  },
+  "model": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 268.55000001192093,
+   "mb": 163.527961
+  },
+  "voices": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 43.8299999833107
+  },
+  "sessionMs": 1736.8700000047684,
+  "numThreadsEffective": 4,
+  "initMs": 2426.6950000226498
+ },
+ "summary": {
+  "sentencesDurationsIdentical": "94/206",
+  "onnxRunsIdentical": "96/210",
+  "tokensIdentical": "27830/28019",
+  "maxFrameDiff": 4,
+  "spansIdentical": "84/206",
+  "sameWordGrouping": "206/206",
+  "spanDiffMs": {
+   "p50": "25.0",
+   "p95": "115.0",
+   "max": "315.0"
+  }
+ }
+}

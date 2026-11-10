@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "PROTOTYPE 48 - Kokoro on WebGPU (throwaway)",
+  "version": "0.0.1",
+  "description": "Throwaway spike for HyperToken9/reader#48. Not for use.",
+  "permissions": ["offscreen", "unlimitedStorage"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "sw.js", "type": "module" },
+  "content_scripts": [{ "matches": ["http://localhost/*", "http://127.0.0.1/*"], "js": ["content.js"], "run_at": "document_start" }],
+  "content_security_policy": { "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
+  "cross_origin_embedder_policy": { "value": "require-corp" },
+  "cross_origin_opener_policy": { "value": "same-origin" }
+}

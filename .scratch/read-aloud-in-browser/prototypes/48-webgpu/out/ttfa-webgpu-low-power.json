@@ -1,0 +1,83 @@
+{
+ "exp": "ttfa",
+ "tag": "webgpu-low-power",
+ "env": {
+  "at": "2026-11-10T13:56:12.157Z",
+  "uptime": "19:26:12 up 3 days,  2:05,  1 user,  load average: 7.39, 9.07, 7.94",
+  "loadavg": [
+   7.39,
+   9.07,
+   7.94
+  ]
+ },
+ "text": "The parser reads one token at a time.",
+ "cold": {
+  "ttfaMs": 5431,
+  "offscreenCreateMs": 53,
+  "initMs": 3983,
+  "model": {
+   "hit": false,
+   "fetchMs": 384.11500000953674,
+   "putMs": 512.9149999916553,
+   "readMs": 0,
+   "mb": 163.527961
+  },
+  "sessionMs": 2710,
+  "firstSynthMs": 1274,
+  "msgToOffscreenMs": 55
+ },
+ "warm": [
+  {
+   "ttfaMs": 672,
+   "offscreenCreateMs": 0,
+   "firstSynthMs": 632,
+   "msgToOffscreenMs": 2
+  },
+  {
+   "ttfaMs": 1074,
+   "offscreenCreateMs": 0,
+   "firstSynthMs": 1010,
+   "msgToOffscreenMs": 1
+  },
+  {
+   "ttfaMs": 644,
+   "offscreenCreateMs": 0,
+   "firstSynthMs": 585,
+   "msgToOffscreenMs": 1
+  }
+ ],
+ "coldFromCache": {
+  "ttfaMs": 4244,
+  "offscreenCreateMs": 55,
+  "initMs": 3051,
+  "model": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 243.3599999845028,
+   "mb": 163.527961
+  },
+  "sessionMs": 2711,
+  "firstSynthMs": 1010,
+  "msgToOffscreenMs": 59
+ },
+ "memAfter": {
+  "byType": {
+   "browser": 105.8,
+   "zygote": 32,
+   "gpu-process": 181.4,
+   "utility": 70.6,
+   "renderer": 38.4,
+   "renderer(extension)": 612.1
+  },
+  "totalPssMB": 1040.2,
+  "gpu": {
+   "drmVramMB": 370.3,
+   "drmGttMB": 44.5,
+   "nvidiaRow": "|    0   N/A  N/A         1251620    C+G   ...rack-uuid=3190708988185955192          7MiB |",
+   "nvidiaMB": 7,
+   "nvidiaCompute": "1251620, 7"
+  },
+  "gpuPid": 1251620
+ }
+}

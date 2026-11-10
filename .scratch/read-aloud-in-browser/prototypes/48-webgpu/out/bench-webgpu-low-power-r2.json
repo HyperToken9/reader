@@ -1,0 +1,135 @@
+{
+ "exp": "bench",
+ "tag": "webgpu-low-power-r2",
+ "env": {
+  "at": "2026-11-10T13:15:51.543Z",
+  "uptime": "18:45:51 up 3 days,  1:25,  1 user,  load average: 3.18, 5.21, 9.34",
+  "loadavg": [
+   3.18,
+   5.21,
+   9.34
+  ]
+ },
+ "info": {
+  "ep": "webgpu",
+  "powerPreference": "low-power",
+  "crossOriginIsolated": true,
+  "hardwareConcurrency": 16,
+  "ortVersion": "1.31.1",
+  "adapter": {
+   "vendor": "amd",
+   "architecture": "gcn-5",
+   "shaderF16": true
+  },
+  "model": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 225.30500000715256,
+   "mb": 163.527961
+  },
+  "voices": {
+   "hit": true,
+   "fetchMs": 0,
+   "putMs": 0,
+   "readMs": 40.87999999523163
+  },
+  "sessionMs": 1791.425000011921,
+  "numThreadsEffective": 4,
+  "initMs": 2398.3050000071526
+ },
+ "firstRun": [
+  {
+   "rtf": 0.264,
+   "ms": 727,
+   "audioS": 2.75,
+   "each": [
+    727
+   ]
+  }
+ ],
+ "warmup": [
+  {
+   "rtf": 0.176,
+   "ms": 8393,
+   "audioS": 47.63,
+   "each": [
+    593,
+    943,
+    1321,
+    1539,
+    1865,
+    2132
+   ]
+  }
+ ],
+ "runs": [
+  {
+   "rtf": 0.176,
+   "ms": 8361,
+   "audioS": 47.63,
+   "each": [
+    591,
+    963,
+    1334,
+    1510,
+    1830,
+    2133
+   ]
+  },
+  {
+   "rtf": 0.176,
+   "ms": 8382,
+   "audioS": 47.63,
+   "each": [
+    596,
+    954,
+    1297,
+    1512,
+    1861,
+    2162
+   ]
+  },
+  {
+   "rtf": 0.176,
+   "ms": 8398,
+   "audioS": 47.63,
+   "each": [
+    594,
+    958,
+    1314,
+    1521,
+    1852,
+    2160
+   ]
+  }
+ ],
+ "warmRtf": [
+  0.176,
+  0.176,
+  0.176
+ ],
+ "mem": {
+  "byType": {
+   "browser": 141.5,
+   "zygote": 35.5,
+   "gpu-process": 223.7,
+   "utility": 45.6,
+   "renderer": 39.5,
+   "renderer(extension)": 669.6
+  },
+  "totalPssMB": 1155.4,
+  "gpu": {
+   "drmVramMB": 549.6,
+   "drmGttMB": 141.3,
+   "nvidiaRow": "|    0   N/A  N/A          909479    C+G   ...rack-uuid=3190708988185955192          7MiB |",
+   "nvidiaMB": 7,
+   "nvidiaCompute": "909479, 7"
+  },
+  "gpuPid": 909479
+ },
+ "jsMem": {
+  "jsHeapUsed": 56686993,
+  "uaSpecific": 465477607
+ }
+}

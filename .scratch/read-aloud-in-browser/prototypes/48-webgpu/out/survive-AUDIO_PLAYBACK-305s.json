@@ -1,0 +1,269 @@
+{
+ "exp": "survive",
+ "tag": "webgpu-low-power",
+ "reasons": [
+  "AUDIO_PLAYBACK"
+ ],
+ "pauseS": 305,
+ "suspend": false,
+ "env": {
+  "at": "2026-11-10T13:54:52.524Z",
+  "uptime": "19:24:52 up 3 days,  2:04,  1 user,  load average: 9.74, 9.79, 8.05",
+  "loadavg": [
+   9.74,
+   9.79,
+   8.05
+  ]
+ },
+ "aliveAtEnd": false,
+ "closedAt": 20,
+ "sameDoc": false,
+ "resumeTtfaMs": 5926,
+ "resumeReloaded": true,
+ "samples": [
+  {
+   "s": 5,
+   "alive": true
+  },
+  {
+   "s": 10,
+   "alive": true
+  },
+  {
+   "s": 15,
+   "alive": true
+  },
+  {
+   "s": 20,
+   "alive": false
+  },
+  {
+   "s": 25,
+   "alive": false
+  },
+  {
+   "s": 30,
+   "alive": false
+  },
+  {
+   "s": 35,
+   "alive": false
+  },
+  {
+   "s": 40,
+   "alive": false
+  },
+  {
+   "s": 45,
+   "alive": false
+  },
+  {
+   "s": 50,
+   "alive": false
+  },
+  {
+   "s": 55,
+   "alive": false
+  },
+  {
+   "s": 60,
+   "alive": false
+  },
+  {
+   "s": 65,
+   "alive": false
+  },
+  {
+   "s": 70,
+   "alive": false
+  },
+  {
+   "s": 75,
+   "alive": false
+  },
+  {
+   "s": 80,
+   "alive": false
+  },
+  {
+   "s": 85,
+   "alive": false
+  },
+  {
+   "s": 90,
+   "alive": false
+  },
+  {
+   "s": 95,
+   "alive": false
+  },
+  {
+   "s": 100,
+   "alive": false
+  },
+  {
+   "s": 105,
+   "alive": false
+  },
+  {
+   "s": 110,
+   "alive": false
+  },
+  {
+   "s": 116,
+   "alive": false
+  },
+  {
+   "s": 121,
+   "alive": false
+  },
+  {
+   "s": 126,
+   "alive": false
+  },
+  {
+   "s": 131,
+   "alive": false
+  },
+  {
+   "s": 136,
+   "alive": false
+  },
+  {
+   "s": 141,
+   "alive": false
+  },
+  {
+   "s": 146,
+   "alive": false
+  },
+  {
+   "s": 151,
+   "alive": false
+  },
+  {
+   "s": 156,
+   "alive": false
+  },
+  {
+   "s": 161,
+   "alive": false
+  },
+  {
+   "s": 166,
+   "alive": false
+  },
+  {
+   "s": 171,
+   "alive": false
+  },
+  {
+   "s": 176,
+   "alive": false
+  },
+  {
+   "s": 181,
+   "alive": false
+  },
+  {
+   "s": 186,
+   "alive": false
+  },
+  {
+   "s": 191,
+   "alive": false
+  },
+  {
+   "s": 196,
+   "alive": false
+  },
+  {
+   "s": 201,
+   "alive": false
+  },
+  {
+   "s": 206,
+   "alive": false
+  },
+  {
+   "s": 211,
+   "alive": false
+  },
+  {
+   "s": 216,
+   "alive": false
+  },
+  {
+   "s": 221,
+   "alive": false
+  },
+  {
+   "s": 226,
+   "alive": false
+  },
+  {
+   "s": 231,
+   "alive": false
+  },
+  {
+   "s": 236,
+   "alive": false
+  },
+  {
+   "s": 241,
+   "alive": false
+  },
+  {
+   "s": 246,
+   "alive": false
+  },
+  {
+   "s": 251,
+   "alive": false
+  },
+  {
+   "s": 256,
+   "alive": false
+  },
+  {
+   "s": 261,
+   "alive": false
+  },
+  {
+   "s": 266,
+   "alive": false
+  },
+  {
+   "s": 271,
+   "alive": false
+  },
+  {
+   "s": 276,
+   "alive": false
+  },
+  {
+   "s": 281,
+   "alive": false
+  },
+  {
+   "s": 286,
+   "alive": false
+  },
+  {
+   "s": 291,
+   "alive": false
+  },
+  {
+   "s": 296,
+   "alive": false
+  },
+  {
+   "s": 302,
+   "alive": false
+  },
+  {
+   "s": 307,
+   "alive": false
+  }
+ ]
+}

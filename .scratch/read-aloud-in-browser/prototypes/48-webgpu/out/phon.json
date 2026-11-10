@@ -1,0 +1,153 @@
+{
+ "exp": "phon",
+ "env": {
+  "at": "2026-11-10T14:08:49.691Z",
+  "uptime": "19:38:49 up 3 days,  2:18,  1 user,  load average: 3.71, 4.40, 5.98",
+  "loadavg": [
+   3.71,
+   4.4,
+   5.98
+  ]
+ },
+ "summary": {
+  "kokoro-js phonemize()": {
+   "sentences": "108/206 (52.4%)",
+   "sentencesIgnoringStress": "111/206",
+   "words": "2679/3969 (67.5%)",
+   "wordsIgnoringSpaces": "2682/3969"
+  },
+  "npm phonemizer + Blitz punctuation port": {
+   "sentences": "151/206 (73.3%)",
+   "sentencesIgnoringStress": "154/206",
+   "words": "2795/3969 (70.4%)",
+   "wordsIgnoringSpaces": "2795/3969"
+  }
+ },
+ "ms": 17280.844999998808,
+ "examples": {
+  "kokoro-js phonemize()": [
+   {
+    "text": "Glucose is phosphorylated by hexokinase in the first step of glycolysis.",
+    "espeak152": "ɡlˈuːkoʊs ɪz fˈɑːsfɔːɹˌɪleɪɾᵻd baɪ hˈɛksəkˌɪneɪs ɪnðə fˈɜːst stˈɛp ʌv ɡlaɪkˈɑːləsˌɪs.",
+    "browser": "ɡlˈuːkoʊs ɪz fˈɑːsfoːɹˌɪleɪɾᵻd baɪ hˈɛksəkˌɪneɪs ɪnðə fˈɜːst stˈɛp ʌv ɡlaɪkˈɑːləsˌɪs."
+   },
+   {
+    "text": "In 1586, Mary Queen of Scots was put on trial for treason, accused of plotting to assassinate Queen Elizabeth I of England.",
+    "espeak152": "ɪn wˈʌn θˈaʊzənd fˈaɪvhˈʌndɹɪd ˈeɪɾi sˈɪks, mˈɛɹi kwˈiːn ʌv skˈɑːts wʌz pˌʊt ˌɔn tɹˈaɪəl fɔːɹ tɹˈiːzən, ɐkjˈuːzd ʌv plˈɑːɾɪŋ tʊ ɐsˈæsᵻnˌeɪt kwˈiːn ᵻlˈɪzəbəθ aɪ ʌv ˈɪŋɡlənd.",
+    "browser": "ɪn fˈɪftiːn ˈeɪɾi sˈɪks, mˈɛɹi kwˈiːn ʌv skˈɑːts wʌz pˌʊt ˌɔn tɹˈaɪəl fɔːɹ tɹˈiːzən, ɐkjˈuːzd ʌv plˈɑːɾɪŋ tʊ ɐsˈæsᵻnˌeɪt kwˈiːn ᵻlˈɪzəbəθ aɪ ʌv ˈɪŋɡlənd."
+   },
+   {
+    "text": "The force of gravity on an object near the Earth's surface is about 9.8 metres per second squared, which we usually write as g = 9.8 m/s².",
+    "espeak152": "ðə fˈɔːɹs ʌv ɡɹˈævᵻɾi ˌɔn ɐn ˈɑːbdʒɛkt nˌɪɹ ðɪ ˈɜːθz sˈɜːfɪs ɪz ɐbˌaʊt nˈaɪn pɔɪnt ˈeɪt mˈiːɾɚz pɜː sˈɛkənd skwˈɛɹd, wˌɪtʃ wiː jˈuːʒuːəli ɹˈaɪt æz dʒˈiː ˈiːkwəlz nˈaɪn. ˈeɪt ˈɛm slˈæʃ ˈɛs tˈuː",
+    "browser": "ðə fˈoːɹs ʌv ɡɹˈævᵻɾi ˌɔn ɐn ˈɑːbdʒɛkt nˌɪɹ ðɪ ˈɜːθz sˈɜːfɪs ɪz ɐbˌaʊt nˈaɪn pˈɔɪnt ˈeɪt mˈiːɾɚz pɜː sˈɛkənd skwˈɛɹd, wˌɪtʃ wiː jˈuːʒuːəli ɹˈaɪt æz dʒˈiː ˈiːkwəlz nˈaɪn pˈɔɪnt ˈeɪt ˈɛm slˈæʃ ˈɛs tˈuː."
+   },
+   {
+    "text": "Reinforcement learning is concerned with solving sequential decision-making problems, in which an agent takes actions in an environment and receives rewards, and the goal is to maximise the cumulative reward over time.",
+    "espeak152": "ɹˌiːɪnfˈɔːɹsmənt lˈɜːnɪŋ ɪz kənsˈɜːnd wɪð sˈɑːlvɪŋ siːkwˈɛnʃəl dᵻsˈɪʒənmˌeɪkɪŋ pɹˈɑːbləmz, ɪnwˌɪtʃ ɐn ˈeɪdʒənt tˈeɪks ˈækʃənz ɪn ɐn ɛnvˈaɪɹənmənt ænd ɹᵻsˈiːvz ɹᵻwˈɔːɹdz, ænd ðə ɡˈoʊl ɪz tə mˈæksɪmˌaɪz ðə kjˈuːmjʊlətˌɪv ɹᵻwˈɔːɹd ˌoʊvɚ tˈaɪm.",
+    "browser": "ɹˌiːɪnfˈoːɹsmənt lˈɜːnɪŋ ɪz kənsˈɜːnd wɪð sˈɑːlvɪŋ siːkwˈɛnʃəl dᵻsˈɪʒənmˌeɪkɪŋ pɹˈɑːbləmz, ɪnwˌɪtʃ ɐn ˈeɪdʒənt tˈeɪks ˈækʃənz ɪn ɐn ɛnvˈaɪɹənmənt ænd ɹᵻsˈiːvz ɹᵻwˈɔːɹdz, ænd ðə ɡˈoʊl ɪz tə mˈæksɪmˌaɪz ðə kjˈuːmjʊlətˌɪv ɹᵻwˈɔːɹd ˌoʊvɚ tˈaɪm."
+   },
+   {
+    "text": "If your class has a method named init() , it is called automatically when the object is constructed.",
+    "espeak152": "ɪf jʊɹ klˈæs hɐz ɐ mˈɛθəd nˈeɪmd ɪnɪt() , ɪɾ ɪz kˈɔːld ˌɔːɾəmˈæɾɪkli wɛn ðɪ ˈɑːbdʒɛkt ɪz kənstɹˈʌktᵻd.",
+    "browser": "ɪf jʊɹ klˈæs hɐz ɐ mˈɛθəd nˈeɪmd ɪnɪt , ɪɾ ɪz kˈɔːld ˌɔːɾəmˈæɾɪkli wɛn ðɪ ˈɑːbdʒɛkt ɪz kənstɹˈʌktᵻd."
+   },
+   {
+    "text": "Likely a majority of working programmers today are using an object-oriented language.",
+    "espeak152": "lˈaɪkli ɐ mədʒˈɔːɹᵻɾi ʌv wˈɜːkɪŋ pɹˈoʊɡɹæmɚz tədˈeɪ ɑːɹ jˈuːzɪŋ ɐn ˈɑːbdʒɛktˈɔːɹiəntᵻd lˈæŋɡwɪdʒ.",
+    "browser": "lˈaɪkli ɐ mədʒˈɔːɹᵻɾi ʌv wˈɜːkɪŋ pɹˈoʊɡɹæmɚz tədˈeɪ ɑːɹ jˈuːzɪŋ ɐn ˈɑːbdʒɛktˈoːɹiəntᵻd lˈæŋɡwɪdʒ."
+   },
+   {
+    "text": "Then it defines a (usually infinite) set of “strings” that are “in” the grammar.",
+    "espeak152": "ðˈɛn ɪt dᵻfˈaɪnz ˈeɪ (jˈuːʒuːəli ˈɪnfɪnət) sˈɛt ʌv “stɹˈɪŋz” ðˈæt ɑːɹ “ˈɪn” ðə ɡɹˈæmɚ.",
+    "browser": "ðˈɛn ɪt dᵻfˈaɪnz ˈeɪ jˈuːʒuːəli ˈɪnfɪnət sˈɛt ʌv \"stɹˈɪŋz\" ðˈæt ɑːɹ \"ˈɪn\" ðə ɡɹˈæmɚ."
+   },
+   {
+    "text": "EQUAL_EQUAL : EQUAL); break; case '<': addToken(match('=') ?",
+    "espeak152": "ˈiːkwəl ˈiːkwəl : ˈiːkwəl); bɹˈeɪk; kˈeɪs: ˈæd tˈoʊkən(mˈætʃ(ˈiːkwəlz) ?",
+    "browser": "ˈiːkwəl ˈiːkwəl : ˈiːkwəl; bɹˈeɪk; kˈeɪs: ˈæd tˈoʊkənmˈætʃˈiːkwəlz ?"
+   },
+   {
+    "text": "A parenthesized expression on the next line: func (parenthesized) Is this a call to func(parenthesized) , or two expression statements, one for func and one for a parenthesized expression?",
+    "espeak152": "ɐ pɚɹˈɛnθəsˌaɪzd ɛkspɹˈɛʃən ɔnðə nˈɛkst lˈaɪn: fˈʌŋk (pɚɹˈɛnθəsˌaɪzd) ɪz ðɪs ɐ kˈɔːl tə fˈʌŋk(pɚɹˈɛnθəsˌaɪzd) , ɔːɹ tˈuː ɛkspɹˈɛʃən stˈeɪtmənts, wˈʌn fɔːɹ fˈʌŋk ænd wˈʌn fɚɹə pɚɹˈɛnθəsˌaɪzd ɛkspɹˈɛʃən?",
+    "browser": "ɐ pɚɹˈɛnθəsˌaɪzd ɛkspɹˈɛʃən ɔnðə nˈɛkst lˈaɪn: fˈʌŋk pɚɹˈɛnθəsˌaɪzd ɪz ðɪs ɐ kˈɔːl tə fˈʌŋkpɚɹˈɛnθəsˌaɪzd , ɔːɹ tˈuː ɛkspɹˈɛʃən stˈeɪtmənts, wˈʌn fɔːɹ fˈʌŋk ænd wˈʌn fɚɹə pɚɹˈɛnθəsˌaɪzd ɛkspɹˈɛʃən?"
+   },
+   {
+    "text": "Right now, it prints out the tokens our forthcoming scanner will emit so that we can see if we’re making progress. << lox/Lox.java add after runPrompt() Error handling 4.1.1 While we’re setting things up, another key piece of infrastructure is error handling.",
+    "espeak152": "ɹˈaɪt nˈaʊ, ɪt pɹˈɪnts ˈaʊt ðə tˈoʊkənz ˌaʊɚ fˈɔːɹθkʌmɪŋ skˈænɚ wɪl ɪmˈɪt sˌoʊ ðæt wiː kæn sˈiː ɪf wɪɹ mˌeɪkɪŋ pɹˈɑːɡɹɛs. lˈɑːks slˈæʃ lˈɑːks.dʒˈɑːvə ˈæd ˈæftɚ ɹˈʌn pɹˈɑːmpt() ˈɛɹɚ hˈændlɪŋ fˈɔːɹ pɔɪnt wˈʌnpɔɪnt wˈʌn wˌaɪl wɪɹ sˈɛɾɪŋ θˈɪŋz ˈʌp, ɐnˈʌðɚ kˈiː pˈiːs ʌv ˈɪnfɹəstɹˌʌktʃɚɹ ɪz ˈɛɹɚ hˈændlɪŋ.",
+    "browser": "ɹˈaɪt nˈaʊ, ɪt pɹˈɪnts ˈaʊt ðə tˈoʊkənz ˌaʊɚ fˈɔːɹθkʌmɪŋ skˈænɚ wɪl ɪmˈɪt sˌoʊ ðæt wiː kæn sˈiː ɪf wɪɹ mˌeɪkɪŋ pɹˈɑːɡɹɛs. lˈɑːks slˈæʃ lˈɑːksdʒˈɑːvə ˈæd ˈæftɚ ɹˈʌn pɹˈɑːmpt ˈɛɹɚ hˈændlɪŋ fˈoːɹ pˈɔɪnt wˈʌn pˈɔɪnt wˈʌn wˌaɪl wɪɹ sˈɛɾɪŋ θˈɪŋz ˈʌp, ɐnˈʌðɚ kˈiː pˈiːs ʌv ˈɪnfɹəstɹˌʌktʃɚɹ ɪz ˈɛɹɚ hˈændlɪŋ."
+   },
+   {
+    "text": "Instantiation and initialization 3.9.5 Classes that only have behavior aren’t super useful.",
+    "espeak152": "ˌɪnstɐnʃɪˈeɪʃən ænd ɪnˌɪʃəlᵻzˈeɪʃən θɹˈiː. nˈaɪn pɔɪnt fˈaɪv klˈæsᵻz ðæt ˈoʊnli hæv bᵻhˈeɪvjɚɹ ˌɑːɹnt sˈuːpɚ jˈuːsfəl",
+    "browser": "ˌɪnstɐnʃɪˈeɪʃən ænd ɪnˌɪʃəlᵻzˈeɪʃən θɹˈiː pˈɔɪnt nˈaɪn pˈɔɪnt fˈaɪv klˈæsᵻz ðæt ˈoʊnli hæv bᵻhˈeɪvjɚɹ ˌɑːɹnt sˈuːpɚ jˈuːsfəl."
+   },
+   {
+    "text": "Object-orientation works fine for many parts of our interpreter, but these tree classes rub against the grain of Java.",
+    "espeak152": "ˈɑːbdʒɛktˌɔːɹiəntˈeɪʃən wˈɜːks fˈaɪn fɔːɹ mˈɛni pˈɑːɹts ʌv ˌaʊɚɹ ɪntˈɜːpɹɪɾɚ, bˌʌt ðiːz tɹˈiː klˈæsᵻz ɹˈʌb ɐɡˈɛnst ðə ɡɹˈeɪn ʌv dʒˈɑːvə.",
+    "browser": "ˈɑːbdʒɛktˌoːɹiəntˈeɪʃən wˈɜːks fˈaɪn fɔːɹ mˈɛni pˈɑːɹts ʌv ˌaʊɚɹ ɪntˈɜːpɹɪɾɚ, bˌʌt ðiːz tɹˈiː klˈæsᵻz ɹˈʌb ɐɡˈɛnst ðə ɡɹˈeɪn ʌv dʒˈɑːvə."
+   }
+  ],
+  "npm phonemizer + Blitz punctuation port": [
+   {
+    "text": "Glucose is phosphorylated by hexokinase in the first step of glycolysis.",
+    "espeak152": "ɡlˈuːkoʊs ɪz fˈɑːsfɔːɹˌɪleɪɾᵻd baɪ hˈɛksəkˌɪneɪs ɪnðə fˈɜːst stˈɛp ʌv ɡlaɪkˈɑːləsˌɪs.",
+    "browser": "ɡlˈuːkoʊs ɪz fˈɑːsfoːɹˌɪleɪɾᵻd baɪ hˈɛksəkˌɪneɪs ɪnðə fˈɜːst stˈɛp ʌv ɡlaɪkˈɑːləsˌɪs."
+   },
+   {
+    "text": "The force of gravity on an object near the Earth's surface is about 9.8 metres per second squared, which we usually write as g = 9.8 m/s².",
+    "espeak152": "ðə fˈɔːɹs ʌv ɡɹˈævᵻɾi ˌɔn ɐn ˈɑːbdʒɛkt nˌɪɹ ðɪ ˈɜːθz sˈɜːfɪs ɪz ɐbˌaʊt nˈaɪn pɔɪnt ˈeɪt mˈiːɾɚz pɜː sˈɛkənd skwˈɛɹd, wˌɪtʃ wiː jˈuːʒuːəli ɹˈaɪt æz dʒˈiː ˈiːkwəlz nˈaɪn. ˈeɪt ˈɛm slˈæʃ ˈɛs tˈuː",
+    "browser": "ðə fˈoːɹs ʌv ɡɹˈævᵻɾi ˌɔn ɐn ˈɑːbdʒɛkt nˌɪɹ ðɪ ˈɜːθz sˈɜːfɪs ɪz ɐbˌaʊt nˈaɪn pɔɪnt ˈeɪt mˈiːɾɚz pɜː sˈɛkənd skwˈɛɹd, wˌɪtʃ wiː jˈuːʒuːəli ɹˈaɪt æz dʒˈiː ˈiːkwəlz nˈaɪn. ˈeɪt ˈɛm slˈæʃ ˈɛs tˈuː"
+   },
+   {
+    "text": "Reinforcement learning is concerned with solving sequential decision-making problems, in which an agent takes actions in an environment and receives rewards, and the goal is to maximise the cumulative reward over time.",
+    "espeak152": "ɹˌiːɪnfˈɔːɹsmənt lˈɜːnɪŋ ɪz kənsˈɜːnd wɪð sˈɑːlvɪŋ siːkwˈɛnʃəl dᵻsˈɪʒənmˌeɪkɪŋ pɹˈɑːbləmz, ɪnwˌɪtʃ ɐn ˈeɪdʒənt tˈeɪks ˈækʃənz ɪn ɐn ɛnvˈaɪɹənmənt ænd ɹᵻsˈiːvz ɹᵻwˈɔːɹdz, ænd ðə ɡˈoʊl ɪz tə mˈæksɪmˌaɪz ðə kjˈuːmjʊlətˌɪv ɹᵻwˈɔːɹd ˌoʊvɚ tˈaɪm.",
+    "browser": "ɹˌiːɪnfˈoːɹsmənt lˈɜːnɪŋ ɪz kənsˈɜːnd wɪð sˈɑːlvɪŋ siːkwˈɛnʃəl dᵻsˈɪʒənmˌeɪkɪŋ pɹˈɑːbləmz, ɪnwˌɪtʃ ɐn ˈeɪdʒənt tˈeɪks ˈækʃənz ɪn ɐn ɛnvˈaɪɹənmənt ænd ɹᵻsˈiːvz ɹᵻwˈɔːɹdz, ænd ðə ɡˈoʊl ɪz tə mˈæksɪmˌaɪz ðə kjˈuːmjʊlətˌɪv ɹᵻwˈɔːɹd ˌoʊvɚ tˈaɪm."
+   },
+   {
+    "text": "Likely a majority of working programmers today are using an object-oriented language.",
+    "espeak152": "lˈaɪkli ɐ mədʒˈɔːɹᵻɾi ʌv wˈɜːkɪŋ pɹˈoʊɡɹæmɚz tədˈeɪ ɑːɹ jˈuːzɪŋ ɐn ˈɑːbdʒɛktˈɔːɹiəntᵻd lˈæŋɡwɪdʒ.",
+    "browser": "lˈaɪkli ɐ mədʒˈɔːɹᵻɾi ʌv wˈɜːkɪŋ pɹˈoʊɡɹæmɚz tədˈeɪ ɑːɹ jˈuːzɪŋ ɐn ˈɑːbdʒɛktˈoːɹiəntᵻd lˈæŋɡwɪdʒ."
+   },
+   {
+    "text": "Right now, it prints out the tokens our forthcoming scanner will emit so that we can see if we’re making progress. << lox/Lox.java add after runPrompt() Error handling 4.1.1 While we’re setting things up, another key piece of infrastructure is error handling.",
+    "espeak152": "ɹˈaɪt nˈaʊ, ɪt pɹˈɪnts ˈaʊt ðə tˈoʊkənz ˌaʊɚ fˈɔːɹθkʌmɪŋ skˈænɚ wɪl ɪmˈɪt sˌoʊ ðæt wiː kæn sˈiː ɪf wɪɹ mˌeɪkɪŋ pɹˈɑːɡɹɛs. lˈɑːks slˈæʃ lˈɑːks.dʒˈɑːvə ˈæd ˈæftɚ ɹˈʌn pɹˈɑːmpt() ˈɛɹɚ hˈændlɪŋ fˈɔːɹ pɔɪnt wˈʌnpɔɪnt wˈʌn wˌaɪl wɪɹ sˈɛɾɪŋ θˈɪŋz ˈʌp, ɐnˈʌðɚ kˈiː pˈiːs ʌv ˈɪnfɹəstɹˌʌktʃɚɹ ɪz ˈɛɹɚ hˈændlɪŋ.",
+    "browser": "ɹˈaɪt nˈaʊ, ɪt pɹˈɪnts ˈaʊt ðə tˈoʊkənz ˌaʊɚ fˈɔːɹθkʌmɪŋ skˈænɚ wɪl ɪmˈɪt sˌoʊ ðæt wiː kæn sˈiː ɪf wɪɹ mˌeɪkɪŋ pɹˈɑːɡɹɛs. lˈɑːks slˈæʃ lˈɑːks.dʒˈɑːvə ˈæd ˈæftɚ ɹˈʌn pɹˈɑːmpt() ˈɛɹɚ hˈændlɪŋ fˈoːɹ pɔɪnt wˈʌnpɔɪnt wˈʌn wˌaɪl wɪɹ sˈɛɾɪŋ θˈɪŋz ˈʌp, ɐnˈʌðɚ kˈiː pˈiːs ʌv ˈɪnfɹəstɹˌʌktʃɚɹ ɪz ˈɛɹɚ hˈændlɪŋ."
+   },
+   {
+    "text": "Object-orientation works fine for many parts of our interpreter, but these tree classes rub against the grain of Java.",
+    "espeak152": "ˈɑːbdʒɛktˌɔːɹiəntˈeɪʃən wˈɜːks fˈaɪn fɔːɹ mˈɛni pˈɑːɹts ʌv ˌaʊɚɹ ɪntˈɜːpɹɪɾɚ, bˌʌt ðiːz tɹˈiː klˈæsᵻz ɹˈʌb ɐɡˈɛnst ðə ɡɹˈeɪn ʌv dʒˈɑːvə.",
+    "browser": "ˈɑːbdʒɛktˌoːɹiəntˈeɪʃən wˈɜːks fˈaɪn fɔːɹ mˈɛni pˈɑːɹts ʌv ˌaʊɚɹ ɪntˈɜːpɹɪɾɚ, bˌʌt ðiːz tɹˈiː klˈæsᵻz ɹˈʌb ɐɡˈɛnst ðə ɡɹˈeɪn ʌv dʒˈɑːvə."
+   },
+   {
+    "text": "We -- -a; could implement that ourselves, but, honestly, unless you’re trying to cram for an upcoming programming interview, it’s not worth your time.",
+    "espeak152": "wiː ˈeɪ; kʊd ˈɪmplɪmənt ðæt aʊɚsˈɛlvz, bˌʌt, ˈɑːnɪstli, ʌnlˈɛs jʊɹ tɹˈaɪɪŋ tə kɹˈæm fɚɹən ʌpkˈʌmɪŋ pɹˈoʊɡɹæmɪŋ ˈɪntɚvjˌuː, ɪts nˌɑːt wˈɜːθ jʊɹ tˈaɪm.",
+    "browser": "wiː ˈeɪ; kʊd ˈɪmplɪmənt ðæt aʊɚsˈɛlvz, bˈʌt, ˈɑːnɪstli, ʌnlˈɛs jʊɹ tɹˈaɪɪŋ tə kɹˈæm fɚɹən ʌpkˈʌmɪŋ pɹˈoʊɡɹæmɪŋ ˈɪntɚvjˌuː, ɪts nˌɑːt wˈɜːθ jʊɹ tˈaɪm."
+   },
+   {
+    "text": "Then it loops back and does it again, starting from the very next character in the source code.",
+    "espeak152": "ðˈɛn ɪt lˈuːps bˈæk ænd dˈʌz ɪɾ ɐɡˈɛn, stˈɑːɹɾɪŋ fɹʌmðə vˈɛɹi nˈɛkst kˈæɹɪktɚɹ ɪnðə sˈɔːɹs kˈoʊd.",
+    "browser": "ðˈɛn ɪt lˈuːps bˈæk ænd dˈʌz ɪɾ ɐɡˈɛn, stˈɑːɹɾɪŋ fɹʌmðə vˈɛɹi nˈɛkst kˈæɹɪktɚɹ ɪnðə sˈoːɹs kˈoʊd."
+   },
+   {
+    "text": "Historians debate whether it was Mary or the Scottish nobles who instigated the plot, but on the night of February 9, 1567, Darnley’s house was blown up and, as he attempted to escape, he was strangled.",
+    "espeak152": "hɪstˈɔːɹiənz dᵻbˈeɪt wˈɛðɚɹ ɪt wʌz mˈɛɹi ɔːɹ ðə skˈɑːɾɪʃ nˈoʊbəlz hˌuː ˈɪnstᵻɡˌeɪɾᵻd ðə plˈɑːt, bˌʌt ɔnðə nˈaɪt ʌv fˈɛbɹuːˌɛɹi nˈaɪn, wˈʌn θˈaʊzənd fˈaɪvhˈʌndɹɪd sˈɪksti sˈɛvən, dˈɑːɹnliz hˈaʊs wʌz blˈoʊn ˈʌp ænd, æz hiː ɐtˈɛmptᵻd tʊ ɛskˈeɪp, hiː wʌz stɹˈæŋɡəld.",
+    "browser": "hɪstˈoːɹiənz dᵻbˈeɪt wˈɛðɚɹ ɪt wʌz mˈɛɹi ɔːɹ ðə skˈɑːɾɪʃ nˈoʊbəlz hˌuː ˈɪnstᵻɡˌeɪɾᵻd ðə plˈɑːt, bˌʌt ɔnðə nˈaɪt ʌv fˈɛbɹuːˌɛɹi nˈaɪn, wˈʌn θˈaʊzənd fˈaɪvhˈʌndɹɪd sˈɪksti sˈɛvən, dˈɑːɹnliz hˈaʊs wʌz blˈoʊn ˈʌp ænd, æz hiː ɐtˈɛmptᵻd tʊ ɛskˈeɪp, hiː wʌz stɹˈæŋɡəld."
+   },
+   {
+    "text": "The manufacture of paper gave rise to the profession of warraqīn, or “those who handle paper,” human photocopying machines who copied manuscripts and supplied the burgeoning publishing industry.",
+    "espeak152": "ðə mˌænjuːfˈæktʃɚɹ ʌv pˈeɪpɚ ɡˈeɪv ɹˈaɪz tə ðə pɹəfˈɛʃən ʌv wˈɔːɹɐkˌɪn, ɔːɹ “ðoʊz hˌuː hˈændəl pˈeɪpɚ,” hjˈuːmən fˈoʊɾəkˌɑːpiɪŋ məʃˈiːnz hˌuː kˈɑːpɪd mˈænjuːskɹˌɪpts ænd səplˈaɪd ðə bˈɜːdʒənɪŋ pˈʌblɪʃɪŋ ˈɪndʌstɹi.",
+    "browser": "ðə mˌænjuːfˈæktʃɚɹ ʌv pˈeɪpɚ ɡˈeɪv ɹˈaɪz tə ðə pɹəfˈɛʃən ʌv wˈɔːɹɐkˌɪn, ˈɔːɹ “ðoʊz hˌuː hˈændəl pˈeɪpɚ,” hjˈuːmən fˈoʊɾəkˌɑːpiɪŋ məʃˈiːnz hˌuː kˈɑːpɪd mˈænjuːskɹˌɪpts ænd səplˈaɪd ðə bˈɜːdʒənɪŋ pˈʌblɪʃɪŋ ˈɪndʌstɹi."
+   },
+   {
+    "text": "And when one of the Pope’s own encrypted messages was captured by the Florentines, the Pope sent a copy to Soro in the hope that he would be reassured that it was unbreakable.",
+    "espeak152": "ænd wɛn wˈʌn ʌvðə pˈoʊpz ˈoʊn ɛŋkɹˈɪptᵻd mˈɛsɪdʒᵻz wʌz kˈæptʃɚd baɪ ðə flˈɔːɹəntˌaɪnz, ðə pˈoʊp sˈɛnt ɐ kˈɑːpi tə sˈɔːɹoʊ ɪnðə hˈoʊp ðæt hiː wʊd biː ɹˌiːəʃˈʊɹd ðˌɐɾɪt wʌz ʌnbɹˈeɪkəbəl.",
+    "browser": "ænd wɛn wˈʌn ʌvðə pˈoʊpz ˈoʊn ɛŋkɹˈɪptᵻd mˈɛsɪdʒᵻz wʌz kˈæptʃɚd baɪ ðə flˈɔːɹəntˌaɪnz, ðə pˈoʊp sˈɛnt ɐ kˈɑːpi tə sˈoːɹoʊ ɪnðə hˈoʊp ðæt hiː wʊd biː ɹˌiːəʃˈʊɹd ðˌɐɾɪt wʌz ʌnbɹˈeɪkəbəl."
+   },
+   {
+    "text": "English Catholics did not recognize Henry VIII’s divorce, they did not acknowledge his ensuing marriage to Anne Boleyn, and they certainly did not accept their daughter Elizabeth as Queen.",
+    "espeak152": "ˈɪŋɡlɪʃ kˈæθlɪks dɪdnˌɑːt ɹˈɛkəɡnˌaɪz hˈɛnɹi ɹˌoʊmən ˈeɪt dᵻvˈɔːɹs, ðeɪ dɪdnˌɑːt ɐknˈɑːlɪdʒ hɪz ɛnsˈuːɪŋ mˈæɹɪdʒ tʊ ˈæn bˈoʊlɪn, ænd ðeɪ sˈɜːʔnli dɪdnˌɑːt ɐksˈɛpt ðɛɹ dˈɔːɾɚɹ ᵻlˈɪzəbəθ æz kwˈiːn.",
+    "browser": "ˈɪŋɡlɪʃ kˈæθlɪks dɪdnˌɑːt ɹˈɛkəɡnˌaɪz hˈɛnɹi ɹˌoʊmən ˈeɪt dᵻvˈoːɹs, ðeɪ dɪdnˌɑːt ɐknˈɑːlɪdʒ hɪz ɛnsˈuːɪŋ mˈæɹɪdʒ tʊ ˈæn bˈoʊlɪn, ænd ðeɪ sˈɜːʔnli dɪdnˌɑːt ɐksˈɛpt ðɛɹ dˈɔːɾɚɹ ᵻlˈɪzəbəθ æz kwˈiːn."
+   }
+  ]
+ }
+}
