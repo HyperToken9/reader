@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "PROTOTYPE 46 - two layers (throwaway)",
+  "version": "0.0.46",
+  "description": "Throwaway HITL prototype for HyperToken9/reader#46. Fake voice; sentence spotlight + word cursor via the CSS Custom Highlight API.",
+  "permissions": ["contextMenus", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "P46: read (selection, or from the top of the main content)" },
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["Readability.js", "content.js"],
+    "run_at": "document_idle"
+  }]
+}

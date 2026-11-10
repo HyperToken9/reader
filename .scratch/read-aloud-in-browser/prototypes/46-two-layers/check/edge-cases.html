@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>P46 edge cases: shadow DOM and -webkit-text-fill-color</title>
+<style>
+  body { font: 19px/1.6 Georgia, serif; max-width: 720px; margin: 40px auto; color: #222; }
+  .grad { background: linear-gradient(90deg, #c0f, #0af); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700; }
+  .fill { color: #888; -webkit-text-fill-color: #0a5; }
+  .dark { background: #15171c; color: #ddd; -webkit-text-fill-color: #e8e8e8; padding: 10px 14px; border-radius: 6px; }
+</style></head>
+<body>
+<main>
+<h1>Edge cases for the two layers</h1>
+<p>This first paragraph is ordinary page text. It has a <a href="#">blue link</a> and some <code>inline_code()</code> to fade. Dr. Smith and J. R. R. Tolkien should not split the sentence here.</p>
+<p class="fill">This paragraph sets color to grey but -webkit-text-fill-color to green. If only color were changed, the dim would not show here. The second sentence in it is here.</p>
+<p><span class="grad">This gradient heading-like sentence uses a transparent text fill with a clipped background.</span> After it, a normal sentence follows in the same block.</p>
+<p class="dark">A dark block that also sets -webkit-text-fill-color to a light grey. Its second sentence should fade toward the dark background.</p>
+<open-card></open-card>
+<closed-card></closed-card>
+<p>The last paragraph is back in the light DOM. It closes the page with two sentences.</p>
+</main>
+<script>
+customElements.define('open-card', class extends HTMLElement {
+  constructor() { super(); const r = this.attachShadow({ mode: 'open' });
+    r.innerHTML = '<style>p{border-left:4px solid #48f;padding-left:12px;color:#234}</style><p>This sentence lives in an open shadow root. Select it and use Read this to check getComposedRanges. A third shadow sentence ends the card.</p>'; }
+});
+customElements.define('closed-card', class extends HTMLElement {
+  constructor() { super(); const r = this.attachShadow({ mode: 'closed' });
+    r.innerHTML = '<style>p{border-left:4px solid #f84;padding-left:12px;color:#432}</style><p>This sentence lives in a closed shadow root. Only chrome.dom.openOrClosedShadowRoot can reach it.</p>'; }
+});
+</script>
+</body></html>

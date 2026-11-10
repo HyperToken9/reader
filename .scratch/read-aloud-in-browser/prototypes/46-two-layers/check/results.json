@@ -1,0 +1,1631 @@
+{
+ "mdn": {
+  "errors": [
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "https://developer.mozilla.org/en-US/docs/Web/API/Range",
+  "baselineFrameMs": {
+   "p50": 6.5,
+   "p95": 6.6
+  },
+  "clickedParagraph": "Returns -1, 0, or 1 indicating whether the point occurs before, inside, or after",
+  "readFromHere": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 139,
+   "blocks": 135,
+   "runs": 291,
+   "si": 20,
+   "wi": 0,
+   "sentence": "Returns -1, 0, or 1 indicating whether the point occurs before, inside, or after the Range.",
+   "word": "Returns",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 23,
+   "modelMs": 19.2,
+   "readabilityMs": 20.8,
+   "wordMs": {
+    "p50": 1,
+    "p95": 1,
+    "max": 1,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 0.8,
+    "p95": 0.8,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 139,
+   "blocks": 135,
+   "runs": 291,
+   "si": 20,
+   "wi": 10,
+   "sentence": "Returns -1, 0, or 1 indicating whether the point occurs before, inside, or after the Range.",
+   "word": "before",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 23,
+   "modelMs": 19.2,
+   "readabilityMs": 20.8,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 1,
+    "max": 1,
+    "n": 12
+   },
+   "dimRebuildMs": {
+    "p50": 0.9,
+    "p95": 0.9,
+    "n": 2
+   },
+   "frameMs": {
+    "p50": 13,
+    "p95": 41.6,
+    "max": 41.6,
+    "n": 12
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": "Returns -1, 0, or 1 indicating whether the point occurs before, inside, or after",
+   "playing": true,
+   "mode": "readability",
+   "sentences": 139,
+   "blocks": 135,
+   "runs": 291,
+   "si": 20,
+   "wi": 0,
+   "sentence": "Returns -1, 0, or 1 indicating whether the point occurs before, inside, or after the Range.",
+   "word": "Returns",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 23,
+   "modelMs": 19.2,
+   "readabilityMs": 20.8,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 1,
+    "max": 1,
+    "n": 13
+   },
+   "dimRebuildMs": {
+    "p50": 0.9,
+    "p95": 0.9,
+    "n": 2
+   },
+   "frameMs": {
+    "p50": 12.9,
+    "p95": 41.6,
+    "max": 41.6,
+    "n": 13
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.8,
+    "max": 0.8,
+    "n": 30
+   },
+   "frameMs": {
+    "p50": 14.2,
+    "p95": 21.5,
+    "max": 52.9,
+    "n": 31
+   },
+   "dimRebuildMs": {
+    "p50": 0.7,
+    "p95": 0.8,
+    "n": 4
+   },
+   "runs": 291,
+   "colours": 3
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 0.5,
+    "p95": 1.1,
+    "max": 2.2,
+    "n": 27
+   },
+   "frameMs": {
+    "p50": 12,
+    "p95": 21.4,
+    "max": 21.7,
+    "n": 28
+   },
+   "dimRebuildMs": {
+    "p50": 0.4,
+    "p95": 1.1,
+    "n": 27
+   },
+   "runs": 291,
+   "colours": 3
+  },
+  "selection": "urns -1, 0, or 1 indicating whether the point occurs befo",
+  "readThis": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 139,
+   "blocks": 135,
+   "runs": 291,
+   "si": 20,
+   "wi": 0,
+   "sentence": "Returns -1, 0, or 1 indicating whether the point occurs before, inside, or after the Range.",
+   "word": "Returns",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 23,
+   "modelMs": 19.2,
+   "readabilityMs": 20.8,
+   "wordMs": {
+    "p50": 0.5,
+    "p95": 1.1,
+    "max": 2.2,
+    "n": 31
+   },
+   "dimRebuildMs": {
+    "p50": 0.4,
+    "p95": 1.1,
+    "n": 29
+   },
+   "frameMs": {
+    "p50": 12.5,
+    "p95": 21.7,
+    "max": 50.4,
+    "n": 31
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ },
+ "bbc": {
+  "errors": [
+   "[p46] readability kept too little 1561 5013",
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "https://www.bbc.com/news/articles/c32l4lw12z7po",
+  "baselineFrameMs": {
+   "p50": 7.1,
+   "p95": 39.9
+  },
+  "clickedParagraph": "The Wall Street Journal reported that this was in response to a threat from Iran",
+  "readFromHere": {
+   "playing": true,
+   "mode": "fallback:main",
+   "sentences": 50,
+   "blocks": 40,
+   "runs": 46,
+   "si": 7,
+   "wi": 0,
+   "sentence": "The Wall Street Journal reported that this was in response to a threat from Iran but the BBC has not independently verified that claim.",
+   "word": "The",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 5,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 2.1,
+   "wordMs": {
+    "p50": 0.6,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 0.5,
+    "p95": 0.5,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "fallback:main",
+   "sentences": 50,
+   "blocks": 40,
+   "runs": 46,
+   "si": 7,
+   "wi": 9,
+   "sentence": "The Wall Street Journal reported that this was in response to a threat from Iran but the BBC has not independently verified that claim.",
+   "word": "response",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 5,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 2.1,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 11
+   },
+   "dimRebuildMs": {
+    "p50": 0.5,
+    "p95": 0.5,
+    "n": 2
+   },
+   "frameMs": {
+    "p50": 14.9,
+    "p95": 31.9,
+    "max": 31.9,
+    "n": 11
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": "Using public tracking site Flightradar24 BBC Verify has been able to see USAF KC",
+   "playing": true,
+   "mode": "fallback:main",
+   "sentences": 50,
+   "blocks": 40,
+   "runs": 46,
+   "si": 11,
+   "wi": 0,
+   "sentence": "Using public tracking site Flightradar24 BBC Verify has been able to see USAF KC-135 tankers leaving Mildenhall throughout Monday.",
+   "word": "Using",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 5,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 2.1,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 13
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.5,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 18,
+    "p95": 31.9,
+    "max": 31.9,
+    "n": 13
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.2,
+    "max": 0.2,
+    "n": 34
+   },
+   "frameMs": {
+    "p50": 10.9,
+    "p95": 21.4,
+    "max": 22.6,
+    "n": 35
+   },
+   "dimRebuildMs": {
+    "p50": 0.2,
+    "p95": 0.2,
+    "n": 2
+   },
+   "runs": 46,
+   "colours": 4
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.3,
+    "max": 0.6,
+    "n": 34
+   },
+   "frameMs": {
+    "p50": 8.2,
+    "p95": 21.3,
+    "max": 25.4,
+    "n": 35
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.3,
+    "n": 34
+   },
+   "runs": 46,
+   "colours": 4
+  },
+  "selection": "aircraft that landed at Prestwick in Scotland on Monday i",
+  "readThis": {
+   "playing": true,
+   "mode": "fallback:main",
+   "sentences": 50,
+   "blocks": 40,
+   "runs": 46,
+   "si": 16,
+   "wi": 0,
+   "sentence": "An aircraft that landed at Prestwick in Scotland on Monday is with the Nebraska Air National Guard, meaning it may have been on a regular stop before heading ba",
+   "word": "An",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 5,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 0,
+   "modelMs": 2.1,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.3,
+    "max": 0.6,
+    "n": 39
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.3,
+    "n": 36
+   },
+   "frameMs": {
+    "p50": 8.3,
+    "p95": 21.3,
+    "max": 25.4,
+    "n": 39
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ },
+ "wikipedia": {
+  "errors": [
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "https://en.wikipedia.org/wiki/Speech_synthesis",
+  "baselineFrameMs": {
+   "p50": 39.9,
+   "p95": 56.5
+  },
+  "clickedParagraph": ". The front-end has two major tasks. First, it converts raw text containing symb",
+  "readFromHere": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 829,
+   "blocks": 285,
+   "runs": 2892,
+   "si": 11,
+   "wi": 0,
+   "sentence": "A text-to-speech system (or \"engine\") is composed of two parts:[4] a front-end and a back-end.",
+   "word": "A",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 6,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 62.2,
+   "readabilityMs": 151.4,
+   "wordMs": {
+    "p50": 6.2,
+    "p95": 6.2,
+    "max": 6.2,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 6.1,
+    "p95": 6.1,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 829,
+   "blocks": 285,
+   "runs": 2892,
+   "si": 11,
+   "wi": 9,
+   "sentence": "A text-to-speech system (or \"engine\") is composed of two parts:[4] a front-end and a back-end.",
+   "word": "parts:[4",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 6,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 62.2,
+   "readabilityMs": 151.4,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 6.3,
+    "max": 6.3,
+    "n": 11
+   },
+   "dimRebuildMs": {
+    "p50": 6.1,
+    "p95": 6.1,
+    "n": 2
+   },
+   "frameMs": {
+    "p50": 31.4,
+    "p95": 98.2,
+    "max": 98.2,
+    "n": 10
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": "in the late 1940s and completed it in 1950. There were several different version",
+   "playing": true,
+   "mode": "readability",
+   "sentences": 829,
+   "blocks": 285,
+   "runs": 2892,
+   "si": 27,
+   "wi": 0,
+   "sentence": "Franklin S. Cooper and his colleagues at Haskins Laboratories built the pattern playback in the late 1940s and completed it in 1950.",
+   "word": "Franklin",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 6,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 62.2,
+   "readabilityMs": 151.4,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 6.3,
+    "max": 6.3,
+    "n": 12
+   },
+   "dimRebuildMs": {
+    "p50": 6.1,
+    "p95": 6.1,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 31.4,
+    "p95": 98.2,
+    "max": 98.2,
+    "n": 12
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 3.4,
+    "max": 3.8,
+    "n": 30
+   },
+   "frameMs": {
+    "p50": 27.4,
+    "p95": 65.7,
+    "max": 115.9,
+    "n": 30
+   },
+   "dimRebuildMs": {
+    "p50": 3.7,
+    "p95": 3.7,
+    "n": 2
+   },
+   "runs": 2892,
+   "colours": 4
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 4.9,
+    "p95": 7.9,
+    "max": 9,
+    "n": 29
+   },
+   "frameMs": {
+    "p50": 26.2,
+    "p95": 77,
+    "max": 89.4,
+    "n": 30
+   },
+   "dimRebuildMs": {
+    "p50": 4.8,
+    "p95": 7.8,
+    "n": 29
+   },
+   "runs": 2892,
+   "colours": 4
+  },
+  "selection": " released, and was one of the first Speech Synthesis syst",
+  "readThis": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 829,
+   "blocks": 285,
+   "runs": 2892,
+   "si": 40,
+   "wi": 0,
+   "sentence": "In 1975, MUSA was released, and was one of the first Speech Synthesis systems.",
+   "word": "In",
+   "colours": 4,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 6,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 0,
+   "modelMs": 62.2,
+   "readabilityMs": 151.4,
+   "wordMs": {
+    "p50": 4.7,
+    "p95": 7.9,
+    "max": 9,
+    "n": 35
+   },
+   "dimRebuildMs": {
+    "p50": 4.8,
+    "p95": 7.8,
+    "n": 32
+   },
+   "frameMs": {
+    "p50": 26.5,
+    "p95": 77,
+    "max": 89.4,
+    "n": 35
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ },
+ "rustbook-coal": {
+  "errors": [
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html",
+  "baselineFrameMs": {
+   "p50": 6.4,
+   "p95": 7.1
+  },
+  "clickedParagraph": "When you understand ownership, you’ll have a solid foundation for understanding\n",
+  "readFromHere": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 222,
+   "blocks": 101,
+   "runs": 399,
+   "si": 10,
+   "wi": 0,
+   "sentence": "When you understand ownership, you’ll have a solid foundation for understanding\nthe features that make Rust unique.",
+   "word": "When",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 15.3,
+   "readabilityMs": 39.6,
+   "wordMs": {
+    "p50": 1.5,
+    "p95": 1.5,
+    "max": 1.5,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 1.3,
+    "p95": 1.3,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 222,
+   "blocks": 101,
+   "runs": 399,
+   "si": 10,
+   "wi": 9,
+   "sentence": "When you understand ownership, you’ll have a solid foundation for understanding\nthe features that make Rust unique.",
+   "word": "for",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 15.3,
+   "readabilityMs": 39.6,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 1.5,
+    "max": 1.5,
+    "n": 11
+   },
+   "dimRebuildMs": {
+    "p50": 1.3,
+    "p95": 1.3,
+    "n": 2
+   },
+   "frameMs": {
+    "p50": 15.5,
+    "p95": 22.1,
+    "max": 22.1,
+    "n": 11
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": ". Think of a stack of\nplates: When you add more plates, you put them on top of t",
+   "playing": true,
+   "mode": "readability",
+   "sentences": 222,
+   "blocks": 101,
+   "runs": 399,
+   "si": 18,
+   "wi": 1,
+   "sentence": "This is referred to as last in, first out (LIFO).",
+   "word": "is",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 15.3,
+   "readabilityMs": 39.6,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 1.5,
+    "max": 1.5,
+    "n": 13
+   },
+   "dimRebuildMs": {
+    "p50": 1,
+    "p95": 1.3,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 16.1,
+    "p95": 24.4,
+    "max": 24.4,
+    "n": 12
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 0.8,
+    "n": 39
+   },
+   "frameMs": {
+    "p50": 11.8,
+    "p95": 27.6,
+    "max": 27.9,
+    "n": 40
+   },
+   "dimRebuildMs": {
+    "p50": 0.7,
+    "p95": 0.7,
+    "n": 2
+   },
+   "runs": 399,
+   "colours": 3
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 0.8,
+    "p95": 2.1,
+    "max": 2.3,
+    "n": 37
+   },
+   "frameMs": {
+    "p50": 9.8,
+    "p95": 20.9,
+    "max": 24.8,
+    "n": 38
+   },
+   "dimRebuildMs": {
+    "p50": 0.7,
+    "p95": 2.1,
+    "n": 37
+   },
+   "runs": 399,
+   "colours": 3
+  },
+  "selection": "shing values onto the stack is not considered allocating)",
+  "readThis": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 222,
+   "blocks": 101,
+   "runs": 399,
+   "si": 26,
+   "wi": 0,
+   "sentence": "This process is called allocating on the\nheap and is sometimes abbreviated as just allocating (pushing values onto\nthe stack is not considered allocating).",
+   "word": "This",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 0,
+   "modelMs": 15.3,
+   "readabilityMs": 39.6,
+   "wordMs": {
+    "p50": 0.7,
+    "p95": 1.8,
+    "max": 2.3,
+    "n": 42
+   },
+   "dimRebuildMs": {
+    "p50": 0.6,
+    "p95": 2.1,
+    "n": 40
+   },
+   "frameMs": {
+    "p50": 10.4,
+    "p95": 20.9,
+    "max": 26.6,
+    "n": 42
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ },
+ "paulgraham": {
+  "errors": [
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "https://paulgraham.com/greatwork.html",
+  "baselineFrameMs": {
+   "p50": 6.5,
+   "p95": 6.9
+  },
+  "clickedParagraph": "The first step is to decide what to work on. The work you choose\nneeds to have t",
+  "readFromHere": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 788,
+   "blocks": 236,
+   "runs": 416,
+   "si": 7,
+   "wi": 0,
+   "sentence": "The first step is to decide what to work on.",
+   "word": "The",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 21.8,
+   "readabilityMs": 24.8,
+   "wordMs": {
+    "p50": 1.8,
+    "p95": 1.8,
+    "max": 1.8,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 1.7,
+    "p95": 1.7,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 788,
+   "blocks": 236,
+   "runs": 416,
+   "si": 8,
+   "wi": 0,
+   "sentence": "The work you choose\nneeds to have three qualities: it has to be something you have a\nnatural aptitude for, that you have a deep interest in, and that\noffers sco",
+   "word": "The",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 21.8,
+   "readabilityMs": 24.8,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 1.8,
+    "max": 1.8,
+    "n": 12
+   },
+   "dimRebuildMs": {
+    "p50": 1.3,
+    "p95": 1.7,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 16,
+    "p95": 37.9,
+    "max": 37.9,
+    "n": 12
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": "The way to figure out what to work on is by working. If you're not\nsure what to ",
+   "playing": true,
+   "mode": "readability",
+   "sentences": 788,
+   "blocks": 236,
+   "runs": 416,
+   "si": 17,
+   "wi": 1,
+   "sentence": "The way to figure out what to work on is by working.",
+   "word": "way",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 0,
+   "modelMs": 21.8,
+   "readabilityMs": 24.8,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 1.8,
+    "max": 1.8,
+    "n": 14
+   },
+   "dimRebuildMs": {
+    "p50": 1.3,
+    "p95": 1.7,
+    "n": 4
+   },
+   "frameMs": {
+    "p50": 14.9,
+    "p95": 37.9,
+    "max": 37.9,
+    "n": 14
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 1.4,
+    "n": 36
+   },
+   "frameMs": {
+    "p50": 10.8,
+    "p95": 18.5,
+    "max": 20.5,
+    "n": 37
+   },
+   "dimRebuildMs": {
+    "p50": 0.6,
+    "p95": 1.4,
+    "n": 4
+   },
+   "runs": 416,
+   "colours": 3
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 0.5,
+    "p95": 0.8,
+    "max": 0.9,
+    "n": 34
+   },
+   "frameMs": {
+    "p50": 8.4,
+    "p95": 16.3,
+    "max": 17.2,
+    "n": 35
+   },
+   "dimRebuildMs": {
+    "p50": 0.5,
+    "p95": 0.8,
+    "n": 34
+   },
+   "runs": 416,
+   "colours": 3
+  },
+  "selection": "re's a kind of excited curiosity that's both the engine a",
+  "readThis": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 788,
+   "blocks": 236,
+   "runs": 416,
+   "si": 31,
+   "wi": 0,
+   "sentence": "There's a kind of excited curiosity that's both the engine and the\nrudder of great work.",
+   "word": "There's",
+   "colours": 3,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 0,
+   "modelMs": 21.8,
+   "readabilityMs": 24.8,
+   "wordMs": {
+    "p50": 0.5,
+    "p95": 0.8,
+    "max": 0.9,
+    "n": 39
+   },
+   "dimRebuildMs": {
+    "p50": 0.5,
+    "p95": 0.8,
+    "n": 37
+   },
+   "frameMs": {
+    "p50": 8.4,
+    "p95": 17.2,
+    "max": 26.3,
+    "n": 39
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ },
+ "github": {
+  "errors": [
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "https://github.com/mozilla/readability",
+  "baselineFrameMs": {
+   "p50": 6.4,
+   "p95": 16.1
+  },
+  "clickedParagraph": "method works by modifying the DOM. This removes some elements in the web page, w",
+  "readFromHere": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 67,
+   "blocks": 49,
+   "runs": 169,
+   "si": 39,
+   "wi": 0,
+   "sentence": "The parse() method works by modifying the DOM.",
+   "word": "The",
+   "colours": 2,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 3,
+   "selVia": "-",
+   "shadowRoots": 23,
+   "modelMs": 13.4,
+   "readabilityMs": 38.7,
+   "wordMs": {
+    "p50": 1.1,
+    "p95": 1.1,
+    "max": 1.1,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 1,
+    "p95": 1,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 67,
+   "blocks": 49,
+   "runs": 169,
+   "si": 40,
+   "wi": 1,
+   "sentence": "This removes some elements in the web page, which may be undesirable.",
+   "word": "removes",
+   "colours": 2,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 3,
+   "selVia": "-",
+   "shadowRoots": 23,
+   "modelMs": 13.4,
+   "readabilityMs": 38.7,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 1.1,
+    "max": 1.1,
+    "n": 11
+   },
+   "dimRebuildMs": {
+    "p50": 0.7,
+    "p95": 1,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 14,
+    "p95": 71.2,
+    "max": 71.2,
+    "n": 11
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": "to add further defense-in-depth\nrestrictions to what you allow the resulting con",
+   "playing": true,
+   "mode": "readability",
+   "sentences": 67,
+   "blocks": 49,
+   "runs": 169,
+   "si": 61,
+   "wi": 1,
+   "sentence": "We would also recommend using CSP to add further defense-in-depth\nrestrictions to what you allow the resulting content to do.",
+   "word": "would",
+   "colours": 2,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "-",
+   "shadowRoots": 23,
+   "modelMs": 13.4,
+   "readabilityMs": 38.7,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 1.1,
+    "max": 1.1,
+    "n": 13
+   },
+   "dimRebuildMs": {
+    "p50": 0.7,
+    "p95": 1,
+    "n": 4
+   },
+   "frameMs": {
+    "p50": 10.4,
+    "p95": 71.2,
+    "max": 71.2,
+    "n": 13
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.3,
+    "max": 0.4,
+    "n": 32
+   },
+   "frameMs": {
+    "p50": 12.3,
+    "p95": 24.1,
+    "max": 70.1,
+    "n": 33
+   },
+   "dimRebuildMs": {
+    "p50": 0.3,
+    "p95": 0.3,
+    "n": 2
+   },
+   "runs": 169,
+   "colours": 2
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 0.4,
+    "p95": 0.9,
+    "max": 1.1,
+    "n": 30
+   },
+   "frameMs": {
+    "p50": 12.1,
+    "p95": 22.8,
+    "max": 62.7,
+    "n": 31
+   },
+   "dimRebuildMs": {
+    "p50": 0.3,
+    "p95": 0.9,
+    "n": 30
+   },
+   "runs": 169,
+   "colours": 2
+  },
+  "selection": "add further defense-in-depth restrictions to what you all",
+  "readThis": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 67,
+   "blocks": 49,
+   "runs": 169,
+   "si": 61,
+   "wi": 0,
+   "sentence": "We would also recommend using CSP to add further defense-in-depth\nrestrictions to what you allow the resulting content to do.",
+   "word": "We",
+   "colours": 2,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 4,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 23,
+   "modelMs": 13.4,
+   "readabilityMs": 38.7,
+   "wordMs": {
+    "p50": 0.4,
+    "p95": 0.9,
+    "max": 1.1,
+    "n": 31
+   },
+   "dimRebuildMs": {
+    "p50": 0.3,
+    "p95": 0.9,
+    "n": 31
+   },
+   "frameMs": {
+    "p50": 12.1,
+    "p95": 22.8,
+    "max": 62.7,
+    "n": 31
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ },
+ "edge-cases": {
+  "errors": [
+   "[p46] css route: adoptedStyleSheets"
+  ],
+  "url": "http://127.0.0.1:44135/edge-cases.html",
+  "readThisShadow": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 18,
+   "blocks": 8,
+   "runs": 13,
+   "si": 11,
+   "wi": 0,
+   "sentence": "This sentence lives in an open shadow root.",
+   "word": "This",
+   "colours": 7,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 8,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 2,
+   "modelMs": 1.7,
+   "readabilityMs": 6,
+   "wordMs": {
+    "p50": 0.6,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 1
+   },
+   "dimRebuildMs": {
+    "p50": 0.5,
+    "p95": 0.5,
+    "n": 1
+   },
+   "frameMs": {
+    "p50": 0,
+    "p95": 0,
+    "max": 0,
+    "n": 0
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "baselineFrameMs": {
+   "p50": 6.5,
+   "p95": 7.1
+  },
+  "clickedParagraph": "A dark block that also sets -webkit-text-fill-color to a light grey. Its second ",
+  "readFromHere": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 18,
+   "blocks": 8,
+   "runs": 13,
+   "si": 9,
+   "wi": 0,
+   "sentence": "A dark block that also sets -webkit-text-fill-color to a light grey.",
+   "word": "A",
+   "colours": 7,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 8,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 2,
+   "modelMs": 1.7,
+   "readabilityMs": 6,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 5
+   },
+   "dimRebuildMs": {
+    "p50": 0.5,
+    "p95": 0.5,
+    "n": 2
+   },
+   "frameMs": {
+    "p50": 8.5,
+    "p95": 13.2,
+    "max": 13.2,
+    "n": 4
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": false
+   }
+  },
+  "midRead": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 18,
+   "blocks": 8,
+   "runs": 13,
+   "si": 9,
+   "wi": 10,
+   "sentence": "A dark block that also sets -webkit-text-fill-color to a light grey.",
+   "word": "grey",
+   "colours": 7,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 8,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 2,
+   "modelMs": 1.7,
+   "readabilityMs": 6,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 16
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.5,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 9.6,
+    "p95": 28.9,
+    "max": 28.9,
+    "n": 16
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "jump": {
+   "clicked": "A dark block that also sets -webkit-text-fill-color to a light grey. Its second ",
+   "playing": true,
+   "mode": "readability",
+   "sentences": 18,
+   "blocks": 8,
+   "runs": 13,
+   "si": 9,
+   "wi": 1,
+   "sentence": "A dark block that also sets -webkit-text-fill-color to a light grey.",
+   "word": "dark",
+   "colours": 7,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 8,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 2,
+   "modelMs": 1.7,
+   "readabilityMs": 6,
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.6,
+    "max": 0.6,
+    "n": 18
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.5,
+    "n": 3
+   },
+   "frameMs": {
+    "p50": 9.7,
+    "p95": 30.8,
+    "max": 30.8,
+    "n": 18
+   },
+   "settings": {
+    "dim": "medium",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  },
+  "perf_incremental": {
+   "wordMs": {
+    "p50": 0.1,
+    "p95": 0.4,
+    "max": 0.4,
+    "n": 30
+   },
+   "frameMs": {
+    "p50": 11.2,
+    "p95": 16.3,
+    "max": 17,
+    "n": 31
+   },
+   "dimRebuildMs": {
+    "p50": 0.2,
+    "p95": 0.2,
+    "n": 3
+   },
+   "runs": 13,
+   "colours": 7
+  },
+  "perf_full": {
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 0.5,
+    "max": 0.6,
+    "n": 35
+   },
+   "frameMs": {
+    "p50": 10.8,
+    "p95": 17.6,
+    "max": 26.9,
+    "n": 36
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.4,
+    "n": 35
+   },
+   "runs": 13,
+   "colours": 7
+  },
+  "selection": "ark block that also sets -webkit-text-fill-color to a lig",
+  "readThis": {
+   "playing": true,
+   "mode": "readability",
+   "sentences": 18,
+   "blocks": 8,
+   "runs": 13,
+   "si": 9,
+   "wi": 0,
+   "sentence": "A dark block that also sets -webkit-text-fill-color to a light grey.",
+   "word": "A",
+   "colours": 7,
+   "cssRoute": "adoptedStyleSheets",
+   "highlights": 8,
+   "selVia": "getComposedRanges",
+   "shadowRoots": 2,
+   "modelMs": 1.7,
+   "readabilityMs": 6,
+   "wordMs": {
+    "p50": 0.2,
+    "p95": 0.5,
+    "max": 0.6,
+    "n": 38
+   },
+   "dimRebuildMs": {
+    "p50": 0.1,
+    "p95": 0.4,
+    "n": 37
+   },
+   "frameMs": {
+    "p50": 10.8,
+    "p95": 26.9,
+    "max": 27.8,
+    "n": 38
+   },
+   "settings": {
+    "dim": "light",
+    "cursor": "dim",
+    "place": "bottom",
+    "speed": 1,
+    "perf": "incremental",
+    "info": true
+   }
+  }
+ }
+}
